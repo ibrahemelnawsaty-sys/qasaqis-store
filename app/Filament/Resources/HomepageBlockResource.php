@@ -88,14 +88,16 @@ class HomepageBlockResource extends Resource
                     Forms\Components\Select::make('type')
                         ->label('النوع')
                         ->required()
+                        // 'products_grid' مُستبعَد عمدًا: HomeController لا يعالجه فيُسقَط بصمت،
+                        // فلا نتيح للأدمن إنشاء بلوك غير فعّال. قيمة الـ enum تبقى في الهجرة
+                        // (لا نغيّر السكيمة). الأنواع الفعّالة فقط هي المعروضة هنا.
                         ->options([
+                            'slider' => 'سلايدر',
+                            'banner' => 'بانر',
                             'text' => 'نص',
                             'html' => 'HTML',
-                            'banner' => 'بانر',
-                            'slider' => 'سلايدر',
-                            'products_grid' => 'شبكة منتجات',
-                            'cta' => 'دعوة لإجراء (CTA)',
                             'image' => 'صورة',
+                            'cta' => 'دعوة لإجراء (CTA)',
                         ]),
                     Forms\Components\TextInput::make('title')
                         ->label('العنوان')

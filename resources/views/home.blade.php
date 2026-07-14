@@ -1,5 +1,20 @@
 @extends('layouts.app')
 
+{{-- SEO الرئيسية: وصف غنيّ + وسوم OpenGraph/Twitter تُدفع عبر stack meta (يوفّره التخطيط).
+     كل النصوص من ملفات الترجمة (الدستور 6.4) — لا نص مثبّت. --}}
+@section('meta_description', __('home.hero_sub'))
+
+@push('meta')
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ __('common.brand') }}">
+    <meta property="og:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
+    <meta property="og:description" content="{{ __('home.hero_sub') }}">
+    <meta property="og:locale" content="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
+    <meta name="twitter:description" content="{{ __('home.hero_sub') }}">
+@endpush
+
 @section('content')
     @php
         $totalBooks = $categories->sum('books_count');
@@ -7,7 +22,13 @@
         $softBg = ['var(--purple-soft)', 'var(--teal-soft)', 'var(--orange-soft)', 'var(--gold)', 'var(--pink-soft)', 'var(--teal-soft)'];
     @endphp
 
-    {{-- HERO --}}
+    {{-- السلايدر الدعائي البارز (بلوكات CMS slider/banner). عند غيابها نعرض الهيرو الافتراضي المبهج. --}}
+    @if ($slides->isNotEmpty())
+        @include('partials.home.slider', ['slides' => $slides])
+    @endif
+
+    {{-- HERO الافتراضي — يظهر حين لا توجد شرائح CMS (لا صفحة فارغة أبدًا) --}}
+    @if ($slides->isEmpty())
     <div class="hero">
         <span class="blob drift" style="width:220px;height:220px;background:var(--teal-soft);top:-40px;inset-inline-start:-60px" aria-hidden="true"></span>
         <span class="blob drift s2" style="width:160px;height:160px;background:var(--pink-soft);bottom:20px;inset-inline-end:8%" aria-hidden="true"></span>
@@ -72,6 +93,8 @@
             </div>
         </div>
     </div>
+    @endif
+    {{-- نهاية الهيرو الافتراضي --}}
 
     <svg class="wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true">
         <path d="M0,40 C240,90 480,90 720,55 C960,20 1200,20 1440,50 L1440,90 L0,90 Z" fill="var(--purple-soft)"/>
@@ -145,24 +168,30 @@
         </section>
     @endif
 
-    {{-- PROMO --}}
-    <section class="sec" style="padding-top:6px">
-        <div class="wrap">
-            <div class="promo">
-                <div class="promo-grid">
-                    <div>
-                        <span class="badge-happy" style="background:#fff;color:var(--purple)">{{ __('home.promo_badge') }}</span>
-                        <h3>{{ __('home.promo_title') }}</h3>
-                        <p>{{ __('home.promo_desc') }}</p>
-                        <div class="pbtns">
-                            <a class="btn btn-white" href="{{ route('books.offers') }}">{{ __('home.promo_cta') }}</a>
-                            <x-wa-button :class="'btn btn-wa'" :label="__('home.cta_whatsapp')" />
+    {{-- بلوكات CMS القابلة للتحرير (نصوص/صور/بانرات عرض) بالترتيب.
+         عند غيابها نعرض بانر العرض الافتراضي المبهج (لا فراغ). --}}
+    @forelse ($blocks as $block)
+        @include('partials.home.block', ['block' => $block])
+    @empty
+        {{-- PROMO الافتراضي --}}
+        <section class="sec" style="padding-top:6px">
+            <div class="wrap">
+                <div class="promo">
+                    <div class="promo-grid">
+                        <div>
+                            <span class="badge-happy" style="background:#fff;color:var(--purple)">{{ __('home.promo_badge') }}</span>
+                            <h3>{{ __('home.promo_title') }}</h3>
+                            <p>{{ __('home.promo_desc') }}</p>
+                            <div class="pbtns">
+                                <a class="btn btn-white" href="{{ route('books.offers') }}">{{ __('home.promo_cta') }}</a>
+                                <x-wa-button :class="'btn btn-wa'" :label="__('home.cta_whatsapp')" />
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    @endforelse
 
     {{-- LATEST --}}
     @if ($latest->isNotEmpty())

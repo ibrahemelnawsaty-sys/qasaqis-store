@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    // The home controller queries the DB (books/reviews), so the schema must
+    // exist for '/' to render — see PublicPagesTest for the fuller coverage.
+    use RefreshDatabase;
+
     /**
      * A basic test example.
      */

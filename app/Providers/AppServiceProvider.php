@@ -9,6 +9,8 @@ use App\Models\Category;
 use App\Models\Setting;
 use App\Models\User;
 use App\Observers\BookObserver;
+use App\Services\Cms\PopupService;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Gate;
@@ -42,6 +44,15 @@ class AppServiceProvider extends ServiceProvider
         // so views still render before the tables are migrated/seeded (empty data).
         View::share('navCategories', $this->navCategories());
         View::share('storeSettings', $this->storeSettings());
+
+        // Active CMS pop-up for the current request (constitution 0.8). Bound to
+        // the storefront layout only (not View::share) so the query is skipped on
+        // JSON/AJAX endpoints (search suggest, cart update) that never render it.
+        // Server-side gating (is_active + schedule + page targeting) lives in the
+        // service; device/trigger/frequency are handled client-side in the partial.
+        View::composer('layouts.app', static function (ViewContract $view): void {
+            $view->with('activePopup', app(PopupService::class)->forRequest(request()));
+        });
     }
 
     /**

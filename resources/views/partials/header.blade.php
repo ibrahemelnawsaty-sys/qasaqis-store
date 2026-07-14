@@ -1,3 +1,44 @@
+@php
+    // روابط قائمة الهيدر المُدارة من الـ CMS (Menu location=header). تُجلب مرة واحدة
+    // مع تحميل مسبق (eager) للعناصر وربطها المتعدد لتفادي N+1. rescue() تُبقي الهيدر
+    // يعمل قبل تشغيل الهجرات (قائمة فارغة). عند غياب القائمة تبقى الروابط الافتراضية.
+    $resolveMenuUrl = static function ($item): ?string {
+        // الأدمن يملأ url مباشرةً لنوع «رابط»؛ للأنواع الأخرى يُشتق من الهدف المرتبط
+        // عبر المسارات الموجودة فعليًا فقط (دار النشر بلا مسار متجر بعد => تُتجاهل).
+        if (filled($item->url)) {
+            return $item->url;
+        }
+
+        $target = $item->linkable;
+
+        if ($target !== null) {
+            return match ($item->link_type) {
+                'page' => route('pages.show', $target),
+                'category' => route('categories.show', $target),
+                'product' => route('books.show', $target),
+                default => null,
+            };
+        }
+
+        return null;
+    };
+
+    $headerMenu = rescue(
+        fn () => \App\Models\Menu::query()
+            ->where('is_active', true)
+            ->where('location', 'header')
+            ->with([
+                'items' => fn ($q) => $q->where('is_active', true),
+                'items.linkable',
+            ])
+            ->first(),
+        null,
+        report: false,
+    );
+
+    $headerMenuItems = $headerMenu?->items ?? collect();
+@endphp
+
 <header>
     <div class="nav">
         <div class="wrap">
@@ -84,6 +125,17 @@
             <a class="catlink" href="{{ route('books.offers') }}">
                 <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
             </a>
+
+            {{-- روابط إضافية من قائمة الهيدر (CMS) — تُلحق بشريط الأقسام دون كسر الافتراضي --}}
+            @foreach ($headerMenuItems as $mi)
+                @php $mu = $resolveMenuUrl($mi); @endphp
+                @if ($mu)
+                    <a class="catlink" href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>
+                        @if (filled($mi->icon))<span class="e" aria-hidden="true">{{ $mi->icon }}</span>@endif
+                        {{ $mi->label }}
+                    </a>
+                @endif
+            @endforeach
         </div>
     </nav>
 </header>
@@ -105,6 +157,16 @@
                 <a href="{{ route('categories.show', $cat) }}">
                     @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}
                 </a>
+            @endforeach
+
+            {{-- روابط قائمة الهيدر (CMS) داخل درج الموبايل --}}
+            @foreach ($headerMenuItems as $mi)
+                @php $mu = $resolveMenuUrl($mi); @endphp
+                @if ($mu)
+                    <a href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>
+                        @if (filled($mi->icon)){{ $mi->icon }} @else 🔗 @endif{{ $mi->label }}
+                    </a>
+                @endif
             @endforeach
         </div>
     </div>

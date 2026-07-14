@@ -9,6 +9,7 @@ use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\OrderController;
+use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\SearchController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +41,9 @@ Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.s
 
 // صفحة القسم (تبقى كل الأقسام الستة موجودة حتى الفارغة)
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
+
+// صفحات CMS الديناميكية (من نحن، سياسة الشحن…). المنشورة فقط؛ المسودّات تُعطي 404.
+Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');
 
 /*
 | السلة والدفع (M5 — منطق تدفّق الطلب)

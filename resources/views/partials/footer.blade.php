@@ -2,6 +2,44 @@
     $fb = $storeSettings['facebook_url'] ?? '';
     $ig = $storeSettings['instagram_url'] ?? '';
     $tt = $storeSettings['tiktok_url'] ?? '';
+
+    // قائمة الفوتر المُدارة من الـ CMS (Menu location=footer). eager load للعناصر
+    // وأبنائها وربطها لتفادي N+1. عند غيابها تبقى الروابط الافتراضية كما هي.
+    $resolveMenuUrl = static function ($item): ?string {
+        if (filled($item->url)) {
+            return $item->url;
+        }
+
+        $target = $item->linkable;
+
+        if ($target !== null) {
+            return match ($item->link_type) {
+                'page' => route('pages.show', $target),
+                'category' => route('categories.show', $target),
+                'product' => route('books.show', $target),
+                default => null,
+            };
+        }
+
+        return null;
+    };
+
+    $footerMenu = rescue(
+        fn () => \App\Models\Menu::query()
+            ->where('is_active', true)
+            ->where('location', 'footer')
+            ->with([
+                'items' => fn ($q) => $q->where('is_active', true),
+                'items.children' => fn ($q) => $q->where('is_active', true),
+                'items.linkable',
+                'items.children.linkable',
+            ])
+            ->first(),
+        null,
+        report: false,
+    );
+
+    $footerMenuItems = $footerMenu?->items ?? collect();
 @endphp
 
 <footer class="ft">
@@ -33,6 +71,20 @@
                     <a href="{{ route('books.index') }}">{{ __('footer.link_all_books') }}</a>
                     <a href="{{ route('books.offers') }}">{{ __('footer.link_offers') }}</a>
                     <a href="{{ route('search') }}">{{ __('common.search_submit') }}</a>
+
+                    {{-- روابط قائمة الفوتر (CMS: من نحن، الشحن، الاسترجاع…) تُلحق بعد الافتراضي --}}
+                    @foreach ($footerMenuItems as $mi)
+                        @php $mu = $resolveMenuUrl($mi); @endphp
+                        @if ($mu)
+                            <a href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>{{ $mi->label }}</a>
+                        @endif
+                        @foreach ($mi->children as $child)
+                            @php $cu = $resolveMenuUrl($child); @endphp
+                            @if ($cu)
+                                <a href="{{ $cu }}"@if ($child->target === '_blank') target="_blank" rel="noopener"@endif>{{ $child->label }}</a>
+                            @endif
+                        @endforeach
+                    @endforeach
                 </div>
             </div>
 

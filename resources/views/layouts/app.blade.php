@@ -21,6 +21,9 @@
     <title>@yield('title', __('common.brand') . ' — ' . __('common.tagline'))</title>
     <meta name="description" content="@yield('meta_description', __('common.tagline'))">
 
+    {{-- وسوم SEO لكل صفحة (canonical / Open Graph / JSON-LD) تدفعها الصفحات (بند 0.8). --}}
+    @stack('meta')
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('head')
 </head>
@@ -39,6 +42,9 @@
     <x-wa-button :class="'wa-float'" :aria="__('common.order_whatsapp')" :icon="true" />
 
     @include('partials.cart-drawer')
+
+    {{-- بوب أب CMS النشط (دعاية/استبيان/نشرة/إعلان) — لا يُعرض إن لم يوجد نشط --}}
+    @include('partials.popup')
 
     @stack('scripts')
 </body>
