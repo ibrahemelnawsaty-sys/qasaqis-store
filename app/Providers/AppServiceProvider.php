@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\Book;
 use App\Models\Category;
 use App\Models\Setting;
+use App\Models\User;
+use App\Observers\BookObserver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,7 +25,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Arabic RTL is the storefront default (config/app.php may ship 'en').
+        // Also drives the Filament admin panel's dir="rtl" (constitution 6.2).
         App::setLocale('ar');
+
+        // Super admin bypasses every ability check (docs/04 §2, §7.2). Returning
+        // null (not false) for everyone else lets spatie's own Gate::before and
+        // the normal policy checks decide. Supports multiple super_admin accounts.
+        Gate::before(static fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
+
+        // Index admin-created/edited books for the Arabic search engine (0.9):
+        // rebuilds title_normalized + search_index on every save.
+        Book::observe(BookObserver::class);
 
         // Shared data for every storefront view (layout, partials, and the page
         // content section alike). Computed once per request. Wrapped in rescue()

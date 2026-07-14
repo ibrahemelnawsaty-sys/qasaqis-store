@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Storefront\BookController;
+use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CategoryController;
+use App\Http\Controllers\Storefront\CheckoutController;
+use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\OrderController;
 use App\Http\Controllers\Storefront\SearchController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,3 +40,37 @@ Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.s
 
 // صفحة القسم (تبقى كل الأقسام الستة موجودة حتى الفارغة)
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
+
+/*
+| السلة والدفع (M5 — منطق تدفّق الطلب)
+| الأسعار تُعاد من قاعدة البيانات دائمًا؛ لا تُقرأ من العميل.
+*/
+
+// السلة (عرض/تحديث). التخزين في الجلسة كخريطة {book_id: qty}.
+Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
+Route::post('/cart', [CartController::class, 'update'])->name('cart.update');
+
+// نموذج الدفع + إنشاء الطلب. throttle على الإنشاء لمنع الإساءة.
+Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+Route::post('/checkout', [CheckoutController::class, 'place'])
+    ->middleware('throttle:20,1')
+    ->name('checkout.place');
+
+// تطبيق الكوبون (AJAX) — يُرجع JSON. throttle لكثرة النداءات.
+Route::post('/coupon/apply', [CouponController::class, 'apply'])
+    ->middleware('throttle:30,1')
+    ->name('coupon.apply');
+
+// صفحات الطلب للضيف — محميّة بروابط موقّعة (signed) لمنع تعداد الطلبات.
+Route::get('/orders/{order}/payment', [OrderController::class, 'payment'])
+    ->middleware('signed')
+    ->name('orders.payment');
+
+// رفع إثبات الدفع — موقّع + throttle (بند 4.6).
+Route::post('/orders/{order}/proof', [OrderController::class, 'proofStore'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('orders.proof.store');
+
+Route::get('/orders/{order}/thank-you', [OrderController::class, 'thankyou'])
+    ->middleware('signed')
+    ->name('orders.thankyou');

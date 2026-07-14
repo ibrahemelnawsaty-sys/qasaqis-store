@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
      * Order respects dependencies:
      *  categories & publishers  ->  books (FK category_id/publisher_id)
      *  roles/permissions        ->  users (super_admin role assignment)
+     *  payment methods          ->  standalone (no FK; checkout reads them by code)
      */
     public function run(): void
     {
@@ -24,6 +25,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             UserSeeder::class,
             SettingSeeder::class,
+            PaymentMethodSeeder::class,
         ]);
     }
 }

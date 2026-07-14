@@ -1,0 +1,291 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Actions\Checkout;
+
+use App\Exceptions\CheckoutException;
+use App\Models\Coupon;
+use App\Models\CouponUsage;
+use App\Models\Order;
+use App\Models\PaymentMethod;
+use App\Services\Cart\CartService;
+use App\Services\Coupon\CouponService;
+use App\Services\Payment\PaymentGatewayFactory;
+use App\Services\Payment\PaymentMethodResolver;
+use App\Support\Cart\Cart;
+use App\Support\Checkout\OrderPlacementResult;
+use App\Support\Checkout\PlaceOrderData;
+use App\Support\Coupon\CouponResult;
+use App\Support\Money;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+/**
+ * Creates an order atomically from validated checkout data.
+ *
+ * Invariants (constitution):
+ *  - 4.1: the cart is rebuilt and RE-PRICED from the DB inside the transaction;
+ *    no client price/total is trusted. The coupon discount is recomputed too.
+ *  - 3.5: the whole write (order + items + coupon usage + payment) is wrapped in
+ *    a single DB::transaction with the book rows locked (lockForUpdate).
+ *  - 3.5/27: all money is decimal via Money (bcmath), never float.
+ *
+ * Status mapping per payment method type (values are the ACTUAL DB enums):
+ *  - cash_on_delivery : order.status=confirmed, payment_status=unpaid (collected
+ *    on delivery; the enum has no "pending" payment_status).
+ *  - manual_transfer  : order.status=pending, payment_status=pending_review, and
+ *    a payments row (status=pending_review). Customer then uploads proof.
+ *  - online_gateway   : order.status=pending, payment_status=unpaid, a payments
+ *    row (status=pending), then the gateway is initiated after commit.
+ */
+class PlaceOrderAction
+{
+    public function __construct(
+        private readonly CartService $cartService,
+        private readonly CouponService $couponService,
+        private readonly PaymentMethodResolver $methodResolver,
+        private readonly PaymentGatewayFactory $gatewayFactory,
+    ) {
+    }
+
+    public function execute(PlaceOrderData $data): OrderPlacementResult
+    {
+        // Resolve + whitelist the payment method (also rejects a hidden online
+        // gateway). Type drives the status mapping below.
+        $method = $this->methodResolver->find($data->paymentMethod);
+
+        if ($method === null) {
+            throw CheckoutException::invalidPaymentMethod();
+        }
+
+        [$order, $onlinePaymentId] = DB::transaction(function () use ($data, $method) {
+            // Re-price the cart from the DB with the book rows locked.
+            $cart = $this->cartService->fromItems($data->items, lock: true);
+
+            if ($cart->isEmpty()) {
+                throw CheckoutException::emptyCart();
+            }
+
+            $this->assertStockAndReserve($cart);
+
+            $couponResult = $this->resolveCoupon($data, $cart);
+
+            $shipping = $this->shippingFor($data->governorate, $couponResult->freeShipping);
+            $discount = $couponResult->discount;
+            $grandTotal = Money::clampNonNegative(
+                Money::add(Money::sub($cart->subtotal, $discount), $shipping)
+            );
+
+            [$status, $paymentStatus] = $this->statusFor($method);
+
+            $order = Order::create([
+                'order_number' => $this->generateOrderNumber(),
+                'user_id' => $data->userId,
+                'status' => $status,
+                'customer_name' => $data->customerName,
+                'customer_phone' => $data->customerPhone,
+                'customer_phone_alt' => $data->customerPhoneAlt,
+                'customer_email' => $data->customerEmail,
+                'governorate' => $data->governorate,
+                'city' => $data->city,
+                'address_line' => $data->addressLine,
+                'address_notes' => $data->addressNotes,
+                'subtotal' => $cart->subtotal,
+                'discount_total' => $discount,
+                'shipping_total' => $shipping,
+                'grand_total' => $grandTotal,
+                'coupon_id' => $couponResult->valid ? $couponResult->coupon?->id : null,
+                'coupon_code' => $couponResult->valid ? $couponResult->coupon?->code : null,
+                'payment_method' => $method->code,
+                'payment_status' => $paymentStatus,
+                'customer_note' => $data->customerNote,
+                'ip_address' => $data->ipAddress,
+            ]);
+
+            // Snapshot each line (price taken from the DB, not the client).
+            foreach ($cart->items as $item) {
+                $order->items()->create([
+                    'book_id' => $item->book->id,
+                    'book_title' => $item->book->title,
+                    'unit_price' => $item->unitPrice,
+                    'quantity' => $item->quantity,
+                    'line_total' => $item->lineTotal,
+                ]);
+            }
+
+            if ($couponResult->valid && $couponResult->coupon instanceof Coupon) {
+                $this->recordCouponUsage($order, $couponResult, $data->userId);
+            }
+
+            $onlinePaymentId = $this->createPaymentRow($order, $method, $grandTotal);
+
+            return [$order, $onlinePaymentId];
+        });
+
+        // Online gateway is initiated AFTER commit (keeps external I/O out of the
+        // transaction). Manual/COD need no gateway call.
+        if ($method->type === 'online_gateway') {
+            return $this->initiateOnline($order, $onlinePaymentId);
+        }
+
+        return new OrderPlacementResult($order);
+    }
+
+    /**
+     * Reject out-of-stock / insufficient lines and decrement managed stock.
+     */
+    private function assertStockAndReserve(Cart $cart): void
+    {
+        foreach ($cart->items as $item) {
+            $book = $item->book;
+
+            if (! $book->manage_stock) {
+                continue;
+            }
+
+            if ($book->stock_status === 'out_of_stock' || $book->stock_quantity < $item->quantity) {
+                throw CheckoutException::outOfStock($book->title);
+            }
+
+            $book->stock_quantity -= $item->quantity;
+
+            if ($book->stock_quantity <= 0) {
+                $book->stock_quantity = 0;
+                $book->stock_status = 'out_of_stock';
+            }
+
+            $book->save();
+        }
+    }
+
+    /**
+     * Recompute the coupon against the freshly-priced cart. A supplied-but-now-
+     * invalid coupon fails the checkout so the customer never pays a stale total.
+     */
+    private function resolveCoupon(PlaceOrderData $data, Cart $cart): CouponResult
+    {
+        if ($data->couponCode === null || trim($data->couponCode) === '') {
+            return CouponResult::invalid('payment.coupon.required');
+        }
+
+        $result = $this->couponService->apply($data->couponCode, $cart, $data->userId);
+
+        if (! $result->valid) {
+            throw new CheckoutException($result->messageKey);
+        }
+
+        return $result;
+    }
+
+    private function recordCouponUsage(Order $order, CouponResult $result, ?int $userId): void
+    {
+        /** @var Coupon $coupon */
+        $coupon = $result->coupon;
+
+        // Atomically claim one use: increment used_count ONLY while it is still
+        // under the global usage_limit. This closes the race where two concurrent
+        // checkouts both pass the earlier (non-locking) `used_count < usage_limit`
+        // check in CouponService. usage_limit NULL = unlimited (no upper bound in
+        // the WHERE, so it always matches). Zero rows affected => the last use was
+        // taken by a concurrent order, so we abort and the whole DB::transaction
+        // rolls back (no order, no over-redeemed coupon).
+        $claimed = Coupon::query()
+            ->whereKey($coupon->id)
+            ->where(function ($query): void {
+                $query->whereNull('usage_limit')
+                    ->orWhereColumn('used_count', '<', 'usage_limit');
+            })
+            ->increment('used_count');
+
+        if ($claimed === 0) {
+            throw new CheckoutException('payment.coupon.usage_limit');
+        }
+
+        CouponUsage::create([
+            'coupon_id' => $coupon->id,
+            'order_id' => $order->id,
+            'user_id' => $userId,
+            'discount_amount' => $result->discount,
+        ]);
+    }
+
+    /**
+     * @return int|null  the payments row id when one is created for online.
+     */
+    private function createPaymentRow(Order $order, PaymentMethod $method, string $grandTotal): ?int
+    {
+        if ($method->type === 'cash_on_delivery') {
+            return null; // COD is collected on delivery; no payment row yet.
+        }
+
+        $status = $method->type === 'manual_transfer' ? 'pending_review' : 'pending';
+
+        $payment = $order->payments()->create([
+            'payment_method_code' => $method->code,
+            'amount' => $grandTotal,
+            'status' => $status,
+        ]);
+
+        return $method->type === 'online_gateway' ? $payment->id : null;
+    }
+
+    private function initiateOnline(Order $order, ?int $paymentId): OrderPlacementResult
+    {
+        $initiation = $this->gatewayFactory->default()->initiate($order);
+
+        if ($paymentId !== null) {
+            $order->payments()
+                ->whereKey($paymentId)
+                ->update([
+                    'transaction_ref' => $initiation->reference,
+                    'gateway_response' => $initiation->raw,
+                ]);
+        }
+
+        return new OrderPlacementResult($order, $initiation);
+    }
+
+    /**
+     * @return array{0: string, 1: string}  [order.status, order.payment_status]
+     */
+    private function statusFor(PaymentMethod $method): array
+    {
+        return match ($method->type) {
+            'cash_on_delivery' => ['confirmed', 'unpaid'],
+            'manual_transfer' => ['pending', 'pending_review'],
+            'online_gateway' => ['pending', 'unpaid'],
+            default => throw CheckoutException::invalidPaymentMethod(),
+        };
+    }
+
+    /**
+     * Flat shipping from config/egypt.php (per-governorate override else flat).
+     * A free_shipping coupon zeroes it. Never invented in code.
+     */
+    private function shippingFor(string $governorate, bool $freeShipping): string
+    {
+        if ($freeShipping) {
+            return Money::ZERO;
+        }
+
+        /** @var array<string, string> $overrides */
+        $overrides = (array) config('egypt.shipping.overrides', []);
+        $flat = (string) config('egypt.shipping.flat', Money::ZERO);
+
+        return Money::normalize($overrides[$governorate] ?? $flat);
+    }
+
+    /**
+     * Unique order number QSQ-YYYY-XXXXXX. The random suffix space is large; we
+     * re-roll on the (extremely rare) collision. order_number has a UNIQUE index.
+     */
+    private function generateOrderNumber(): string
+    {
+        do {
+            $candidate = 'QSQ-'.date('Y').'-'.Str::upper(Str::random(6));
+        } while (Order::where('order_number', $candidate)->exists());
+
+        return $candidate;
+    }
+}

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,7 +15,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, HasRoles, Notifiable, SoftDeletes;
@@ -57,6 +59,33 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The seven administrative roles allowed into the Filament admin panel.
+     * Storefront customers hold none of these and are therefore locked out.
+     *
+     * @var list<string>
+     */
+    public const ADMIN_ROLES = [
+        'super_admin',
+        'admin',
+        'it',
+        'support',
+        'content_editor',
+        'orders_manager',
+        'marketing',
+    ];
+
+    /**
+     * Server-side gate for the /admin panel (constitution 4.4): a user may enter
+     * only if they hold any administrative role AND their account is active.
+     * Fine-grained per-resource access is still enforced separately via each
+     * Resource's permission checks (HasResourcePermissions).
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_active === true && $this->hasAnyRole(self::ADMIN_ROLES);
     }
 
     // ----- Relationships -------------------------------------------------

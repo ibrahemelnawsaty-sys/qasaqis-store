@@ -31,10 +31,23 @@
                 </template>
             </div>
 
-            <div class="cart-foot" x-show="$store.cart.items.length > 0" x-cloak>
+            {{--
+                مساران للطلب من نفس سلة localStorage:
+                  • «إتمام الطلب والدفع» (cartCheckout.go): يزامن العناصر (id+qty فقط،
+                    الأسعار خادمية — بند 4.1) إلى سلة الجلسة عبر cart.update ثم ينتقل
+                    إلى checkout (دفع أونلاين/يدوي/COD).
+                  • «الطلب عبر واتساب»: مسار سريع بلا خادم يقرأ نفس السلة مباشرة.
+            --}}
+            <div class="cart-foot" x-show="$store.cart.items.length > 0" x-cloak
+                x-data="cartCheckout({ updateUrl: @js(route('cart.update')), checkoutUrl: @js(route('checkout.show')) })">
                 <p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px">{{ __('common.cart_note') }}</p>
-                <a class="btn btn-wa btn-block" :href="$store.cart.whatsappHref('{{ $waNumber }}')"
+
+                <button type="button" class="btn btn-primary btn-block" @click="go()" :disabled="submitting"
+                    x-text="submitting ? @js(__('common.cart_checkout_loading')) : @js(__('common.cart_checkout'))">{{ __('common.cart_checkout') }}</button>
+
+                <a class="btn btn-wa btn-block" style="margin-top:8px" :href="$store.cart.whatsappHref('{{ $waNumber }}')"
                     target="_blank" rel="noopener">{{ __('common.cart_checkout_wa') }}</a>
+
                 <button type="button" class="btn btn-ghost btn-block" style="margin-top:8px"
                     @click="$store.cart.clear()">{{ __('common.cart_clear') }}</button>
             </div>

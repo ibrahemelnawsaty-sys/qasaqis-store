@@ -6,8 +6,10 @@ import Alpine from 'alpinejs';
  | متجر «قصص أطفال» — منطق الواجهة الخفيف (Alpine.js)
  | 1) الوضع الليلي/النهاري (يتزامن مع سكربت منع الوميض في <head>)
  | 2) قائمة الموبايل + شاشة البحث
- | 3) سلة محلية (localStorage) — واجهة فقط، الطلب النهائي يتم عبر واتساب
- |    (لا توجد طبقة سلة خادمية ضمن هذه المرحلة؛ لا نخترع بيانات خادمية).
+ | 3) سلة محلية (localStorage) هي السلة الأساسية للعميل (أخفّ على الشبكة المصرية
+ |    الضعيفة: بلا رحلة خادم لكل إضافة). لها مساران للطلب من نفس السلة:
+ |      (أ) واتساب سريع (whatsappHref) — بلا خادم.
+ |      (ب) دفع كامل عبر الجسر (cartCheckout): يزامن العناصر إلى سلة الجلسة ثم دفع.
  */
 
 const THEME_KEY = 'qasaqis-theme';
@@ -97,6 +99,47 @@ Alpine.store('cart', {
         return `${base}?text=${text}`;
     },
 });
+
+// ----- جسر السلة: مزامنة localStorage → سلة الجلسة ثم الدفع -----------------
+// المسار الكامل للطلب (أونلاين/يدوي/COD) يبدأ من نفس سلة localStorage: نزامن
+// العناصر (book_id + qty فقط، بلا أسعار — تُحسب خادميًا، بند 4.1) عبر POST إلى
+// cart.update، ثم ننتقل إلى checkout.show. الروابط تُمرَّر من Blade (لا نخترع
+// مسارات في JS). فشل الشبكة يُبقي زر واتساب متاحًا كبديل سريع.
+Alpine.data('cartCheckout', (config = {}) => ({
+    submitting: false,
+    async go() {
+        const items = Alpine.store('cart').items;
+        if (this.submitting || !items.length) return;
+        this.submitting = true;
+
+        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const body = new FormData();
+        body.append('_token', token); // CSRF أيضًا في الترويسة أدناه.
+        items.forEach((it, i) => {
+            body.append(`items[${i}][book_id]`, it.id);
+            body.append(`items[${i}][qty]`, it.qty || 1);
+        });
+
+        try {
+            const res = await fetch(config.updateUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': token, Accept: 'text/html' },
+                body,
+                // نجاح cart.update = إعادة توجيه 302؛ نتجنّب تنزيل صفحة /cart كاملة
+                // قبل الانتقال إلى /checkout (توفير على الشبكة الضعيفة، بند 5.1).
+                redirect: 'manual',
+            });
+            // الـ 302 يصل كـ opaqueredirect؛ أي استجابة ناجحة تكفي للمتابعة للدفع.
+            if (res.type === 'opaqueredirect' || res.ok) {
+                window.location = config.checkoutUrl;
+                return; // نُبقي submitting=true أثناء الانتقال (يمنع الإرسال المزدوج).
+            }
+        } catch (e) {
+            // شبكة ضعيفة/فشل تحقّق — نتراجع بهدوء ونُتيح إعادة المحاولة أو واتساب.
+        }
+        this.submitting = false;
+    },
+}));
 
 // ----- قائمة/بحث الموبايل (root layout data) ------------------------------
 Alpine.data('shell', () => ({

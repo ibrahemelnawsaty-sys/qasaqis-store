@@ -11,7 +11,13 @@ declare(strict_types=1);
 return [
     'array' => 'يجب أن يكون :attribute مصفوفة.',
     'boolean' => 'قيمة :attribute يجب أن تكون صحيحة أو خاطئة.',
+    'email' => 'يجب أن يكون :attribute بريدًا إلكترونيًا صحيحًا.',
     'exists' => ':attribute المحدد غير موجود.',
+    'file' => 'يجب أن يكون :attribute ملفًا.',
+    'mimes' => 'يجب أن يكون :attribute ملفًا من نوع: :values.',
+    'regex' => 'صيغة :attribute غير صحيحة.',
+    // رسالة مخصّصة لنمط الهاتف المصري (تُستدعى من CheckoutRequest::messages).
+    'egypt_phone' => 'يرجى إدخال رقم هاتف مصري صحيح (مثال: 01012345678).',
     'gte' => [
         'numeric' => 'يجب أن يكون :attribute أكبر من أو يساوي :value.',
     ],
@@ -47,6 +53,25 @@ return [
         'featured' => 'المميّزة',
         'stock' => 'المتوفر',
         'sort' => 'الترتيب',
+
+        // حقول السلة والدفع (M5).
+        'name' => 'الاسم',
+        'phone' => 'رقم الهاتف',
+        'phone_alt' => 'رقم هاتف إضافي',
+        'email' => 'البريد الإلكتروني',
+        'governorate' => 'المحافظة',
+        'city' => 'المدينة',
+        'address' => 'العنوان',
+        'address_notes' => 'ملاحظات العنوان',
+        'payment_method' => 'طريقة الدفع',
+        'coupon' => 'كود الخصم',
+        'note' => 'ملاحظات الطلب',
+        'items' => 'عناصر الطلب',
+        'items.*.book_id' => 'الكتاب',
+        'items.*.qty' => 'الكمية',
+        'proof' => 'إثبات الدفع',
+        'amount' => 'المبلغ',
+        'sender_reference' => 'مرجع التحويل',
     ],
 
     'custom' => [],
