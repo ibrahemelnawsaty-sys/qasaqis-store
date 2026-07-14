@@ -1,0 +1,234 @@
+@extends('layouts.app')
+
+@section('content')
+    @php
+        $totalBooks = $categories->sum('books_count');
+        $totalCategories = $categories->count();
+        $softBg = ['var(--purple-soft)', 'var(--teal-soft)', 'var(--orange-soft)', 'var(--gold)', 'var(--pink-soft)', 'var(--teal-soft)'];
+    @endphp
+
+    {{-- HERO --}}
+    <div class="hero">
+        <span class="blob drift" style="width:220px;height:220px;background:var(--teal-soft);top:-40px;inset-inline-start:-60px" aria-hidden="true"></span>
+        <span class="blob drift s2" style="width:160px;height:160px;background:var(--pink-soft);bottom:20px;inset-inline-end:8%" aria-hidden="true"></span>
+        <span class="blob drift s3" style="width:120px;height:120px;background:var(--gold);opacity:.25;top:30px;inset-inline-end:30%" aria-hidden="true"></span>
+        <div class="wrap">
+            <div class="hero-grid">
+                <div>
+                    <span class="badge-happy">{{ __('home.hero_badge') }}</span>
+                    <h1 class="hero-title">
+                        {{ __('home.hero_title_before') }}
+                        <span class="w">{{ __('home.hero_title_word') }}</span>
+                        {{ __('home.hero_title_after') }}
+                        <span class="u">{{ __('home.hero_title_underline') }}</span>
+                        {{ __('home.hero_title_emoji') }}
+                    </h1>
+                    <p class="hero-sub">{{ __('home.hero_sub') }}</p>
+                    <div class="hero-cta">
+                        <a class="btn btn-primary" href="{{ route('books.index') }}">{{ __('home.cta_browse') }}</a>
+                        <x-wa-button :class="'btn btn-wa'" :label="__('home.cta_whatsapp')" />
+                    </div>
+                    <div class="hero-stats">
+                        <div class="hs"><span class="n">+{{ $totalBooks }}</span><span class="l">{{ __('home.stat_books_label') }}</span></div>
+                        <div class="hs-div"></div>
+                        <div class="hs"><span class="n">{{ $totalCategories }}</span><span class="l">{{ __('home.stat_categories_label') }}</span></div>
+                        <div class="hs-div"></div>
+                        <div class="hs"><span class="n">{{ __('home.stat_moms_value') }}</span><span class="l">{{ __('home.stat_moms_label') }}</span></div>
+                    </div>
+                </div>
+                <div class="hero-art">
+                    <div class="art-card">
+                        <span class="sticker drift" style="top:16px;inset-inline-start:22px" aria-hidden="true">⭐</span>
+                        <span class="sticker drift s2" style="top:40px;inset-inline-end:30px;font-size:24px" aria-hidden="true">☁️</span>
+                        <span class="sticker drift s3" style="bottom:26px;inset-inline-end:24px" aria-hidden="true">🎈</span>
+                        <span class="sticker drift" style="bottom:60px;inset-inline-start:20px;font-size:22px" aria-hidden="true">✏️</span>
+                        <svg viewBox="0 0 300 300" width="76%" role="img" aria-label="{{ __('home.hero_art_alt') }}">
+                            <ellipse cx="150" cy="252" rx="118" ry="20" fill="rgba(0,0,0,.06)"/>
+                            <g>
+                                <rect x="58" y="196" width="184" height="34" rx="9" fill="#12B3A6"/>
+                                <rect x="58" y="196" width="14" height="34" fill="rgba(0,0,0,.15)"/>
+                                <rect x="86" y="205" width="120" height="6" rx="3" fill="rgba(255,255,255,.7)"/>
+                            </g>
+                            <g transform="rotate(-4 150 175)">
+                                <rect x="66" y="158" width="168" height="34" rx="9" fill="#EC4E96"/>
+                                <rect x="66" y="158" width="14" height="34" fill="rgba(0,0,0,.15)"/>
+                                <rect x="92" y="167" width="110" height="6" rx="3" fill="rgba(255,255,255,.7)"/>
+                            </g>
+                            <g transform="rotate(3 150 138)">
+                                <rect x="72" y="120" width="156" height="34" rx="9" fill="#FF8A2A"/>
+                                <rect x="72" y="120" width="14" height="34" fill="rgba(0,0,0,.15)"/>
+                                <rect x="96" y="129" width="100" height="6" rx="3" fill="rgba(255,255,255,.7)"/>
+                            </g>
+                            <g transform="translate(0,-6)">
+                                <path d="M150 66 C120 50 92 52 78 60 L78 116 C92 108 120 106 150 122 Z" fill="#6E2FB0"/>
+                                <path d="M150 66 C180 50 208 52 222 60 L222 116 C208 108 180 106 150 122 Z" fill="#7d3ac2"/>
+                                <path d="M150 66 L150 122" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
+                                <circle cx="150" cy="44" r="12" fill="#FFC23C"/>
+                                <path d="M150 32 L150 20 M150 68 L150 78 M128 44 L116 44 M172 44 L184 44" stroke="#FFC23C" stroke-width="3" stroke-linecap="round"/>
+                            </g>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <svg class="wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0,40 C240,90 480,90 720,55 C960,20 1200,20 1440,50 L1440,90 L0,90 Z" fill="var(--purple-soft)"/>
+    </svg>
+
+    <div class="band band-lilac">
+        <div class="wrap">
+            {{-- TRUST --}}
+            <div class="trust">
+                @foreach (__('home.trust') as $item)
+                    <div class="trust-item">
+                        <span class="e" style="background:var(--purple-soft)" aria-hidden="true">{{ $item['emoji'] }}</span>
+                        <div>
+                            <div class="t">{{ $item['title'] }}</div>
+                            <div class="d">{{ $item['desc'] }}</div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- CATEGORIES --}}
+            <section class="sec" style="padding-top:6px" aria-labelledby="cats-title">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.categories_eyebrow') }}</span>
+                    <h2 class="sec-title" id="cats-title">{{ __('home.categories_title') }}</h2>
+                    <p class="sec-desc">{{ __('home.categories_desc') }}</p>
+                </div>
+                <div class="cats">
+                    @foreach ($categories as $i => $cat)
+                        @php
+                            $bg = filled($cat->color_hex)
+                                ? 'color-mix(in srgb,' . $cat->color_hex . ' 16%, var(--surface))'
+                                : $softBg[$i % count($softBg)];
+                        @endphp
+                        <a class="cat {{ $cat->books_count === 0 ? 'empty' : '' }}"
+                            href="{{ route('categories.show', $cat) }}" style="background:{{ $bg }}">
+                            <span class="ce" aria-hidden="true">{{ filled($cat->icon) ? $cat->icon : '📚' }}</span>
+                            <span class="cn">{{ $cat->name }}</span>
+                            <span class="cc">
+                                {{ $cat->books_count > 0 ? trans_choice('nav.books_count', $cat->books_count, ['count' => $cat->books_count]) : __('nav.coming_soon') }}
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <svg class="wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true" style="transform:rotate(180deg)">
+        <path d="M0,40 C240,90 480,90 720,55 C960,20 1200,20 1440,50 L1440,90 L0,90 Z" fill="var(--purple-soft)"/>
+    </svg>
+
+    {{-- FEATURED --}}
+    @if ($featured->isNotEmpty())
+        <section class="sec" aria-labelledby="feat-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.featured_eyebrow') }}</span>
+                    <h2 class="sec-title" id="feat-title">{{ __('home.featured_title') }}</h2>
+                    <p class="sec-desc">{{ __('home.featured_desc') }}</p>
+                </div>
+                <div class="shelf">
+                    @foreach ($featured as $book)
+                        <x-book-card :book="$book" />
+                    @endforeach
+                </div>
+                <div style="text-align:center;margin-top:32px">
+                    <a class="btn btn-ghost" href="{{ route('books.index') }}">{{ __('home.view_all') }}</a>
+                </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- PROMO --}}
+    <section class="sec" style="padding-top:6px">
+        <div class="wrap">
+            <div class="promo">
+                <div class="promo-grid">
+                    <div>
+                        <span class="badge-happy" style="background:#fff;color:var(--purple)">{{ __('home.promo_badge') }}</span>
+                        <h3>{{ __('home.promo_title') }}</h3>
+                        <p>{{ __('home.promo_desc') }}</p>
+                        <div class="pbtns">
+                            <a class="btn btn-white" href="{{ route('books.offers') }}">{{ __('home.promo_cta') }}</a>
+                            <x-wa-button :class="'btn btn-wa'" :label="__('home.cta_whatsapp')" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- LATEST --}}
+    @if ($latest->isNotEmpty())
+        <section class="sec" aria-labelledby="latest-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.latest_eyebrow') }}</span>
+                    <h2 class="sec-title" id="latest-title">{{ __('home.latest_title') }}</h2>
+                    <p class="sec-desc">{{ __('home.latest_desc') }}</p>
+                </div>
+                <div class="shelf">
+                    @foreach ($latest as $book)
+                        <x-book-card :book="$book" />
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- WHY MOMS --}}
+    <section class="sec" style="padding-top:6px" aria-labelledby="why-title">
+        <div class="wrap">
+            <div class="sec-top">
+                <span class="sec-eyebrow">{{ __('home.why_eyebrow') }}</span>
+                <h2 class="sec-title" id="why-title">{{ __('home.why_title') }}</h2>
+            </div>
+            <div class="why">
+                @foreach (__('home.why') as $i => $card)
+                    <div class="why-card">
+                        <div class="we" style="background:{{ $softBg[$i % count($softBg)] }}" aria-hidden="true">{{ $card['emoji'] }}</div>
+                        <h4>{{ $card['title'] }}</h4>
+                        <p>{{ $card['desc'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- REVIEWS (بيانات حقيقية فقط) --}}
+    @if ($reviews->isNotEmpty())
+        <section class="sec" style="padding-top:6px" aria-labelledby="rev-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.reviews_eyebrow') }}</span>
+                    <h2 class="sec-title" id="rev-title">{{ __('home.reviews_title') }}</h2>
+                </div>
+                <div class="reviews">
+                    @foreach ($reviews as $review)
+                        <div class="review">
+                            <div class="stars" aria-hidden="true">{{ str_repeat('★', (int) $review->rating) }}{{ str_repeat('☆', max(0, 5 - (int) $review->rating)) }}</div>
+                            @if (filled($review->body))
+                                <p>«{{ $review->body }}»</p>
+                            @endif
+                            <div class="who">
+                                <span class="av" aria-hidden="true">{{ mb_substr($review->author_name ?? '؟', 0, 1) }}</span>
+                                <div>
+                                    <div class="nm">{{ $review->author_name }}</div>
+                                    @if ($review->book)
+                                        <div class="role">{{ $review->book->title }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
+@endsection

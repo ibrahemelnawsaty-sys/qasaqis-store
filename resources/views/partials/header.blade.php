@@ -1,0 +1,129 @@
+<header>
+    <div class="nav">
+        <div class="wrap">
+            <a class="logo" href="{{ route('home') }}">
+                <span class="mark" aria-hidden="true"><b>ق</b></span>
+                <span class="logo-text">{{ __('common.brand') }}</span>
+            </a>
+
+            {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine) — يُخفى على الموبايل --}}
+            <div class="searchbar-wrap" x-data="searchBox(@js((string) request('q')))"
+                data-suggest-url="{{ route('search.suggest') }}" @click.outside="close()">
+                <form class="searchbar" action="{{ route('search') }}" method="get" role="search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                        stroke-linecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+                    <input type="search" name="q" x-model="q" autocomplete="off"
+                        role="combobox" aria-controls="search-suggest" aria-autocomplete="list"
+                        :aria-expanded="open.toString()"
+                        @input.debounce.250ms="fetchSuggest()"
+                        @focus="reopen()"
+                        @keydown.arrow-down.prevent="move(1)"
+                        @keydown.arrow-up.prevent="move(-1)"
+                        @keydown.enter="onEnter($event)"
+                        @keydown.escape="close()"
+                        placeholder="{{ __('common.search_placeholder') }}"
+                        aria-label="{{ __('common.search_placeholder') }}">
+                </form>
+
+                <div class="suggest" id="search-suggest" role="listbox" x-show="open" x-cloak
+                    x-transition.opacity aria-label="{{ __('search.suggest_label') }}">
+                    <template x-for="(item, i) in items" :key="item.kind + '-' + i">
+                        <a :href="item.url" role="option" class="suggest-item"
+                            :class="{ active: i === active }" :aria-selected="(i === active).toString()"
+                            @mouseenter="active = i">
+                            <span class="si" aria-hidden="true" x-text="icon(item.kind)"></span>
+                            <span x-text="item.label"></span>
+                        </a>
+                    </template>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                {{-- زر البحث (موبايل) --}}
+                <button type="button" class="icon-btn only-mobile" @click="searchOpen = true"
+                    aria-label="{{ __('common.open_search') }}">🔎</button>
+
+                {{-- تبديل الوضع الليلي/النهاري --}}
+                <button type="button" class="icon-btn" @click="$store.theme.toggle()"
+                    aria-label="{{ __('common.toggle_theme') }}">
+                    <span x-show="!$store.theme.isDark" aria-hidden="true">🌙</span>
+                    <span x-show="$store.theme.isDark" aria-hidden="true" x-cloak>☀️</span>
+                </button>
+
+                {{-- السلة --}}
+                <button type="button" class="icon-btn" @click="$store.cart.open = true"
+                    aria-label="{{ __('nav.cart') }}">
+                    🛒
+                    <span class="cart-badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
+                </button>
+
+                {{-- قائمة الموبايل --}}
+                <button type="button" class="icon-btn only-mobile" @click="menuOpen = true"
+                    aria-label="{{ __('common.open_menu') }}">☰</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- شريط الأقسام --}}
+    <nav class="catstrip" aria-label="{{ __('nav.categories') }}">
+        <div class="wrap">
+            <a class="catlink" href="{{ route('books.index') }}"
+                @if (request()->routeIs('books.index')) aria-current="page" @endif>
+                <span class="e" aria-hidden="true">🧸</span> {{ __('nav.all_books') }}
+            </a>
+            @foreach ($navCategories as $cat)
+                <a class="catlink" href="{{ route('categories.show', $cat) }}"
+                    @if (request()->routeIs('categories.show') && request()->route('category')?->id === $cat->id) aria-current="page" @endif>
+                    @if (filled($cat->icon))<span class="e" aria-hidden="true">{{ $cat->icon }}</span>@endif
+                    {{ $cat->name }}
+                </a>
+            @endforeach
+            <a class="catlink" href="{{ route('books.offers') }}">
+                <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
+            </a>
+        </div>
+    </nav>
+</header>
+
+{{-- قائمة الموبايل (Drawer) --}}
+<template x-teleport="body">
+    <div x-show="menuOpen" x-cloak>
+        <div class="drawer-backdrop" @click="menuOpen = false" x-transition.opacity></div>
+        <div class="drawer" x-transition role="dialog" aria-modal="true" aria-label="{{ __('nav.categories') }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <span style="font-weight:900">{{ __('common.brand') }}</span>
+                <button type="button" class="icon-btn" @click="menuOpen = false"
+                    aria-label="{{ __('common.close') }}">✕</button>
+            </div>
+            <a href="{{ route('home') }}">🏠 {{ __('nav.home') }}</a>
+            <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
+            <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
+            @foreach ($navCategories as $cat)
+                <a href="{{ route('categories.show', $cat) }}">
+                    @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}
+                </a>
+            @endforeach
+        </div>
+    </div>
+</template>
+
+{{-- شاشة البحث (موبايل) --}}
+<template x-teleport="body">
+    <div class="search-overlay" x-show="searchOpen" x-cloak x-transition role="dialog" aria-modal="true"
+        aria-label="{{ __('common.search_submit') }}">
+        <div style="display:flex;justify-content:flex-end">
+            <button type="button" class="icon-btn" @click="searchOpen = false"
+                aria-label="{{ __('common.close') }}">✕</button>
+        </div>
+        <form action="{{ route('search') }}" method="get" role="search">
+            <input type="search" name="q" value="{{ request('q') }}"
+                placeholder="{{ __('common.search_placeholder') }}"
+                aria-label="{{ __('common.search_placeholder') }}" autofocus
+                x-init="$watch('searchOpen', v => v && $nextTick(() => $el.focus()))">
+            <button type="submit" class="btn btn-primary">{{ __('common.search_submit') }}</button>
+        </form>
+    </div>
+</template>

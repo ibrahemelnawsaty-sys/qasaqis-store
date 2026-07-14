@@ -1,0 +1,87 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers;
+
+use App\Models\Category;
+use App\Models\Setting;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        //
+    }
+
+    public function boot(): void
+    {
+        // Arabic RTL is the storefront default (config/app.php may ship 'en').
+        App::setLocale('ar');
+
+        // Shared data for every storefront view (layout, partials, and the page
+        // content section alike). Computed once per request. Wrapped in rescue()
+        // so views still render before the tables are migrated/seeded (empty data).
+        View::share('navCategories', $this->navCategories());
+        View::share('storeSettings', $this->storeSettings());
+    }
+
+    /**
+     * The six categories with published book counts, for the header strip & footer.
+     * All categories are kept, even the currently empty ones (constitution 0.3).
+     */
+    protected function navCategories()
+    {
+        return rescue(
+            fn () => Category::query()
+                ->where('is_active', true)
+                ->whereNull('parent_id')
+                ->orderBy('sort_order')
+                ->withCount(['books as books_count' => function (Builder $q): void {
+                    $q->where('is_published', true);
+                }])
+                ->get(),
+            collect(),
+            report: false,
+        );
+    }
+
+    /**
+     * Store-level settings (WhatsApp number, socials) editable from the admin CMS.
+     * No secrets here — only public contact/display values.
+     *
+     * @return array<string, string>
+     */
+    protected function storeSettings(): array
+    {
+        // Primary source is the seeded `whatsapp_number` setting (DB, CMS-editable).
+        // Fallback comes from config (STORE_WHATSAPP_NUMBER) so it works after
+        // config:cache — never from env() at runtime, which returns null then.
+        $defaults = [
+            'whatsapp_number' => (string) config('services.store.whatsapp', ''),
+            'facebook_url' => '',
+            'instagram_url' => '',
+            'tiktok_url' => '',
+        ];
+
+        $fromDb = rescue(
+            fn () => Setting::query()
+                ->whereIn('key', array_keys($defaults))
+                ->pluck('value', 'key')
+                ->toArray(),
+            [],
+            report: false,
+        );
+
+        $settings = [];
+        foreach ($defaults as $key => $default) {
+            $settings[$key] = (string) ($fromDb[$key] ?? $default);
+        }
+
+        return $settings;
+    }
+}

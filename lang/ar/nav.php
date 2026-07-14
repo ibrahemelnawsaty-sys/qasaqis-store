@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'home' => 'الرئيسية',
+    'all_books' => 'كل الكتب',
+    'offers' => 'العروض',
+    'publishers' => 'دور النشر',
+    'account' => 'حسابي',
+    'favorites' => 'المفضلة',
+    'cart' => 'السلة',
+    'categories' => 'الأقسام',
+    'books_count' => '{0}لا يوجد كتب|{1}كتاب واحد|{2}كتابان|[3,10]:count كتب|[11,*]:count كتابًا',
+    'coming_soon' => 'قريبًا',
+];
