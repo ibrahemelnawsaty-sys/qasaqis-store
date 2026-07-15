@@ -53,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
         View::share('navCategories', $this->navCategories());
         View::share('storeSettings', $this->storeSettings());
 
+        // أعلام التحليلات العامة فقط (M6) — بلا أسرار الخادم (api_secret/capi_token).
+        View::share('analytics', [
+            'enabled' => (bool) config('analytics.enabled'),
+            'ga4_id' => config('analytics.ga4.measurement_id'),
+            'meta_pixel_id' => config('analytics.meta.pixel_id'),
+            'currency' => config('analytics.currency', 'EGP'),
+        ]);
+
         // Active CMS pop-up for the current request (constitution 0.8). Bound to
         // the storefront layout only (not View::share) so the query is skipped on
         // JSON/AJAX endpoints (search suggest, cart update) that never render it.

@@ -111,9 +111,11 @@
     @stack('meta')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @include('partials.analytics-head')
     @stack('head')
 </head>
 <body x-data="shell">
+    @include('partials.analytics-body')
     <a href="#main" class="skip-link btn btn-primary">{{ __('common.skip_to_content') }}</a>
 
     @include('partials.header')
@@ -131,6 +133,8 @@
 
     {{-- بوب أب CMS النشط (دعاية/استبيان/نشرة/إعلان) — لا يُعرض إن لم يوجد نشط --}}
     @include('partials.popup')
+
+    @include('partials.consent-banner')
 
     @stack('scripts')
 </body>

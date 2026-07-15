@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
@@ -91,6 +92,11 @@ class Order extends Model
     public function paymentProofs(): HasMany
     {
         return $this->hasMany(PaymentProof::class);
+    }
+
+    public function tracking(): HasOne
+    {
+        return $this->hasOne(OrderTracking::class);
     }
 
     public function scopeStatus(Builder $query, string $status): Builder

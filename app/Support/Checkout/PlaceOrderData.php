@@ -31,6 +31,13 @@ final readonly class PlaceOrderData
         public ?string $customerNote,
         public ?int $userId,
         public ?string $ipAddress,
+        // بيانات إسناد التتبّع (M6) — تُلتقط من كوكيز المتصفح لحدث الشراء الخادمي.
+        public ?string $fbp = null,
+        public ?string $fbc = null,
+        public ?string $gaClientId = null,
+        public ?string $gaSessionId = null,
+        public ?string $userAgent = null,
+        public ?string $eventSourceUrl = null,
     ) {
     }
 }

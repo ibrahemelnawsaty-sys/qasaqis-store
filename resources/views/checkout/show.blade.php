@@ -33,6 +33,12 @@
                     <form id="checkoutForm" method="POST" action="{{ route('checkout.place') }}">
                         @csrf
 
+                        {{-- حقول إسناد التتبّع (M6) — تُملأ من كوكيز المتصفح لحدث الشراء الخادمي. --}}
+                        <input type="hidden" name="fbp" id="qs-fbp">
+                        <input type="hidden" name="fbc" id="qs-fbc">
+                        <input type="hidden" name="ga_client_id" id="qs-gacid">
+                        <input type="hidden" name="ga_session_id" id="qs-gasid">
+
                         {{-- عناصر الطلب (تُعاد تسعيرها من قاعدة البيانات على الخادم) --}}
                         @foreach ($cart->items as $i => $item)
                             <input type="hidden" name="items[{{ $i }}][book_id]" value="{{ $item->book->id }}">
@@ -231,4 +237,20 @@
             </div>
         </div>
     </div>
+
+    {{-- ملء حقول إسناد التتبّع (M6) من كوكيز المتصفح (best-effort؛ فارغة إن رفض الكوكيز). --}}
+    @push('scripts')
+        <script>
+            (function () {
+                function ck(n) { var m = document.cookie.match('(^|;)\\s*' + n + '\\s*=\\s*([^;]+)'); return m ? decodeURIComponent(m.pop()) : ''; }
+                function set(id, v) { var el = document.getElementById(id); if (el && v) el.value = v; }
+                set('qs-fbp', ck('_fbp'));
+                var fbc = ck('_fbc');
+                if (!fbc) { var p = new URLSearchParams(location.search).get('fbclid'); if (p) { fbc = 'fb.1.' + Date.now() + '.' + p; } }
+                set('qs-fbc', fbc);
+                var ga = ck('_ga');
+                if (ga) { var parts = ga.split('.'); if (parts.length >= 4) { set('qs-gacid', parts[2] + '.' + parts[3]); } }
+            })();
+        </script>
+    @endpush
 @endsection

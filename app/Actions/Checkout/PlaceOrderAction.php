@@ -120,6 +120,18 @@ class PlaceOrderAction
                 ]);
             }
 
+            // لقطة إسناد التتبّع (M6) + purchase_event_id ثابت لحدث الشراء الخادمي
+            // ومنع ازدواج عدّه لدى Meta/GA4. تُنشأ لكل طلب (خفيفة، جاهزة للإسناد).
+            $order->tracking()->create([
+                'fbp' => $data->fbp,
+                'fbc' => $data->fbc,
+                'ga_client_id' => $data->gaClientId,
+                'ga_session_id' => $data->gaSessionId,
+                'user_agent' => $data->userAgent,
+                'event_source_url' => $data->eventSourceUrl,
+                'purchase_event_id' => (string) Str::uuid(),
+            ]);
+
             if ($couponResult->valid && $couponResult->coupon instanceof Coupon) {
                 $this->recordCouponUsage($order, $couponResult, $data->userId);
             }

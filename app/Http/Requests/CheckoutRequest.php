@@ -83,6 +83,12 @@ class CheckoutRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.book_id' => ['required', 'integer', Rule::exists('books', 'id')],
             'items.*.qty' => ['required', 'integer', 'min:1', 'max:99'],
+
+            // إسناد التتبّع (M6) — قوائم بيضاء nullable، لا تمسّ تسعير المال.
+            'fbp' => ['nullable', 'string', 'max:100'],
+            'fbc' => ['nullable', 'string', 'max:191'],
+            'ga_client_id' => ['nullable', 'string', 'max:100'],
+            'ga_session_id' => ['nullable', 'string', 'max:100'],
         ];
     }
 
@@ -132,6 +138,12 @@ class CheckoutRequest extends FormRequest
             customerNote: $this->validated('note'),
             userId: $this->user()?->id,
             ipAddress: $this->ip(),
+            fbp: $this->validated('fbp'),
+            fbc: $this->validated('fbc'),
+            gaClientId: $this->validated('ga_client_id'),
+            gaSessionId: $this->validated('ga_session_id'),
+            userAgent: $this->userAgent(),
+            eventSourceUrl: $this->headers->get('referer'),
         );
     }
 }
