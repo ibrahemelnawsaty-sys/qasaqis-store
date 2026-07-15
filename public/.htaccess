@@ -23,3 +23,27 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ===== الأداء: تخزين مؤقت طويل للأصول الثابتة + ضغط =====
+<IfModule mod_headers.c>
+    # الخطوط لا تتغيّر أبدًا => سنة كاملة immutable
+    <FilesMatch "\.(woff2|woff|ttf|otf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    # أصول Vite المبنية (اسمها يحمل بصمة hash) => سنة immutable
+    <FilesMatch "\.(css|js|mjs)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    # الصور => 30 يومًا
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico|avif)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
+# ضغط النصوص (LiteSpeed/Apache) — يقلّل حجم HTML/CSS/JS بشكل كبير
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml application/xml application/rss+xml
+</IfModule>
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/css application/javascript application/json image/svg+xml
+</IfModule>

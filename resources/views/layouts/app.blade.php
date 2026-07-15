@@ -21,13 +21,10 @@
     <title>@yield('title', __('common.brand') . ' — ' . __('common.tagline'))</title>
     <meta name="description" content="@yield('meta_description', __('common.tagline'))">
 
-    {{-- خطوط عربية احترافية: Baloo Bhaijaan 2 (عناوين مرحة للأطفال) + Tajawal (نص نظيف للأمهات). --}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style"
-        href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700&display=swap">
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700&display=swap">
+    {{-- خطوط عربية مستضافة محليًا (@font-face في app.css) — بلا حجب عرض ولا اعتماد خارجي.
+         preload للخطّين الحرجين فقط (نص Tajawal + عناوين Baloo) لتقليل قفز التخطيط. --}}
+    <link rel="preload" href="{{ asset('fonts/tajawal-400-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ asset('fonts/baloo-800-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
 
     {{-- أيقونة المتصفح --}}
     <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
