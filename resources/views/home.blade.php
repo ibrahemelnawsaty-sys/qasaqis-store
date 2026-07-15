@@ -291,28 +291,80 @@
                 <h2 class="sec-title" id="bulk-title">{{ __('home.bulk_title') }}</h2>
                 <p class="sec-desc">{{ __('home.bulk_desc') }}</p>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;max-width:900px;margin-inline:auto">
-                {{-- بطاقة واتساب --}}
-                <div style="background:linear-gradient(150deg,var(--purple),var(--pink));color:#fff;border-radius:var(--r-lg);padding:28px;text-align:center;box-shadow:var(--shadow)">
-                    <div style="font-size:44px;line-height:1" aria-hidden="true">💬</div>
-                    <h3 style="font-weight:900;font-size:20px;margin:12px 0 6px">{{ __('home.bulk_wa') }}</h3>
-                    <p style="opacity:.95;font-size:14.5px;margin-bottom:18px">{{ __('home.bulk_desc') }}</p>
-                    <x-wa-button :class="'btn btn-white'" :label="__('home.bulk_wa')" />
+            @once
+                @push('head')
+                    <style>
+                        .inq-label{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--ink)}
+                        .inq-input{width:100%;min-height:46px;border:1.5px solid var(--line);border-radius:var(--r-sm);background:var(--surface-soft);padding:10px 14px;font-family:inherit;font-size:14.5px;color:var(--ink);outline:none}
+                        .inq-input:focus{border-color:var(--purple)}
+                        textarea.inq-input{min-height:110px;resize:vertical;line-height:1.6}
+                        .inq-err{color:var(--pink);font-size:12.5px;font-weight:700}
+                        .inq-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+                        .inq-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;align-items:start}
+                        @media (max-width:760px){.inq-grid,.inq-row{grid-template-columns:1fr}}
+                    </style>
+                @endpush
+            @endonce
+            <div class="inq-grid">
+                {{-- نموذج الاستفسار (يُحفظ في قاعدة البيانات ويظهر للأدمن/الدعم) --}}
+                <div id="inquiry" style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-s)">
+                    @if (session('inquiry_success'))
+                        <div role="status" style="background:color-mix(in srgb,var(--good) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 40%,transparent);border-radius:var(--r-md);padding:14px 16px;margin-bottom:16px;font-weight:800">✅ {{ __('home.inquiry_success') }}</div>
+                    @endif
+                    <form method="post" action="{{ route('inquiry.store') }}" style="display:grid;gap:13px">
+                        @csrf
+                        {{-- مصيدة سبام مخفية --}}
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+                        <div class="inq-row">
+                            <label class="inq-label">{{ __('home.inq_type') }}
+                                <select name="type" class="inq-input">
+                                    <option value="contact" @selected(old('type') === 'contact')>{{ __('home.inq_type_contact') }}</option>
+                                    <option value="wholesale_b2b" @selected(old('type') === 'wholesale_b2b')>{{ __('home.inq_type_bulk') }}</option>
+                                    <option value="product_question" @selected(old('type') === 'product_question')>{{ __('home.inq_type_product') }}</option>
+                                    <option value="complaint" @selected(old('type') === 'complaint')>{{ __('home.inq_type_complaint') }}</option>
+                                </select>
+                            </label>
+                            <label class="inq-label">{{ __('home.inq_name') }}
+                                <input type="text" name="name" value="{{ old('name') }}" maxlength="150" required class="inq-input">
+                            </label>
+                        </div>
+                        <div class="inq-row">
+                            <label class="inq-label">{{ __('home.inq_phone') }}
+                                <input type="tel" name="phone" value="{{ old('phone') }}" maxlength="20" required class="inq-input" dir="ltr">
+                            </label>
+                            <label class="inq-label">{{ __('home.inq_email') }}
+                                <input type="email" name="email" value="{{ old('email') }}" maxlength="191" class="inq-input" dir="ltr">
+                            </label>
+                        </div>
+                        <label class="inq-label">{{ __('home.inq_message') }}
+                            <textarea name="message" maxlength="2000" required class="inq-input">{{ old('message') }}</textarea>
+                        </label>
+                        @if ($errors->any())
+                            <div class="inq-err">{{ $errors->first() }}</div>
+                        @endif
+                        <button type="submit" class="btn btn-primary">{{ __('home.inq_submit') }}</button>
+                    </form>
                 </div>
-                {{-- بطاقة الموقع --}}
-                @if (filled($storeSettings['contact_address'] ?? '') || filled($storeSettings['store_maps_url'] ?? ''))
-                    <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px;text-align:center;box-shadow:var(--shadow-s)">
-                        <div style="font-size:44px;line-height:1" aria-hidden="true">📍</div>
-                        <h3 style="font-weight:900;font-size:20px;margin:12px 0 6px">{{ __('home.bulk_visit_title') }}</h3>
-                        <p style="color:var(--ink-soft);font-size:14px;margin-bottom:6px">{{ __('home.bulk_visit_hint') }}</p>
-                        @if (filled($storeSettings['contact_address'] ?? ''))
-                            <p style="font-weight:800;color:var(--purple);margin-bottom:16px">🗺️ {{ $storeSettings['contact_address'] }}</p>
-                        @endif
-                        @if (filled($storeSettings['store_maps_url'] ?? ''))
-                            <a class="btn btn-ghost" href="{{ $storeSettings['store_maps_url'] }}" target="_blank" rel="noopener">{{ __('home.bulk_map_cta') }}</a>
-                        @endif
+                {{-- واتساب سريع + الموقع --}}
+                <div style="display:grid;gap:14px">
+                    <div style="background:linear-gradient(150deg,var(--purple),var(--pink));color:#fff;border-radius:var(--r-lg);padding:22px;text-align:center;box-shadow:var(--shadow)">
+                        <div style="font-size:36px;line-height:1" aria-hidden="true">💬</div>
+                        <p style="opacity:.95;font-size:14px;margin:8px 0 14px">{{ __('home.bulk_desc') }}</p>
+                        <x-wa-button :class="'btn btn-white btn-block'" :label="__('home.bulk_wa')" />
                     </div>
-                @endif
+                    @if (filled($storeSettings['contact_address'] ?? '') || filled($storeSettings['store_maps_url'] ?? ''))
+                        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;text-align:center;box-shadow:var(--shadow-s)">
+                            <div style="font-size:36px;line-height:1" aria-hidden="true">📍</div>
+                            <h3 style="font-weight:900;font-size:18px;margin:8px 0 4px">{{ __('home.bulk_visit_title') }}</h3>
+                            @if (filled($storeSettings['contact_address'] ?? ''))
+                                <p style="font-weight:800;color:var(--purple);font-size:14px;margin-bottom:14px">🗺️ {{ $storeSettings['contact_address'] }}</p>
+                            @endif
+                            @if (filled($storeSettings['store_maps_url'] ?? ''))
+                                <a class="btn btn-ghost btn-block" href="{{ $storeSettings['store_maps_url'] }}" target="_blank" rel="noopener">{{ __('home.bulk_map_cta') }}</a>
+                            @endif
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </section>

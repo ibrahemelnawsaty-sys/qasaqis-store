@@ -9,6 +9,7 @@ use App\Http\Controllers\Storefront\CategoryController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
+use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
@@ -47,6 +48,12 @@ Route::get('/search/suggest', [SearchController::class, 'suggest'])
 Route::get('/search/index.json', [SearchController::class, 'indexJson'])
     ->middleware('throttle:120,1')
     ->name('search.index');
+
+// نموذج الاستفسارات العام (استفسار/طلب جملة/سؤال/شكوى) — يُغذّي مورد الاستفسارات
+// في لوحة الأدمن. throttle لمنع السبام.
+Route::post('/inquiries', [InquiryController::class, 'store'])
+    ->middleware('throttle:8,1')
+    ->name('inquiry.store');
 
 // صفحة الكتاب
 Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.show');
