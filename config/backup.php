@@ -110,7 +110,9 @@ return [
         'notifiable' => \Spatie\Backup\Notifications\Notifiable::class,
 
         'mail' => [
-            'to' => env('BACKUP_NOTIFICATION_EMAIL'),
+            // يجب أن يكون بريدًا صحيحًا (spatie v9 يرفض null/فارغ عند الإقلاع).
+            // ?: يتعامل مع null (env غير مضبوط) و'' (env فارغ) بالرجوع لبريد المتجر.
+            'to' => env('BACKUP_NOTIFICATION_EMAIL') ?: env('MAIL_FROM_ADDRESS', 'hello@qasaqis.store'),
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@qasaqis.store'),
