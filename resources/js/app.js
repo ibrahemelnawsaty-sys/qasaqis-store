@@ -196,7 +196,8 @@ Alpine.data('searchBox', (initial = '') => ({
                 sub: b.p || b.a || '',
                 url: b.u,
                 kind: 'book',
-                hay: this.norm(`${b.t} ${b.a || ''} ${b.p || ''}`),
+                title: this.norm(b.t),                                  // مطابقة العنوان أولًا
+                hay: this.norm(`${b.t} ${b.a || ''} ${b.p || ''}`),     // العنوان + المؤلف + الناشر
             }));
             if (this.q.trim()) this.filter();   // لو كتب المستخدم قبل اكتمال التحميل
         } catch (e) {}
@@ -214,13 +215,14 @@ Alpine.data('searchBox', (initial = '') => ({
             this.loadIndex();
             return;
         }
-        const out = [];
+        // العنوان أولًا (الأكثر صلة)، ثم مطابقات المؤلف/الناشر بعدها.
+        const titleHits = [];
+        const otherHits = [];
         for (const it of this.all) {
-            if (it.hay.includes(term)) {
-                out.push(it);
-                if (out.length >= 10) break;
-            }
+            if (it.title.includes(term)) titleHits.push(it);
+            else if (it.hay.includes(term)) otherHits.push(it);
         }
+        const out = titleHits.concat(otherHits).slice(0, 12);
         this.items = out;
         this.active = -1;
         this.open = out.length > 0;

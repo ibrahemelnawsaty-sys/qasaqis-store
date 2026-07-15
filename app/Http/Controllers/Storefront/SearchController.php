@@ -76,13 +76,21 @@ class SearchController extends Controller
             ->orderByDesc('id')
             ->get(['id', 'title', 'slug', 'author', 'publisher_id']);
 
+        // دار النشر الافتراضية (اسم المتجر) لا تُدرَج في بيانات البحث حتى لا تُطابق
+        // كل الكتب المرتبطة بها عند كتابة أي حرف من اسمها.
+        $defaultPublishers = ['قصص أطفال', 'قصاقيص أطفال'];
+
         return response()->json([
-            'books' => $books->map(fn (Book $b) => [
-                't' => $b->title,
-                'a' => $b->author,
-                'p' => $b->publisher?->name,
-                'u' => route('books.show', $b),
-            ])->values(),
+            'books' => $books->map(function (Book $b) use ($defaultPublishers) {
+                $pub = $b->publisher?->name;
+
+                return [
+                    't' => $b->title,
+                    'a' => $b->author,
+                    'p' => in_array($pub, $defaultPublishers, true) ? null : $pub,
+                    'u' => route('books.show', $b),
+                ];
+            })->values(),
         ])->header('Cache-Control', 'public, max-age=300');
     }
 }
