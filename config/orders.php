@@ -12,4 +12,11 @@ return [
     // قصير العمر لتقليل خطر تسريب رابط يكشف تفاصيل الطلب (M3).
     'track_link_ttl_minutes' => (int) env('ORDER_TRACK_LINK_TTL', 60),
 
+    // مهلة روابط بريد التأكيد/الإشعارات (بالدقائق) — أطول لأنها تُفتح بعد ساعات
+    // أو أيام. افتراضي 14 يومًا (M4).
+    'email_link_ttl_minutes' => (int) env('ORDER_EMAIL_LINK_TTL', 20160),
+
+    // بريد احتياطي لتنبيهات الأدمن حين لا يوجد مستخدم نشط بصلاحية orders.view (M4).
+    'admin_fallback_email' => env('MAIL_ADMIN_ADDRESS'),
+
 ];

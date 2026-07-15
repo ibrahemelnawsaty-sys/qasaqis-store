@@ -7,6 +7,7 @@ namespace App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource;
 use App\Models\Payment;
 use App\Models\PaymentProof;
+use App\Services\Notifications\OrderNotifier;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -67,7 +68,8 @@ class ViewOrder extends ViewRecord
                     ->required()
                     ->live(),
                 Textarea::make('review_note')
-                    ->label('سبب الرفض / ملاحظة')
+                    ->label('سبب الرفض')
+                    ->helperText('عند الرفض يُرسَل هذا النص للعميل عبر البريد — اكتب سببًا مناسبًا له.')
                     ->maxLength(300)
                     ->required(fn (callable $get): bool => $get('decision') === 'reject'),
             ])
@@ -119,6 +121,13 @@ class ViewOrder extends ViewRecord
                         'status' => 'pending',
                     ])->save();
                 });
+
+                // إشعار العميل بالنتيجة — بعد الـ commit (M4). ShouldQueue.
+                if ($approved) {
+                    app(OrderNotifier::class)->paymentApproved($order);
+                } else {
+                    app(OrderNotifier::class)->paymentRejected($order, $data['review_note'] ?? null);
+                }
 
                 // Audit trail for a sensitive operation (constitution 4.7 / docs 6.2).
                 Log::info('payment_proof.reviewed', [
@@ -209,10 +218,19 @@ class ViewOrder extends ViewRecord
             ->action(function (array $data): void {
                 abort_unless(auth()->user()?->can('orders.ship') === true, 403);
 
+                $previousTracking = $this->record->tracking_number;
+
                 $this->record->forceFill([
                     'shipping_company' => $data['shipping_company'] ?? null,
                     'tracking_number' => $data['tracking_number'] ?? null,
                 ])->save();
+
+                // إشعار العميل بالشحن عند تعيين/تغيير رقم تتبّع فعلي فقط (M4) —
+                // كي لا يتكرّر الإشعار عند أي حفظ لبيانات الشحن.
+                if (filled($this->record->tracking_number)
+                    && $this->record->tracking_number !== $previousTracking) {
+                    app(OrderNotifier::class)->orderShipped($this->record);
+                }
 
                 Log::info('orders.shipping_updated', [
                     'order_id' => $this->record->id,

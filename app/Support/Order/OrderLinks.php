@@ -36,4 +36,17 @@ class OrderLinks
 
         return URL::temporarySignedRoute($route, $expiresAt, ['order' => $order->id]);
     }
+
+    /**
+     * رابط موقّت مباشر لصفحة الدفع/رفع الإثبات بصرف النظر عن حالة الطلب. يُستخدم
+     * لإشعار رفض الإثبات (M4): بعد الرفض تصبح payment_status='failed' فلا توجّهه
+     * signedDestinationFor لصفحة الدفع؛ لكن OrderController::payment وقالبها
+     * يعرضان نموذج الرفع بلا حارس حالة، فيعمل الرابط ويتيح إعادة الرفع.
+     */
+    public static function signedPaymentFor(Order $order, ?int $ttlMinutes = null): string
+    {
+        $minutes = $ttlMinutes ?? (int) config('orders.track_link_ttl_minutes', 60);
+
+        return URL::temporarySignedRoute('orders.payment', now()->addMinutes($minutes), ['order' => $order->id]);
+    }
 }

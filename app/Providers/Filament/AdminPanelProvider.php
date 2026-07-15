@@ -91,6 +91,9 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-chat-bubble-left-right'),
             ])
             ->sidebarCollapsibleOnDesktop()
+            // جرس إشعارات الأدمن من قاعدة البيانات (طلب جديد/إثبات دفع) — M4.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

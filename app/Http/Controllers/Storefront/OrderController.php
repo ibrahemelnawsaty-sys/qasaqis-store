@@ -10,6 +10,7 @@ use App\Http\Requests\PaymentProofRequest;
 use App\Http\Requests\TrackOrderRequest;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Services\Notifications\OrderNotifier;
 use App\Support\Order\OrderLinks;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -46,7 +47,7 @@ class OrderController extends Controller
     /**
      * Store an uploaded transfer proof and put the order under review.
      */
-    public function proofStore(PaymentProofRequest $request, Order $order): RedirectResponse
+    public function proofStore(PaymentProofRequest $request, Order $order, OrderNotifier $notifier): RedirectResponse
     {
         $file = $request->file('proof');
 
@@ -72,6 +73,9 @@ class OrderController extends Controller
         if ($order->payment_status !== 'pending_review') {
             $order->update(['payment_status' => 'pending_review']);
         }
+
+        // تنبيه الأدمن أن إثباتًا ينتظر المراجعة (M4).
+        $notifier->paymentProofSubmitted($order);
 
         return redirect()
             ->to(URL::signedRoute('orders.thankyou', ['order' => $order->id]))

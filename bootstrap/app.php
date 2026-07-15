@@ -55,6 +55,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('orders:cancel-expired')
             ->hourly()
             ->withoutOverlapping(10);
+
+        // تقليم مهام الطابور الفاشلة الأقدم من أسبوع (تحوي PII الطلبات) — M4.
+        $schedule->command('queue:prune-failed --hours=168')
+            ->weekly();
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // تسليم الاستثناءات إلى Sentry (النمط الرسمي لـ Laravel 11).

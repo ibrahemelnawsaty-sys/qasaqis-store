@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\Cart\CartService;
 use App\Services\Coupon\CouponService;
+use App\Services\Notifications\OrderNotifier;
 use App\Services\Payment\PaymentGatewayFactory;
 use App\Services\Payment\PaymentMethodResolver;
 use App\Support\Cart\Cart;
@@ -46,6 +47,7 @@ class PlaceOrderAction
         private readonly CouponService $couponService,
         private readonly PaymentMethodResolver $methodResolver,
         private readonly PaymentGatewayFactory $gatewayFactory,
+        private readonly OrderNotifier $notifier,
     ) {
     }
 
@@ -122,6 +124,10 @@ class PlaceOrderAction
 
             return [$order, $onlinePaymentId];
         });
+
+        // إشعار تأكيد الطلب (للعميل) + تنبيه الأدمن — بعد الـ commit لكل المسارات
+        // كي لا يُرسَل بريد عن طلب مُرجَع (M4). ShouldQueue فلا يحجب الاستجابة.
+        $this->notifier->orderPlaced($order);
 
         // Online gateway is initiated AFTER commit (keeps external I/O out of the
         // transaction). Manual/COD need no gateway call.
