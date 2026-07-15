@@ -33,7 +33,7 @@
     <a href="{{ $href }}" class="{{ $coverClass }}" style="{{ $style }}">
         {{ $slot }}
         @if ($src)
-            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440">
+            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif
@@ -42,7 +42,7 @@
     <div class="{{ $coverClass }}" style="{{ $style }}">
         {{ $slot }}
         @if ($src)
-            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440">
+            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif
