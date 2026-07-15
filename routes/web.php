@@ -36,6 +36,11 @@ Route::get('/search/suggest', [SearchController::class, 'suggest'])
     ->middleware('throttle:60,1')
     ->name('search.suggest');
 
+// فهرس البحث الكامل (كل الكتب) — يُحمَّل مرة واحدة ليُفلتره المتصفح لحظيًا.
+Route::get('/search/index.json', [SearchController::class, 'indexJson'])
+    ->middleware('throttle:120,1')
+    ->name('search.index');
+
 // صفحة الكتاب
 Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.show');
 

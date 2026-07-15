@@ -61,4 +61,28 @@ class SearchController extends Controller
             $service->suggest((string) $request->input('q', ''))
         );
     }
+
+    /**
+     * فهرس بحث خفيف: كل الكتب المنشورة مرة واحدة، ليُفلترها المتصفح لحظيًا
+     * (بحث فوري بلا طلب لكل ضغطة — مناسب للشبكة الضعيفة، وكتالوج صغير 23 كتابًا).
+     * يُخزَّن في المتصفح 5 دقائق عبر Cache-Control.
+     */
+    public function indexJson(): JsonResponse
+    {
+        $books = Book::query()
+            ->where('is_published', true)
+            ->with(['publisher:id,name'])
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get(['id', 'title', 'slug', 'author', 'publisher_id']);
+
+        return response()->json([
+            'books' => $books->map(fn (Book $b) => [
+                't' => $b->title,
+                'a' => $b->author,
+                'p' => $b->publisher?->name,
+                'u' => route('books.show', $b),
+            ])->values(),
+        ])->header('Cache-Control', 'public, max-age=300');
+    }
 }

@@ -48,7 +48,7 @@
 
             {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine) — يُخفى على الموبايل --}}
             <div class="searchbar-wrap" x-data="searchBox(@js((string) request('q')))"
-                data-suggest-url="{{ route('search.suggest') }}" @click.outside="close()">
+                data-index-url="{{ route('search.index') }}" @click.outside="close()">
                 <form class="searchbar" action="{{ route('search') }}" method="get" role="search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
                         stroke-linecap="round" aria-hidden="true">
@@ -58,7 +58,7 @@
                     <input type="search" name="q" x-model="q" autocomplete="off"
                         role="combobox" aria-controls="search-suggest" aria-autocomplete="list"
                         :aria-expanded="open.toString()"
-                        @input.debounce.250ms="fetchSuggest()"
+                        @input="filter()"
                         @focus="reopen()"
                         @keydown.arrow-down.prevent="move(1)"
                         @keydown.arrow-up.prevent="move(-1)"

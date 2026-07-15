@@ -158,45 +158,72 @@ Alpine.data('searchBox', (initial = '') => ({
     q: initial,
     open: false,
     active: -1,
-    items: [], // مسطّحة: { label, url, kind }
-    endpoint: '',
+    items: [],          // نتائج مفلترة: { label, sub, url, kind }
+    all: null,          // كل الكتب (تُحمَّل مرة واحدة) مع haystack مطبّع
+    indexUrl: '',
     init() {
-        this.endpoint = this.$root.dataset.suggestUrl || '';
+        this.indexUrl = this.$root.dataset.indexUrl || '';
+        this.loadIndex();                       // تحميل مسبق فور فتح الصفحة
     },
     icon(kind) {
-        if (kind === 'book') return '📖';
         if (kind === 'publisher') return '🏷️';
-        return '📚';
+        if (kind === 'category') return '📚';
+        return '📖';
     },
-    async fetchSuggest() {
-        const term = this.q.trim();
-        if (term.length < 2 || !this.endpoint) {
+    // تطبيع عربي مطابق للخادم: إزالة التشكيل/التطويل + توحيد الألف/الهمزة/التاء/الياء.
+    norm(s) {
+        return (s || '')
+            .toString()
+            .toLowerCase()
+            .replace(/[ً-ٰٟـ]/g, '')
+            .replace(/[أإآ]/g, 'ا')
+            .replace(/ى/g, 'ي')
+            .replace(/ة/g, 'ه')
+            .replace(/ؤ/g, 'و')
+            .replace(/ئ/g, 'ي')
+            .replace(/ء/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+    async loadIndex() {
+        if (this.all || !this.indexUrl) return;
+        try {
+            const res = await fetch(this.indexUrl, { headers: { Accept: 'application/json' } });
+            if (!res.ok) return;
+            const data = await res.json();
+            this.all = (data.books || []).map((b) => ({
+                label: b.t,
+                sub: b.p || b.a || '',
+                url: b.u,
+                kind: 'book',
+                hay: this.norm(`${b.t} ${b.a || ''} ${b.p || ''}`),
+            }));
+            if (this.q.trim()) this.filter();   // لو كتب المستخدم قبل اكتمال التحميل
+        } catch (e) {}
+    },
+    // فلترة فورية في المتصفح — تعمل من حرف واحد وتضيق كلما زاد النص، بلا أي طلب.
+    filter() {
+        const term = this.norm(this.q).replace(/^ال/, '');
+        if (!term) {
             this.items = [];
             this.open = false;
+            this.active = -1;
             return;
         }
-        try {
-            const res = await fetch(
-                `${this.endpoint}?q=${encodeURIComponent(term)}`,
-                { headers: { Accept: 'application/json' } }
-            );
-            if (!res.ok) {
-                this.items = [];
-                this.open = false;
-                return;
-            }
-            const data = await res.json();
-            const flat = [];
-            (data.books || []).forEach((x) => flat.push({ ...x, kind: 'book' }));
-            (data.publishers || []).forEach((x) => flat.push({ ...x, kind: 'publisher' }));
-            (data.categories || []).forEach((x) => flat.push({ ...x, kind: 'category' }));
-            this.items = flat;
-            this.active = -1;
-            this.open = flat.length > 0;
-        } catch (e) {
-            this.items = [];
-            this.open = false;
+        if (!this.all) {
+            this.loadIndex();
+            return;
         }
+        const out = [];
+        for (const it of this.all) {
+            if (it.hay.includes(term)) {
+                out.push(it);
+                if (out.length >= 10) break;
+            }
+        }
+        this.items = out;
+        this.active = -1;
+        this.open = out.length > 0;
     },
     move(dir) {
         if (!this.open || !this.items.length) return;
