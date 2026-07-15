@@ -48,10 +48,10 @@ class CheckoutRequest extends FormRequest
         $availableCodes = app(PaymentMethodResolver::class)->availableCodes();
 
         // مصر (الوطن) مسموحة دائمًا حتى قبل بذر جدول الدول؛ يُضاف إليها كل دولة
-        // مفعّلة. تسعير مصر يبقى مرجعه config/egypt لا صف الدولة.
+        // قابلة للشحن (مفعّلة ومنطقتها مفعّلة). تسعير مصر مرجعه config/egypt.
         $allowedCountries = array_values(array_unique(array_merge(
             ['EG'],
-            Country::query()->where('is_active', true)->pluck('iso_code')->all(),
+            Country::query()->shippable()->pluck('iso_code')->all(),
         )));
 
         $isEgypt = $this->input('country_code') === 'EG';

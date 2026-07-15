@@ -295,8 +295,10 @@ class PlaceOrderAction
             ->where('iso_code', $data->countryCode)
             ->first()?->shippingZone;
 
-        if ($zone === null) {
-            return [Money::ZERO, null];
+        // فحص دفاعي: منطقة غير موجودة أو معطّلة → لا شحن مُحدَّد، نرفض الطلب بدل
+        // قبوله بصفر جنيه (يكمّل حارس is_active في التحقّق).
+        if ($zone === null || $zone->is_active !== true) {
+            throw new CheckoutException('payment.errors.shipping_unavailable');
         }
 
         return [Money::normalize((string) $zone->flat_cost), $zone->code];

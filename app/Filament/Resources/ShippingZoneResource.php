@@ -111,7 +111,10 @@ class ShippingZoneResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // حذف المنطقة يُخفى إن كانت مرتبطة بدول (FK restrictOnDelete) كي لا
+                // يصطدم الأدمن بخطأ قاعدة بيانات غير مفهوم.
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn (ShippingZone $record): bool => $record->countries()->exists()),
             ]);
     }
 

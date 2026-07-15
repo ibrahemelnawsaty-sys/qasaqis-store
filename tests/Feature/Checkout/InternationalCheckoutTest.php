@@ -15,11 +15,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * الشحن الدولي (M5): الطلب المصري يبقى كما هو (محافظة + هاتف مصري + تسعير
- * config/egypt)، والطلب الدولي يعمل (دولة + ولاية + هاتف E.164 + شحن المنطقة)،
- * مع تحقّق شرطي يفصل الحالتين.
+ * الشحن الدولي (M5): الطلب المصري يبقى كما هو، والطلب الدولي يعمل بعد أن يفعّل
+ * الأدمن الدولة (تُبذَر معطّلة). تحقّق شرطي يفصل الحالتين وينفّذ حالة المنطقة.
  *
- * NOTE: Order بلا HasFactory؛ الطلب يُنشأ عبر مسار checkout الحقيقي.
+ * NOTE: الطلب يُنشأ عبر مسار checkout الحقيقي. الدول غير المصرية تُبذَر معطّلة
+ * (لا شحن مجاني قبل التسعير) — تُفعَّل في الاختبار عبر enableSaudi().
  * HONESTY (1.3/1.5): لم تُشغَّل هنا (لا PHP)؛ تعمل عبر `php artisan test` (MySQL).
  */
 final class InternationalCheckoutTest extends TestCase
@@ -42,6 +42,13 @@ final class InternationalCheckoutTest extends TestCase
             'stock_quantity' => 50,
             'manage_stock' => true,
         ]);
+    }
+
+    /** يفعّل السعودية ومنطقتها بسعر شحن (المحاكاة لما يفعله الأدمن). */
+    private function enableSaudi(string $flatCost = '300.00'): void
+    {
+        ShippingZone::query()->where('code', 'GULF')->update(['flat_cost' => $flatCost, 'is_active' => true]);
+        Country::query()->where('iso_code', 'SA')->update(['is_active' => true]);
     }
 
     /**
@@ -76,7 +83,7 @@ final class InternationalCheckoutTest extends TestCase
 
     public function test_international_order_places_with_zone_shipping(): void
     {
-        ShippingZone::query()->where('code', 'GULF')->update(['flat_cost' => '300.00']);
+        $this->enableSaudi('300.00');
         $book = $this->book('200.00');
 
         $this->post(route('checkout.place'), $this->payload($book, [
@@ -97,6 +104,7 @@ final class InternationalCheckoutTest extends TestCase
 
     public function test_international_order_requires_state_and_e164_phone(): void
     {
+        $this->enableSaudi();
         $book = $this->book();
 
         $this->from(route('checkout.show'))->post(route('checkout.place'), $this->payload($book, [
@@ -121,15 +129,27 @@ final class InternationalCheckoutTest extends TestCase
         ]))->assertSessionHasErrors('phone');
     }
 
-    public function test_unknown_or_inactive_country_is_rejected(): void
+    public function test_unknown_or_disabled_country_is_rejected(): void
     {
         $book = $this->book();
 
+        // دولة غير موجودة.
         $this->from(route('checkout.show'))->post(route('checkout.place'), $this->payload($book, [
             'country_code' => 'ZZ', 'governorate' => null, 'state_province' => 'X', 'phone' => '+441234567890',
         ]))->assertSessionHasErrors('country_code');
 
-        Country::query()->where('iso_code', 'SA')->update(['is_active' => false]);
+        // السعودية مبذورة معطّلة افتراضيًا — تُرفض حتى يفعّلها الأدمن.
+        $this->from(route('checkout.show'))->post(route('checkout.place'), $this->payload($book, [
+            'country_code' => 'SA', 'governorate' => null, 'state_province' => 'الرياض', 'phone' => '+966512345678',
+        ]))->assertSessionHasErrors('country_code');
+    }
+
+    public function test_country_of_inactive_zone_is_rejected(): void
+    {
+        // الدولة مفعّلة لكن منطقتها معطّلة → غير قابلة للشحن.
+        Country::query()->where('iso_code', 'SA')->update(['is_active' => true]);
+        ShippingZone::query()->where('code', 'GULF')->update(['is_active' => false, 'flat_cost' => '300.00']);
+        $book = $this->book();
 
         $this->from(route('checkout.show'))->post(route('checkout.place'), $this->payload($book, [
             'country_code' => 'SA', 'governorate' => null, 'state_province' => 'الرياض', 'phone' => '+966512345678',
@@ -138,7 +158,7 @@ final class InternationalCheckoutTest extends TestCase
 
     public function test_free_shipping_coupon_zeroes_international_shipping(): void
     {
-        ShippingZone::query()->where('code', 'GULF')->update(['flat_cost' => '300.00']);
+        $this->enableSaudi('300.00');
         $book = $this->book('200.00');
         \Database\Factories\CouponFactory::new()->freeShipping()->create(['code' => 'FREESHIP']);
 

@@ -46,7 +46,7 @@ class CheckoutController extends Controller
             'onlineEnabled' => $resolver->isOnlineEnabled(),
             'onlineDisabledMessageKey' => $resolver->onlineDisabledMessageKey(),
             'governorates' => config('egypt.governorates'),
-            'countries' => Country::active()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
+            'countries' => Country::shippable()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
         ]);
     }
 

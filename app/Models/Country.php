@@ -39,4 +39,14 @@ class Country extends Model
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * دول قابلة للشحن فعلًا: مفعّلة ومنطقة شحنها مفعّلة — كي لا تُقبل دولة
+     * منطقتها معطّلة (M5).
+     */
+    public function scopeShippable(Builder $query): Builder
+    {
+        return $query->where('is_active', true)
+            ->whereHas('shippingZone', fn (Builder $q): Builder => $q->where('is_active', true));
+    }
 }

@@ -63,7 +63,10 @@ class CountrySeeder extends Seeder
                     'dial_code' => $dial,
                     'shipping_zone_id' => $zoneId,
                     'sort_order' => $sort,
-                    'is_active' => true,
+                    // مصر فقط مفعّلة افتراضيًا. الدول الدولية تبقى معطّلة حتى يضبط
+                    // الأدمن تكلفة شحن منطقتها ويفعّلها يدويًا — كي لا يبدأ الشحن
+                    // الدولي بصفر جنيه (شحن مجاني غير مقصود).
+                    'is_active' => $iso === 'EG',
                 ]
             );
         }
