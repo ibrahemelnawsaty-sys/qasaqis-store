@@ -50,8 +50,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(2);
 
-        // [M2] نقطة إضافة جدولة أمر مهلة المخزون (orders:cancel-expired)
-        // تُضاف في معلَم استرجاع المخزون — لا تُضف الأمر هنا قبل إنشائه.
+        // إلغاء الطلبات المهجورة (أونلاين غير مدفوع أو تحويل يدوي بلا إثبات)
+        // بعد المهلة وتحرير مخزونها (M2).
+        $schedule->command('orders:cancel-expired')
+            ->hourly()
+            ->withoutOverlapping(10);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // تسليم الاستثناءات إلى Sentry (النمط الرسمي لـ Laravel 11).

@@ -6,9 +6,11 @@ namespace App\Providers;
 
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
 use App\Observers\BookObserver;
+use App\Observers\OrderObserver;
 use App\Services\Cms\PopupService;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\View\View as ViewContract;
@@ -41,6 +43,9 @@ class AppServiceProvider extends ServiceProvider
         // Index admin-created/edited books for the Arabic search engine (0.9):
         // rebuilds title_normalized + search_index on every save.
         Book::observe(BookObserver::class);
+
+        // يعيد مخزون الطلب عند الانتقال إلى حالة نهائية غير منفّذة (M2).
+        Order::observe(OrderObserver::class);
 
         // Shared data for every storefront view (layout, partials, and the page
         // content section alike). Computed once per request. Wrapped in rescue()

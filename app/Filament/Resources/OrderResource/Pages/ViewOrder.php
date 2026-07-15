@@ -155,7 +155,28 @@ class ViewOrder extends ViewRecord
             ->action(function (array $data): void {
                 abort_unless(auth()->user()?->can('orders.update_status') === true, 403);
 
-                $this->record->forceFill(['status' => $data['status']])->save();
+                // الحالات النهائية المُسترجَعة نهائية: لا يُعاد تفعيلها (M2). إعادة
+                // التفعيل لا تُعيد خصم المخزون، فتُعرض نسخ متاحة أكثر من الحقيقة
+                // (بيع زائد). لإعادة البيع يُنشأ طلب جديد.
+                $current = $this->record->status;
+
+                if (in_array($current, ['cancelled', 'refused', 'refunded'], true)
+                    && $data['status'] !== $current) {
+                    Notification::make()
+                        ->title('لا يمكن تغيير حالة طلب نهائي (ملغى/مرفوض/مسترجَع)')
+                        ->body('أنشئ طلبًا جديدًا بدل إعادة تفعيل طلب انتهى.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                // معاملة تجعل تغيير الحالة + استرجاع المخزون (عبر OrderObserver
+                // عند الإلغاء/الرفض/الاسترداد) ذرّيين: فشل الاسترجاع (deadlock)
+                // يُرجع الحالة أيضًا. إعادة المحاولة 3 مرات على تعارض القفل.
+                DB::transaction(function () use ($data): void {
+                    $this->record->forceFill(['status' => $data['status']])->save();
+                }, 3);
 
                 Log::info('orders.status_updated', [
                     'order_id' => $this->record->id,

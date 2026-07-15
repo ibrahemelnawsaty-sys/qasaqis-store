@@ -54,6 +54,9 @@ class Order extends Model
             'shipping_total' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'whatsapp_confirmed_at' => 'datetime',
+            // ختم استرجاع المخزون (M2). ليس في $fillable عمدًا — يُضبط خادميًا
+            // عبر forceFill فقط، فلا يُقبل من مدخلات المستخدم.
+            'stock_restored_at' => 'datetime',
         ];
     }
 

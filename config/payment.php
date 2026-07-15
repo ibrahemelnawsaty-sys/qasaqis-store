@@ -19,6 +19,10 @@ return [
     // البوابة الافتراضية (paymob | kashier).
     'default' => env('PAYMENT_GATEWAY', 'paymob'),
 
+    // مهلة إلغاء الطلبات المهجورة بالساعات (أونلاين غير مدفوع، أو تحويل يدوي
+    // بلا إثبات مرفوع) — بعدها يلغيها orders:cancel-expired ويحرّر مخزونها (M2).
+    'pending_expiry_hours' => (int) env('PENDING_ORDER_EXPIRY_HOURS', 48),
+
     'gateways' => [
 
         'paymob' => [
