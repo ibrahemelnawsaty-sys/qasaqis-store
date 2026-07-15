@@ -9,6 +9,7 @@ use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\OrderController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\SearchController;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', HomeController::class)->name('home');
+
+// SEO تقني: خريطة موقع ديناميكية (مخزّنة مؤقتًا ساعة) + روبوتس احتياطي.
+// في الإنتاج يخدم public/robots.txt الساكن أولًا؛ يبقى المسار عاملًا حين يغيب.
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 // التصفح الكامل + الفلاتر (?cat[]=&pub[]=&age[]=&min=&max=&sale=1&sort=)
 Route::get('/books', [BookController::class, 'index'])->name('books.index');

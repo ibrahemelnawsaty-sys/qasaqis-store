@@ -44,6 +44,7 @@ class Book extends Model
         'cover_image',
         'is_published',
         'is_featured',
+        'is_bestseller',
         'published_at',
         'sort_order',
         'views_count',
@@ -68,6 +69,7 @@ class Book extends Model
             'manage_stock' => 'boolean',
             'is_published' => 'boolean',
             'is_featured' => 'boolean',
+            'is_bestseller' => 'boolean',
             'published_at' => 'datetime',
         ];
     }

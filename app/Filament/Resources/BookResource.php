@@ -227,6 +227,9 @@ class BookResource extends Resource
                     Forms\Components\Toggle::make('is_featured')
                         ->label('مميّز'),
 
+                    Forms\Components\Toggle::make('is_bestseller')
+                        ->label('الأكثر مبيعًا'),
+
                     Forms\Components\DateTimePicker::make('published_at')
                         ->label('تاريخ النشر'),
 
@@ -355,6 +358,11 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(),
 
+                Tables\Columns\IconColumn::make('is_bestseller')
+                    ->label('الأكثر مبيعًا')
+                    ->boolean()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('sort_order')
                     ->label('الترتيب')
                     ->sortable()
@@ -392,6 +400,9 @@ class BookResource extends Resource
 
                 Tables\Filters\TernaryFilter::make('is_featured')
                     ->label('مميّز'),
+
+                Tables\Filters\TernaryFilter::make('is_bestseller')
+                    ->label('الأكثر مبيعًا'),
 
                 Tables\Filters\TrashedFilter::make(),
             ])

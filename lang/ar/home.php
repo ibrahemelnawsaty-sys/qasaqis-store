@@ -38,6 +38,11 @@ return [
     'featured_desc' => 'نخبة من أجمل كتبنا — كل واحدة بتحكي حكاية وبتزرع قيمة',
     'view_all' => 'شوفي كل الكتب ←',
 
+    // Bestsellers (الأكثر مبيعًا)
+    'bestsellers_eyebrow' => '🔥 الأكثر طلبًا',
+    'bestsellers_title' => 'الأكثر مبيعًا',
+    'bestsellers_desc' => 'الكتب اللي الأمهات طلبوها أكتر من غيرها — اختيارات مضمونة',
+
     // Latest
     'latest_eyebrow' => '🆕 وصل حديثًا',
     'latest_title' => 'أحدث ما أضفناه',

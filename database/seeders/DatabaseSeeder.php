@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
      *  categories & publishers  ->  books (FK category_id/publisher_id)
      *  roles/permissions        ->  users (super_admin role assignment)
      *  payment methods          ->  standalone (no FK; checkout reads them by code)
+     *  pages                    ->  menus (footer/header items link to pages)
      */
     public function run(): void
     {
@@ -26,6 +27,11 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             SettingSeeder::class,
             PaymentMethodSeeder::class,
+            // CMS content baseline. PageSeeder must precede MenuSeeder because
+            // menu items reference the seeded pages by polymorphic linkable.
+            PageSeeder::class,
+            HomepageBlockSeeder::class,
+            MenuSeeder::class,
         ]);
     }
 }

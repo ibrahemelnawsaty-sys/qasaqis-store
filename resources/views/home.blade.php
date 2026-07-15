@@ -1,18 +1,25 @@
 @extends('layouts.app')
 
+@php
+    // نصوص الهيرو قابلة للتحرير من إعدادات المتجر (CMS، الدستور 0.8) مع رجوع
+    // آمن لنصوص الترجمة حين تكون قيمة الإعداد فارغة أو غير مُحمَّلة بعد.
+    $heroTitle = filled($storeSettings['hero_title'] ?? null) ? $storeSettings['hero_title'] : null;
+    $heroSub = filled($storeSettings['hero_subtitle'] ?? null) ? $storeSettings['hero_subtitle'] : __('home.hero_sub');
+@endphp
+
 {{-- SEO الرئيسية: وصف غنيّ + وسوم OpenGraph/Twitter تُدفع عبر stack meta (يوفّره التخطيط).
-     كل النصوص من ملفات الترجمة (الدستور 6.4) — لا نص مثبّت. --}}
-@section('meta_description', __('home.hero_sub'))
+     النصوص من الإعدادات (CMS) أو ملفات الترجمة (الدستور 6.4) — لا نص مثبّت. --}}
+@section('meta_description', $heroSub)
 
 @push('meta')
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="{{ __('common.brand') }}">
     <meta property="og:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
-    <meta property="og:description" content="{{ __('home.hero_sub') }}">
+    <meta property="og:description" content="{{ $heroSub }}">
     <meta property="og:locale" content="{{ str_replace('_', '-', app()->getLocale()) }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
-    <meta name="twitter:description" content="{{ __('home.hero_sub') }}">
+    <meta name="twitter:description" content="{{ $heroSub }}">
 @endpush
 
 @section('content')
@@ -38,13 +45,17 @@
                 <div>
                     <span class="badge-happy">{{ __('home.hero_badge') }}</span>
                     <h1 class="hero-title">
-                        {{ __('home.hero_title_before') }}
-                        <span class="w">{{ __('home.hero_title_word') }}</span>
-                        {{ __('home.hero_title_after') }}
-                        <span class="u">{{ __('home.hero_title_underline') }}</span>
-                        {{ __('home.hero_title_emoji') }}
+                        @if (filled($heroTitle))
+                            {{ $heroTitle }}
+                        @else
+                            {{ __('home.hero_title_before') }}
+                            <span class="w">{{ __('home.hero_title_word') }}</span>
+                            {{ __('home.hero_title_after') }}
+                            <span class="u">{{ __('home.hero_title_underline') }}</span>
+                            {{ __('home.hero_title_emoji') }}
+                        @endif
                     </h1>
-                    <p class="hero-sub">{{ __('home.hero_sub') }}</p>
+                    <p class="hero-sub">{{ $heroSub }}</p>
                     <div class="hero-cta">
                         <a class="btn btn-primary" href="{{ route('books.index') }}">{{ __('home.cta_browse') }}</a>
                         <x-wa-button :class="'btn btn-wa'" :label="__('home.cta_whatsapp')" />
@@ -158,6 +169,28 @@
                 </div>
                 <div class="shelf">
                     @foreach ($featured as $book)
+                        <x-book-card :book="$book" />
+                    @endforeach
+                </div>
+                <div style="text-align:center;margin-top:32px">
+                    <a class="btn btn-ghost" href="{{ route('books.index') }}">{{ __('home.view_all') }}</a>
+                </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- BESTSELLERS «الأكثر مبيعًا» — يظهر فقط عند وجود كتب (المتحكّم يوفّر رجوعًا
+         للأكثر مشاهدة/الأحدث فلا يكون القسم فارغًا). شبكة بطاقات مثل المميّزة. --}}
+    @if ($bestsellers->isNotEmpty())
+        <section class="sec" style="padding-top:6px" aria-labelledby="best-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.bestsellers_eyebrow') }}</span>
+                    <h2 class="sec-title" id="best-title">{{ __('home.bestsellers_title') }}</h2>
+                    <p class="sec-desc">{{ __('home.bestsellers_desc') }}</p>
+                </div>
+                <div class="shelf">
+                    @foreach ($bestsellers as $book)
                         <x-book-card :book="$book" />
                     @endforeach
                 </div>

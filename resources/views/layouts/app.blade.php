@@ -32,6 +32,84 @@
     {{-- أيقونة المتصفح --}}
     <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 
+    {{-- ===== SEO تقني افتراضي — تُغلَب قيمه عند دفع الصفحة عبر الأقسام/الـ stacks ===== --}}
+    {{-- robots افتراضي: فهرسة وتتبّع؛ تغلبه الصفحة بـ @section('seo_robots', 'noindex, nofollow'). --}}
+    <meta name="robots" content="@yield('seo_robots', 'index, follow')">
+
+    {{-- الرابط الأساسي (canonical): الرابط الحالي افتراضيًا؛ تغلبه الصفحة بـ @section('seo_canonical', ...). --}}
+    <link rel="canonical" href="@yield('seo_canonical', url()->current())">
+
+    {{-- hreflang: الموقع عربي لكل الدول العربية → بديل ar و x-default لنفس الرابط. --}}
+    <link rel="alternate" hreflang="ar" href="{{ url()->current() }}">
+    <link rel="alternate" hreflang="x-default" href="{{ url()->current() }}">
+
+    {{-- لون واجهة المتصفح (بنفسجي العلامة — بند 0.1). --}}
+    <meta name="theme-color" content="{{ config('seo.theme_color', '#5B2A86') }}">
+
+    {{-- Open Graph افتراضي: العنوان/الوصف من قسمَي الصفحة (title/meta_description) تلقائيًا. --}}
+    <meta property="og:type" content="@yield('og_type', 'website')">
+    <meta property="og:site_name" content="{{ __('common.brand') }}">
+    <meta property="og:locale" content="{{ config('seo.og_locale', 'ar_AR') }}">
+    <meta property="og:url" content="@yield('og_url', url()->current())">
+    <meta property="og:title" content="@yield('title', __('common.brand') . ' — ' . __('common.tagline'))">
+    <meta property="og:description" content="@yield('meta_description', __('common.tagline'))">
+    <meta property="og:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
+
+    {{-- Twitter Card افتراضي. --}}
+    <meta name="twitter:card" content="{{ config('seo.twitter_card', 'summary_large_image') }}">
+    <meta name="twitter:title" content="@yield('title', __('common.brand') . ' — ' . __('common.tagline'))">
+    <meta name="twitter:description" content="@yield('meta_description', __('common.tagline'))">
+    <meta name="twitter:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
+
+    {{-- JSON-LD ثابت للموقع: Organization + WebSite (بحث داخلي). أعلام HEX تمنع كسر </script>. --}}
+    @php
+        $seoSiteUrl = rtrim((string) config('seo.site_url'), '/');
+        $seoName = __('common.brand');
+        $seoLogo = asset(config('seo.default_image', 'images/logo.png'));
+        // sameAs من روابط السوشيال غير الفارغة المشتركة في $storeSettings (بند 1.1: مفاتيح فعلية موجودة).
+        $seoSameAs = array_values(array_filter([
+            $storeSettings['social_facebook'] ?? '',
+            $storeSettings['social_instagram'] ?? '',
+            $storeSettings['social_tiktok'] ?? '',
+            $storeSettings['social_youtube'] ?? '',
+            $storeSettings['social_twitter'] ?? '',
+            $storeSettings['social_snapchat'] ?? '',
+            $storeSettings['social_telegram'] ?? '',
+        ], static fn ($u): bool => filled($u)));
+
+        $seoOrg = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => $seoName,
+            'url' => $seoSiteUrl,
+            'logo' => $seoLogo,
+        ];
+        if ($seoSameAs !== []) {
+            $seoOrg['sameAs'] = $seoSameAs;
+        }
+
+        $seoWebSite = [
+            '@context' => 'https://schema.org',
+            '@type' => 'WebSite',
+            'name' => $seoName,
+            'url' => $seoSiteUrl,
+            'inLanguage' => 'ar',
+            'potentialAction' => [
+                '@type' => 'SearchAction',
+                'target' => [
+                    '@type' => 'EntryPoint',
+                    'urlTemplate' => $seoSiteUrl . '/search?q={search_term_string}',
+                ],
+                'query-input' => 'required name=search_term_string',
+            ],
+        ];
+
+        $seoJsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+    @endphp
+    <script type="application/ld+json">{!! json_encode($seoOrg, $seoJsonFlags) !!}</script>
+    <script type="application/ld+json">{!! json_encode($seoWebSite, $seoJsonFlags) !!}</script>
+
     {{-- وسوم SEO لكل صفحة (canonical / Open Graph / JSON-LD) تدفعها الصفحات (بند 0.8). --}}
     @stack('meta')
 

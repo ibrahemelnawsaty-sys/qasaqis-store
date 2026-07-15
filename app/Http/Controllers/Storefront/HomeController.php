@@ -45,6 +45,31 @@ class HomeController extends Controller
             ->take(8)
             ->get();
 
+        // «الأكثر مبيعًا» — books the admin flagged via is_bestseller. If none are
+        // flagged yet, fall back to the most-viewed then newest published books so
+        // the homepage section is never empty for the user (constitution 1.6).
+        $bestsellers = Book::query()
+            ->published()
+            ->where('is_bestseller', true)
+            ->select($this->cardColumns)
+            ->with($cardWith)
+            ->orderByDesc('sort_order')
+            ->orderByDesc('views_count')
+            ->take(8)
+            ->get();
+
+        if ($bestsellers->isEmpty()) {
+            $bestsellers = Book::query()
+                ->published()
+                ->select($this->cardColumns)
+                ->with($cardWith)
+                ->orderByDesc('views_count')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id')
+                ->take(8)
+                ->get();
+        }
+
         $latest = Book::query()
             ->published()
             ->select($this->cardColumns)
@@ -68,6 +93,7 @@ class HomeController extends Controller
             'blocks' => $blocks,
             'categories' => $this->categoriesWithCounts(),
             'featured' => $featured,
+            'bestsellers' => $bestsellers,
             'latest' => $latest,
             'reviews' => $reviews,
         ]);

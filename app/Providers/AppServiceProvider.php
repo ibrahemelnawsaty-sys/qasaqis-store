@@ -88,9 +88,22 @@ class AppServiceProvider extends ServiceProvider
         // config:cache — never from env() at runtime, which returns null then.
         $defaults = [
             'whatsapp_number' => (string) config('services.store.whatsapp', ''),
-            'facebook_url' => '',
-            'instagram_url' => '',
-            'tiktok_url' => '',
+            // هوية ونصوص قابلة للتحرير من لوحة الإعدادات (تقرؤها الرئيسية/الفوتر).
+            'store_name' => '',
+            'tagline' => '',
+            'hero_title' => '',
+            'hero_subtitle' => '',
+            'contact_phone' => '',
+            'contact_email' => '',
+            'contact_address' => '',
+            // روابط السوشيال (المفاتيح الجديدة الموحّدة social_*).
+            'social_facebook' => '',
+            'social_instagram' => '',
+            'social_tiktok' => '',
+            'social_youtube' => '',
+            'social_twitter' => '',
+            'social_snapchat' => '',
+            'social_telegram' => '',
         ];
 
         $fromDb = rescue(

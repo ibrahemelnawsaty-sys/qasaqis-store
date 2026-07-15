@@ -22,6 +22,10 @@ return [
     'social_facebook' => 'فيسبوك',
     'social_instagram' => 'إنستجرام',
     'social_tiktok' => 'تيك توك',
+    'social_youtube' => 'يوتيوب',
+    'social_twitter' => 'إكس (تويتر)',
+    'social_snapchat' => 'سناب شات',
+    'social_telegram' => 'تيليجرام',
     'social_whatsapp' => 'واتساب',
 
     'rights' => '© :year قصاقيص أطفال — كل الحقوق محفوظة',

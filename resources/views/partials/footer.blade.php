@@ -1,7 +1,48 @@
 @php
-    $fb = $storeSettings['facebook_url'] ?? '';
-    $ig = $storeSettings['instagram_url'] ?? '';
-    $tt = $storeSettings['tiktok_url'] ?? '';
+    // روابط السوشيال: المصدر الرسمي هو مفاتيح social_* في جدول الإعدادات (CMS، يحرّرها
+    // الأدمن من «إعدادات المتجر»). نقرأها مباشرةً باستعلام واحد خفيف على عمود key الفريد،
+    // لأن المصفوفة المشتركة $storeSettings (المبنية في AppServiceProvider، خارج نطاق هذا
+    // الملف) لا تمرّر إلا مجموعة جزئية قديمة. rescue: تُعرض الصفحة حتى قبل الهجرة/البذر.
+    $socialRows = rescue(
+        fn () => \App\Models\Setting::query()
+            ->whereIn('key', [
+                'social_facebook', 'social_instagram', 'social_tiktok',
+                'social_youtube', 'social_twitter', 'social_snapchat', 'social_telegram',
+            ])
+            ->pluck('value', 'key')
+            ->toArray(),
+        [],
+        report: false,
+    );
+
+    // توافق خلفي: عند غياب مفتاح social_* نرجع لقيم *_url القديمة المشتركة عبر $storeSettings.
+    $socialLink = static function (string $key, string $legacy = '') use ($socialRows, $storeSettings): string {
+        $value = (string) ($socialRows[$key] ?? '');
+
+        if (blank($value) && $legacy !== '') {
+            $value = (string) ($storeSettings[$legacy] ?? '');
+        }
+
+        return $value;
+    };
+
+    // كل رابط سوشيال: [الرابط، أيقونة emoji خفيفة، مفتاح aria]. يُعرض فقط إن كان غير فارغ.
+    $socials = [];
+    foreach ([
+        ['social_facebook', 'facebook_url', '📘', 'social_facebook'],
+        ['social_instagram', 'instagram_url', '📸', 'social_instagram'],
+        ['social_tiktok', 'tiktok_url', '🎵', 'social_tiktok'],
+        ['social_youtube', '', '▶️', 'social_youtube'],
+        ['social_twitter', '', '🐦', 'social_twitter'],
+        ['social_snapchat', '', '👻', 'social_snapchat'],
+        ['social_telegram', '', '✈️', 'social_telegram'],
+    ] as [$key, $legacy, $icon, $ariaKey]) {
+        $href = $socialLink($key, $legacy);
+
+        if (filled($href)) {
+            $socials[] = ['href' => $href, 'icon' => $icon, 'aria' => $ariaKey];
+        }
+    }
 
     // قائمة الفوتر المُدارة من الـ CMS (Menu location=footer). eager load للعناصر
     // وأبنائها وربطها لتفادي N+1. عند غيابها تبقى الروابط الافتراضية كما هي.
@@ -51,15 +92,9 @@
                 </a>
                 <p class="ft-about">{{ __('footer.about') }}</p>
                 <div class="socials">
-                    @if (filled($fb))
-                        <a href="{{ $fb }}" target="_blank" rel="noopener" aria-label="{{ __('footer.social_facebook') }}">📘</a>
-                    @endif
-                    @if (filled($ig))
-                        <a href="{{ $ig }}" target="_blank" rel="noopener" aria-label="{{ __('footer.social_instagram') }}">📸</a>
-                    @endif
-                    @if (filled($tt))
-                        <a href="{{ $tt }}" target="_blank" rel="noopener" aria-label="{{ __('footer.social_tiktok') }}">🎵</a>
-                    @endif
+                    @foreach ($socials as $social)
+                        <a href="{{ $social['href'] }}" target="_blank" rel="noopener" aria-label="{{ __('footer.' . $social['aria']) }}">{{ $social['icon'] }}</a>
+                    @endforeach
                     <x-wa-button :class="'socials-wa'" :aria="__('footer.social_whatsapp')" :label="'💬'" />
                 </div>
             </div>

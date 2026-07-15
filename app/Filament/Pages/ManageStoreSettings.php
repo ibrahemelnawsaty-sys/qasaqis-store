@@ -57,11 +57,26 @@ class ManageStoreSettings extends Page implements HasForms
      * @var array<string, array{0: string, 1: string}>
      */
     private const MANAGED = [
-        'site_name' => ['general', 'string'],
-        'site_tagline' => ['general', 'string'],
+        // Store identity.
+        'store_name' => ['general', 'string'],
+        'tagline' => ['general', 'string'],
+        'hero_title' => ['general', 'string'],
+        'hero_subtitle' => ['general', 'text'],
         'currency' => ['general', 'string'],
+        // Contact.
         'whatsapp_number' => ['contact', 'string'],
+        'contact_phone' => ['contact', 'string'],
         'contact_email' => ['contact', 'string'],
+        'contact_address' => ['contact', 'string'],
+        // Social media (public profile URLs, non-secret).
+        'social_facebook' => ['social', 'string'],
+        'social_instagram' => ['social', 'string'],
+        'social_tiktok' => ['social', 'string'],
+        'social_youtube' => ['social', 'string'],
+        'social_twitter' => ['social', 'string'],
+        'social_snapchat' => ['social', 'string'],
+        'social_telegram' => ['social', 'string'],
+        // Payment method visibility toggles.
         'online_payment_enabled' => ['payment', 'boolean'],
         'manual_instapay_enabled' => ['payment', 'boolean'],
         'manual_vodafone_enabled' => ['payment', 'boolean'],
@@ -98,14 +113,22 @@ class ManageStoreSettings extends Page implements HasForms
         return $form
             ->schema([
                 Forms\Components\Section::make('هوية المتجر')
+                    ->description('اسم المتجر ونصوص الواجهة الرئيسية الظاهرة للزوّار.')
                     ->schema([
-                        Forms\Components\TextInput::make('site_name')
+                        Forms\Components\TextInput::make('store_name')
                             ->label('اسم المتجر')
                             ->required()
                             ->maxLength(255),
-                        Forms\Components\TextInput::make('site_tagline')
-                            ->label('الوصف المختصر')
+                        Forms\Components\TextInput::make('tagline')
+                            ->label('الوصف المختصر (الشعار النصّي)')
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('hero_title')
+                            ->label('عنوان الواجهة الرئيسي')
+                            ->maxLength(255),
+                        Forms\Components\Textarea::make('hero_subtitle')
+                            ->label('النص التعريفي أسفل العنوان')
+                            ->rows(2)
+                            ->maxLength(500),
                         Forms\Components\TextInput::make('currency')
                             ->label('العملة')
                             ->maxLength(10),
@@ -119,10 +142,58 @@ class ManageStoreSettings extends Page implements HasForms
                             ->tel()
                             ->maxLength(20)
                             ->helperText('بصيغة دولية بدون + (مثل 2010xxxxxxxx).'),
+                        Forms\Components\TextInput::make('contact_phone')
+                            ->label('هاتف التواصل')
+                            ->tel()
+                            ->maxLength(20),
                         Forms\Components\TextInput::make('contact_email')
                             ->label('البريد الإلكتروني للتواصل')
                             ->email()
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('contact_address')
+                            ->label('العنوان')
+                            ->maxLength(255),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('السوشيال ميديا')
+                    ->description('روابط صفحات المتجر على منصّات التواصل. اتركي أي حقل فارغًا ليختفي رابطه من الموقع.')
+                    ->schema([
+                        Forms\Components\TextInput::make('social_facebook')
+                            ->label('فيسبوك')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_instagram')
+                            ->label('إنستجرام')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_tiktok')
+                            ->label('تيك توك')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_youtube')
+                            ->label('يوتيوب')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_twitter')
+                            ->label('إكس (تويتر)')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_snapchat')
+                            ->label('سناب شات')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
+                        Forms\Components\TextInput::make('social_telegram')
+                            ->label('تيليجرام')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-link'),
                     ])
                     ->columns(2),
 
