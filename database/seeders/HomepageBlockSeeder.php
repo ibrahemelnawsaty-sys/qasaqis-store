@@ -28,15 +28,49 @@ class HomepageBlockSeeder extends Seeder
             [
                 'key' => 'home_slider_1',
                 'type' => 'slider',
-                'title' => 'مكتبة قصاقيص أطفال',
+                'title' => 'أهلًا بكِ في قصاقيص أطفال 🌟',
                 'sort_order' => 1,
                 'content' => [
-                    'body' => 'كتب مختارة بحب تزرع القيم وتُشعل خيال أطفالكم.',
+                    'body' => 'مكتبة قصص أطفال مختارة بحب — قيم وسلوكيات ومغامرات تكبر مع طفلك.',
                     'url' => route('books.index'),
-                    'cta' => 'تصفّحوا الكتب',
-                    // image_url فارغ عمدًا — الأدمن يرفع صورة حقيقية؛ حتى ذلك الحين
-                    // يعرض السلايدر خلفية متدرّجة من ألوان الهوية (لا صورة مخترعة).
-                    'image_url' => '',
+                    'cta' => 'تصفّحي المكتبة',
+                    'image_url' => 'images/slider/slide-1.jpg',
+                ],
+            ],
+            [
+                'key' => 'home_slider_2',
+                'type' => 'slider',
+                'title' => 'شحن لكل مصر 🚚 والدفع عند الاستلام',
+                'sort_order' => 2,
+                'content' => [
+                    'body' => 'اطلبي وأنتِ مطمئنة — نوصّل كتبك لباب البيت بأمان وسرعة.',
+                    'url' => route('books.index'),
+                    'cta' => 'اطلبي الآن',
+                    'image_url' => 'images/slider/slide-2.jpg',
+                ],
+            ],
+            [
+                'key' => 'home_slider_3',
+                'type' => 'slider',
+                'title' => 'عروض وخصومات على كتب مختارة 🎁',
+                'sort_order' => 3,
+                'content' => [
+                    'body' => 'جودة عالية بأسعار في المتناول لكل بيت — لا تفوّتي العروض!',
+                    'url' => route('books.offers'),
+                    'cta' => 'شوفي العروض',
+                    'image_url' => 'images/slider/slide-3.jpg',
+                ],
+            ],
+            [
+                'key' => 'home_slider_4',
+                'type' => 'slider',
+                'title' => 'نصائح تربوية تهمّك 📖',
+                'sort_order' => 4,
+                'content' => [
+                    'body' => 'مدوّنة قصاقيص: مقالات عن حب القراءة والمشاعر وتربية طفلك.',
+                    'url' => route('blog.index'),
+                    'cta' => 'زوري المدوّنة',
+                    'image_url' => 'images/slider/slide-4.jpg',
                 ],
             ],
             [

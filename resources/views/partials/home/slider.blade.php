@@ -57,7 +57,9 @@
                 if (filled($rawImg)) {
                     $img = \Illuminate\Support\Str::startsWith($rawImg, ['http://', 'https://'])
                         ? $rawImg
-                        : asset('storage/' . ltrim($rawImg, '/'));
+                        : (\Illuminate\Support\Str::startsWith($rawImg, 'images/')
+                            ? asset($rawImg)
+                            : asset('storage/' . ltrim($rawImg, '/')));
                 }
 
                 // اسمح فقط بروابط آمنة (http/https أو مسار داخلي) — يمنع javascript: (الدستور 4.2).
