@@ -11,14 +11,18 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use RuntimeException;
 
 /**
  * إرسال حدث الشراء الخادمي إلى Meta CAPI + GA4 (M6). يُطلَق من OrderObserver عند
- * تأكيد الدفع (payment_status→paid). يحمل orderId (لا نموذجًا) فلا PII في الطابور.
- * idempotent: لا يُرسِل إن سبق الإرسال (purchase_sent_at)، ويُعيد المحاولة عند فشل
- * الشبكة (tries=5) حتى ينجح أحد القناتين على الأقل.
+ * تأكيد الدفع (payment_status→paid). يحمل orderId فقط (لا PII في الطابور).
+ *
+ * لكل قناة ختمها المستقل (meta_sent_at / ga4_sent_at): نجاح إحداهما لا يُفقد
+ * الأخرى — تُعاد الناقصة وحدها (event_id/transaction_id الثابتان يمنعان الازدواج).
+ * Meta CAPI (يحمل PII مجزّأة) يُرسَل فقط بموافقة الزائر الإعلانية (ads_consent).
+ * قفل WithoutOverlapping يمنع الإرسال المزدوج من عاملين متزامنين.
  */
 class SendPurchaseServerEvent implements ShouldQueue
 {
@@ -41,32 +45,57 @@ class SendPurchaseServerEvent implements ShouldQueue
     {
     }
 
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping((string) $this->orderId))->dontRelease()->expireAfter(180)];
+    }
+
     public function handle(MetaConversionsApi $meta, Ga4MeasurementProtocol $ga4): void
     {
         $order = Order::query()->with('tracking')->find($this->orderId);
 
-        // تحقّق مجدّد: الطلب مدفوع ولم يُرسَل الحدث بعد (idempotency).
-        if ($order === null
-            || $order->payment_status !== 'paid'
-            || $order->tracking === null
-            || $order->tracking->purchase_sent_at !== null) {
+        if ($order === null || $order->payment_status !== 'paid' || $order->tracking === null) {
             return;
         }
 
         $tracking = $order->tracking;
 
-        $sent = $meta->sendPurchase($order, $tracking);
-        // GA4 كذلك؛ | لا || كي لا يُقصَر الثاني عند نجاح الأول.
-        $sent = $ga4->sendPurchase($order, $tracking) || $sent;
+        $metaConfigured = filled(config('analytics.meta.pixel_id')) && filled(config('analytics.meta.capi_token'));
+        $ga4Configured = filled(config('analytics.ga4.measurement_id'))
+            && filled(config('analytics.ga4.api_secret'))
+            && filled($tracking->ga_client_id);
 
-        if ($sent) {
-            $tracking->forceFill(['purchase_sent_at' => now()])->save();
+        // Meta CAPI يرسل بيانات المستخدم المجزّأة — فقط بموافقة إعلانية صريحة.
+        $metaAllowed = $metaConfigured && $tracking->ads_consent === true;
 
-            return;
+        $pending = false;
+
+        if ($metaAllowed && $tracking->meta_sent_at === null) {
+            if ($meta->sendPurchase($order, $tracking)) {
+                $tracking->meta_sent_at = now();
+            } else {
+                $pending = true;
+            }
         }
 
-        // فشل القناتان (شبكة/مفاتيح غائبة) — ارمِ لإعادة المحاولة. لو كانت المفاتيح
-        // غائبة كليًا فالبوابة analytics.enabled يفترض ألا تصل هنا؛ الفشل شبكي غالبًا.
-        throw new RuntimeException("Purchase server event failed for order {$this->orderId}");
+        if ($ga4Configured && $tracking->ga4_sent_at === null) {
+            if ($ga4->sendPurchase($order, $tracking)) {
+                $tracking->ga4_sent_at = now();
+            } else {
+                $pending = true;
+            }
+        }
+
+        if ($tracking->isDirty()) {
+            $tracking->save();
+        }
+
+        // قناة مُهيّأة لم تنجح بعد → أعِد المحاولة (تُعاد الناقصة وحدها).
+        if ($pending) {
+            throw new RuntimeException("Purchase server event pending for order {$this->orderId}");
+        }
     }
 }

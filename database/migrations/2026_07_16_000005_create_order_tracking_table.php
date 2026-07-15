@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * بيانات إسناد التتبّع لكل طلب (M6) — جدول 1:1 لإبقاء orders نحيفًا. يلتقط
  * معرّفات المتصفح (fbp/fbc/ga_client_id) وقت الدفع لصحّة الإسناد في حدث الشراء
- * الخادمي، وpurchase_event_id لمنع ازدواج العدّ، وpurchase_sent_at كحارس idempotency.
+ * الخادمي، وpurchase_event_id لمنع ازدواج العدّ، و meta_sent_at/ga4_sent_at كحارس
+ * idempotency لكل قناة، وads_consent لبوابة إرسال PII لـ Meta.
  */
 return new class extends Migration
 {
@@ -23,12 +24,15 @@ return new class extends Migration
             $table->string('ga_client_id', 100)->nullable();
             $table->string('ga_session_id', 100)->nullable();
             $table->string('user_agent', 512)->nullable();
-            $table->string('event_source_url', 255)->nullable();
+            $table->text('event_source_url')->nullable(); // Referer قد يكون طويلًا (fbclid/UTM).
+            $table->boolean('ads_consent')->default(false); // موافقة الزائر الإعلانية وقت الدفع.
             $table->uuid('purchase_event_id'); // ثابت لإلغاء تكرار Meta/GA4.
-            $table->timestamp('purchase_sent_at')->nullable();
+            // ختم لكل قناة على حدة: نجاح إحداهما لا يُفقد الأخرى (تُعاد وحدها).
+            $table->timestamp('meta_sent_at')->nullable();
+            $table->timestamp('ga4_sent_at')->nullable();
             $table->timestamps();
 
-            $table->index('purchase_sent_at');
+            $table->index(['meta_sent_at', 'ga4_sent_at']);
         });
     }
 

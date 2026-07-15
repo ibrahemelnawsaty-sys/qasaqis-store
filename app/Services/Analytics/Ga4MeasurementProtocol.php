@@ -6,6 +6,7 @@ namespace App\Services\Analytics;
 
 use App\Models\Order;
 use App\Models\OrderTracking;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -37,8 +38,14 @@ class Ga4MeasurementProtocol
             ]],
         ];
 
-        return Http::timeout(10)
-            ->post("https://www.google-analytics.com/mp/collect?measurement_id={$measurementId}&api_secret={$apiSecret}", $payload)
-            ->successful();
+        // api_secret يُلزمه GA4 في الاستعلام؛ نبتلع ConnectionException كي لا
+        // يتسرّب الـ URL (بالسرّ) إلى السجلّات، ويعيد الـ Job المحاولة.
+        try {
+            return Http::timeout(10)
+                ->post("https://www.google-analytics.com/mp/collect?measurement_id={$measurementId}&api_secret={$apiSecret}", $payload)
+                ->successful();
+        } catch (ConnectionException) {
+            return false;
+        }
     }
 }

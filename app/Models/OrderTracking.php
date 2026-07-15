@@ -19,8 +19,10 @@ class OrderTracking extends Model
         'ga_session_id',
         'user_agent',
         'event_source_url',
+        'ads_consent',
         'purchase_event_id',
-        'purchase_sent_at',
+        'meta_sent_at',
+        'ga4_sent_at',
     ];
 
     /**
@@ -29,7 +31,9 @@ class OrderTracking extends Model
     protected function casts(): array
     {
         return [
-            'purchase_sent_at' => 'datetime',
+            'ads_consent' => 'boolean',
+            'meta_sent_at' => 'datetime',
+            'ga4_sent_at' => 'datetime',
         ];
     }
 

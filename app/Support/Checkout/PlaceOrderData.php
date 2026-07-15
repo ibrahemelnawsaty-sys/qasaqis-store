@@ -38,6 +38,7 @@ final readonly class PlaceOrderData
         public ?string $gaSessionId = null,
         public ?string $userAgent = null,
         public ?string $eventSourceUrl = null,
+        public bool $adsConsent = false,
     ) {
     }
 }

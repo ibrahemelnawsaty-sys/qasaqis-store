@@ -7,6 +7,7 @@ namespace App\Services\Analytics;
 use App\Models\Order;
 use App\Models\OrderTracking;
 use App\Support\Analytics\UserDataHasher;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -54,8 +55,17 @@ class MetaConversionsApi
             $payload['test_event_code'] = config('analytics.meta.test_event_code');
         }
 
-        return Http::timeout(10)
-            ->post("https://graph.facebook.com/v20.0/{$pixelId}/events?access_token={$token}", $payload)
-            ->successful();
+        // access_token في جسم الطلب لا في الـ URL كي لا يتسرّب إلى السجلّات عند
+        // خطأ اتصال. ConnectionException تُبتلَع (رسالتها قد تحمل الـ URL) ويقرّر
+        // الـ Job إعادة المحاولة عبر استثنائه المُنقّى.
+        $payload['access_token'] = $token;
+
+        try {
+            return Http::timeout(10)
+                ->post("https://graph.facebook.com/v20.0/{$pixelId}/events", $payload)
+                ->successful();
+        } catch (ConnectionException) {
+            return false;
+        }
     }
 }

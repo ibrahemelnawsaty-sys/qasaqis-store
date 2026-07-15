@@ -120,18 +120,6 @@ class PlaceOrderAction
                 ]);
             }
 
-            // لقطة إسناد التتبّع (M6) + purchase_event_id ثابت لحدث الشراء الخادمي
-            // ومنع ازدواج عدّه لدى Meta/GA4. تُنشأ لكل طلب (خفيفة، جاهزة للإسناد).
-            $order->tracking()->create([
-                'fbp' => $data->fbp,
-                'fbc' => $data->fbc,
-                'ga_client_id' => $data->gaClientId,
-                'ga_session_id' => $data->gaSessionId,
-                'user_agent' => $data->userAgent,
-                'event_source_url' => $data->eventSourceUrl,
-                'purchase_event_id' => (string) Str::uuid(),
-            ]);
-
             if ($couponResult->valid && $couponResult->coupon instanceof Coupon) {
                 $this->recordCouponUsage($order, $couponResult, $data->userId);
             }
@@ -140,6 +128,20 @@ class PlaceOrderAction
 
             return [$order, $onlinePaymentId];
         });
+
+        // لقطة إسناد التتبّع (M6) — بعد الـ commit وبأفضل-جهد: الإسناد ثانوي، فأي
+        // فشل فيه (مثلًا قيمة طويلة) يجب ألا يُسقِط البيع. purchase_event_id ثابت
+        // لمنع ازدواج عدّ الشراء لدى Meta/GA4.
+        rescue(fn () => $order->tracking()->create([
+            'fbp' => $data->fbp,
+            'fbc' => $data->fbc,
+            'ga_client_id' => $data->gaClientId,
+            'ga_session_id' => $data->gaSessionId,
+            'user_agent' => $data->userAgent,
+            'event_source_url' => $data->eventSourceUrl,
+            'ads_consent' => $data->adsConsent,
+            'purchase_event_id' => (string) Str::uuid(),
+        ]));
 
         // إشعار تأكيد الطلب (للعميل) + تنبيه الأدمن — بعد الـ commit لكل المسارات
         // كي لا يُرسَل بريد عن طلب مُرجَع (M4). ShouldQueue فلا يحجب الاستجابة.

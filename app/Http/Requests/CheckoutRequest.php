@@ -89,6 +89,7 @@ class CheckoutRequest extends FormRequest
             'fbc' => ['nullable', 'string', 'max:191'],
             'ga_client_id' => ['nullable', 'string', 'max:100'],
             'ga_session_id' => ['nullable', 'string', 'max:100'],
+            'ads_consent' => ['nullable', 'boolean'],
         ];
     }
 
@@ -142,8 +143,10 @@ class CheckoutRequest extends FormRequest
             fbc: $this->validated('fbc'),
             gaClientId: $this->validated('ga_client_id'),
             gaSessionId: $this->validated('ga_session_id'),
-            userAgent: $this->userAgent(),
-            eventSourceUrl: $this->headers->get('referer'),
+            // قصّ دفاعي (user_agent عمود VARCHAR(512)؛ الرابط TEXT لكن نحدّه أيضًا).
+            userAgent: mb_substr((string) $this->userAgent(), 0, 512) ?: null,
+            eventSourceUrl: mb_substr((string) $this->headers->get('referer'), 0, 2000) ?: null,
+            adsConsent: $this->boolean('ads_consent'),
         );
     }
 }

@@ -30,7 +30,7 @@ final class PurchaseServerEventTest extends TestCase
         $order->forceFill(['payment_status' => 'paid', 'status' => 'processing'])->save();
     }
 
-    private function orderWithTracking(array $overrides = []): Order
+    private function orderWithTracking(array $overrides = [], bool $adsConsent = false): Order
     {
         $order = OrderFactory::new()->create(array_merge([
             'payment_status' => 'pending_review',
@@ -40,6 +40,7 @@ final class PurchaseServerEventTest extends TestCase
         $order->tracking()->create([
             'purchase_event_id' => (string) Str::uuid(),
             'ga_client_id' => '111.222',
+            'ads_consent' => $adsConsent,
         ]);
 
         return $order;
@@ -93,30 +94,72 @@ final class PurchaseServerEventTest extends TestCase
         Queue::assertNotPushed(SendPurchaseServerEvent::class);
     }
 
-    public function test_job_sends_to_meta_and_ga4_then_stamps(): void
+    public function test_job_sends_both_channels_with_consent_then_stamps(): void
     {
         $this->enableKeys();
         Http::fake(['*' => Http::response('', 200)]);
-        $order = $this->orderWithTracking(['payment_status' => 'paid', 'customer_email' => 'mom@example.com']);
+        $order = $this->orderWithTracking(['payment_status' => 'paid', 'customer_email' => 'mom@example.com'], adsConsent: true);
 
         (new SendPurchaseServerEvent($order->id))
             ->handle(app(MetaConversionsApi::class), app(Ga4MeasurementProtocol::class));
 
         Http::assertSentCount(2); // Meta CAPI + GA4 MP.
-        $this->assertNotNull($order->tracking()->first()->purchase_sent_at);
+        $tracking = $order->tracking()->first();
+        $this->assertNotNull($tracking->meta_sent_at);
+        $this->assertNotNull($tracking->ga4_sent_at);
+    }
+
+    public function test_meta_capi_not_sent_without_ads_consent(): void
+    {
+        $this->enableKeys();
+        Http::fake(['*' => Http::response('', 200)]);
+        // بلا موافقة إعلانية: Meta CAPI (PII) لا يُرسَل؛ GA4 يُرسَل.
+        $order = $this->orderWithTracking(['payment_status' => 'paid', 'customer_email' => 'mom@example.com'], adsConsent: false);
+
+        (new SendPurchaseServerEvent($order->id))
+            ->handle(app(MetaConversionsApi::class), app(Ga4MeasurementProtocol::class));
+
+        Http::assertSentCount(1);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'graph.facebook.com'));
+        $tracking = $order->tracking()->first();
+        $this->assertNull($tracking->meta_sent_at);
+        $this->assertNotNull($tracking->ga4_sent_at);
     }
 
     public function test_job_is_idempotent_when_already_sent(): void
     {
         $this->enableKeys();
         Http::fake(['*' => Http::response('', 200)]);
-        $order = $this->orderWithTracking(['payment_status' => 'paid']);
-        $order->tracking()->update(['purchase_sent_at' => now()]);
+        $order = $this->orderWithTracking(['payment_status' => 'paid'], adsConsent: true);
+        $order->tracking()->update(['meta_sent_at' => now(), 'ga4_sent_at' => now()]);
 
         (new SendPurchaseServerEvent($order->id))
             ->handle(app(MetaConversionsApi::class), app(Ga4MeasurementProtocol::class));
 
         Http::assertNothingSent();
+    }
+
+    public function test_failed_channel_is_retried_without_resending_the_successful_one(): void
+    {
+        $this->enableKeys();
+        // Meta ينجح، GA4 يفشل → يُختم Meta فقط ويُرمى للإعادة.
+        Http::fake([
+            '*graph.facebook.com*' => Http::response('', 200),
+            '*google-analytics.com*' => Http::response('', 500),
+        ]);
+        $order = $this->orderWithTracking(['payment_status' => 'paid'], adsConsent: true);
+
+        try {
+            (new SendPurchaseServerEvent($order->id))
+                ->handle(app(MetaConversionsApi::class), app(Ga4MeasurementProtocol::class));
+            $this->fail('توقّعت استثناء إعادة المحاولة.');
+        } catch (\RuntimeException) {
+            // متوقّع.
+        }
+
+        $tracking = $order->tracking()->first();
+        $this->assertNotNull($tracking->meta_sent_at); // نجح ويُختم.
+        $this->assertNull($tracking->ga4_sent_at);     // فشل → يُعاد وحده.
     }
 
     public function test_analytics_not_injected_when_disabled_by_default(): void

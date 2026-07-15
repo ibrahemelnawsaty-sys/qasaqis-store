@@ -38,6 +38,7 @@
                         <input type="hidden" name="fbc" id="qs-fbc">
                         <input type="hidden" name="ga_client_id" id="qs-gacid">
                         <input type="hidden" name="ga_session_id" id="qs-gasid">
+                        <input type="hidden" name="ads_consent" id="qs-consent" value="0">
 
                         {{-- عناصر الطلب (تُعاد تسعيرها من قاعدة البيانات على الخادم) --}}
                         @foreach ($cart->items as $i => $item)
@@ -250,6 +251,8 @@
                 set('qs-fbc', fbc);
                 var ga = ck('_ga');
                 if (ga) { var parts = ga.split('.'); if (parts.length >= 4) { set('qs-gacid', parts[2] + '.' + parts[3]); } }
+                // موافقة إعلانية صريحة → تُرسَل PII خادميًا لـ Meta CAPI (وإلا لا).
+                try { if (localStorage.getItem('qs-consent') === 'granted') { document.getElementById('qs-consent').value = '1'; } } catch (e) {}
             })();
         </script>
     @endpush
