@@ -22,8 +22,14 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!--
+          لا نفرض sqlite: هجرة الكتب تستخدم fullText (MySQL 8) غير المدعوم في
+          sqlite، فالاختبارات تعمل على MySQL محليًا وفي CI.
+          نفرض اسم قاعدة اختبار معزولة (يُضبط قبل تحميل Laravel لـ .env فيسبقه)
+          كي لا يمسح RefreshDatabase/migrate:fresh قاعدة التطوير الحقيقية عند
+          تشغيل php artisan test محليًا. أنشئ القاعدة مرة: CREATE DATABASE qasaqis_test;
+        -->
+        <env name="DB_DATABASE" value="qasaqis_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

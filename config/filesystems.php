@@ -60,6 +60,24 @@ return [
             'report' => false,
         ],
 
+        /*
+         * وجهة النسخ الاحتياطي الخارجية (Cloudflare R2 عبر واجهة S3).
+         * معزولة عن قرص الإثباتات (local) وعن s3 العام حتى تُقيَّد صلاحياتها
+         * على حاوية النسخ فقط (الدستور 3.4 + 4.3). throw=true ليفشل النسخ
+         * بصوت مسموع لا صامت. لا أسرار في الكود — كلها من .env.
+         */
+        'backup' => [
+            'driver' => 's3',
+            'key' => env('BACKUP_R2_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_R2_SECRET_ACCESS_KEY'),
+            'region' => env('BACKUP_R2_REGION', 'auto'),
+            'bucket' => env('BACKUP_R2_BUCKET'),
+            'endpoint' => env('BACKUP_R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
 
     /*

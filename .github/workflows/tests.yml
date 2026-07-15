@@ -3,7 +3,7 @@ name: Tests
 on:
   push:
     branches:
-      - master
+      - main
       - '*.x'
   pull_request:
   schedule:
@@ -15,6 +15,22 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+
+    # MySQL 8 حقيقي: هجرات المشروع تستخدم fullText (بحث عربي) غير المدعوم في
+    # sqlite، ونطابق محرك الإنتاج المعتمد في الدستور.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: qasaqis_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
 
     strategy:
       fail-fast: true
@@ -31,17 +47,26 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, mysqli, pdo_mysql
           coverage: none
+
+      # ينسخ .env قبل composer install كي تجد سكربتات post-autoload-dump
+      # (package:discover / filament:upgrade) بيئة صالحة.
+      - name: Copy environment file
+        run: cp .env.example .env
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
-
-      - name: Copy environment file
-        run: cp .env.example .env
 
       - name: Generate app key
         run: php artisan key:generate
 
       - name: Execute tests
-        run: vendor/bin/phpunit
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: qasaqis_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan test

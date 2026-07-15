@@ -10,12 +10,15 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Observers\BookObserver;
 use App\Services\Cms\PopupService;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,6 +56,47 @@ class AppServiceProvider extends ServiceProvider
         View::composer('layouts.app', static function (ViewContract $view): void {
             $view->with('activePopup', app(PopupService::class)->forRequest(request()));
         });
+
+        $this->registerBackupSafeguards();
+    }
+
+    /**
+     * ضمانات النسخ الاحتياطي (M1):
+     *  1) حارس تشفير: يمنع رفع أرشيف غير مشفّر يحوي بيانات العملاء وإثباتات
+     *     الدفع (PII) إلى الوجهة الخارجية عند نسيان BACKUP_ARCHIVE_PASSWORD في
+     *     الإنتاج — يفشل backup:run بصوت مسموع بدل النجاح الصامت (الدستور 3.4).
+     *  2) قناة إنذار مستقلة عن SMTP: يحوّل أحداث فشل/اعتلال النسخ إلى Sentry،
+     *     لأن إشعارات spatie البريدية قد تصمت (MAIL=log أو مستقبِل غير مضبوط).
+     *     تُسجَّل المستمعات بأسماء أصناف نصية فلا تعتمد على تثبيت الحزمة وقت
+     *     الاختبار (تُنفَّذ فقط حين يقع الحدث في الإنتاج).
+     */
+    protected function registerBackupSafeguards(): void
+    {
+        Event::listen(CommandStarting::class, static function (CommandStarting $event): void {
+            if ($event->command === 'backup:run'
+                && App::environment('production')
+                && blank(config('backup.backup.password'))) {
+                throw new RuntimeException(
+                    'BACKUP_ARCHIVE_PASSWORD مطلوبة لتشفير النسخ الاحتياطية في الإنتاج — أُلغي backup:run.'
+                );
+            }
+        });
+
+        foreach ([
+            'Spatie\Backup\Events\BackupHasFailed',
+            'Spatie\Backup\Events\UnhealthyBackupWasFound',
+            'Spatie\Backup\Events\CleanupHasFailed',
+        ] as $failureEvent) {
+            Event::listen($failureEvent, static function (object $event): void {
+                if (! function_exists('Sentry\captureMessage')) {
+                    return;
+                }
+
+                $detail = isset($event->exception) ? ' — '.$event->exception->getMessage() : '';
+
+                \Sentry\captureMessage('[backup] '.$event::class.$detail);
+            });
+        }
     }
 
     /**
