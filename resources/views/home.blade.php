@@ -230,6 +230,26 @@
         </div>
     </section>
 
+    {{-- شهادات العملاء: بطاقات تقييم حقيقية من عملاء سعداء --}}
+    <section class="sec" aria-labelledby="feedback-title">
+        <div class="wrap">
+            <div class="sec-top">
+                <span class="sec-eyebrow">{{ __('home.feedback_eyebrow') }}</span>
+                <h2 class="sec-title" id="feedback-title">{{ __('home.feedback_title') }}</h2>
+                <p class="sec-desc">{{ __('home.feedback_desc') }}</p>
+            </div>
+            <div class="reviews-gallery" role="list">
+                @foreach (range(1, 9) as $n)
+                    <figure class="rev-card" role="listitem">
+                        <img src="{{ asset('images/reviews/review-' . $n . '.jpeg') }}"
+                            alt="{{ __('home.feedback_alt', ['n' => $n]) }}"
+                            loading="lazy" decoding="async" width="640" height="537">
+                    </figure>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
     {{-- REVIEWS (بيانات حقيقية فقط) --}}
     @if ($reviews->isNotEmpty())
         <section class="sec" style="padding-top:6px" aria-labelledby="rev-title">

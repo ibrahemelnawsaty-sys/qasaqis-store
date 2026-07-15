@@ -379,3 +379,22 @@
   *{ animation:none !important; }
   .book,.cat,.btn,.add,.why-card{ transition:none; }
 }
+
+
+/* ===== معرض شهادات العملاء (بطاقات تقييم صور) — شريط أفقي بانزلاق ناعم ===== */
+.reviews-gallery{
+  display:grid; grid-auto-flow:column; grid-auto-columns:min(85%,330px);
+  gap:16px; overflow-x:auto; scroll-snap-type:x mandatory;
+  padding:6px 2px 16px; scrollbar-width:thin;
+  scrollbar-color:var(--purple) transparent; -webkit-overflow-scrolling:touch;
+}
+.reviews-gallery::-webkit-scrollbar{ height:8px; }
+.reviews-gallery::-webkit-scrollbar-thumb{ background:color-mix(in srgb,var(--purple) 45%,transparent); border-radius:99px; }
+.rev-card{
+  margin:0; scroll-snap-align:center; border-radius:var(--r-lg); overflow:hidden;
+  background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow);
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.rev-card:hover{ transform:translateY(-4px); box-shadow:var(--shadow-l); }
+.rev-card img{ display:block; width:100%; height:auto; }
+@media (min-width:820px){ .reviews-gallery{ grid-auto-columns:330px; } }
