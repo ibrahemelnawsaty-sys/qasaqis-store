@@ -111,6 +111,9 @@
     @stack('meta')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- حاجز وقائي: body فيه overflow-x:hidden لكن html لا؛ هذا يمنع أي عنصر
+         (مثل مصيدة السبام سابقًا) من إحداث تمرير أفقي على الجوال في RTL. --}}
+    <style>html{overflow-x:hidden}</style>
     @include('partials.analytics-head')
     @stack('head')
 </head>

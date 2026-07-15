@@ -313,8 +313,9 @@
                     @endif
                     <form method="post" action="{{ route('inquiry.store') }}" style="display:grid;gap:13px">
                         @csrf
-                        {{-- مصيدة سبام مخفية --}}
-                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+                        {{-- مصيدة سبام مخفية — إخفاء بلا إزاحة سالبة (left:-9999 كان يسبب
+                             تمريرًا أفقيًا لا نهائيًا في RTL لأن html بلا overflow-x:hidden). --}}
+                        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);opacity:0;pointer-events:none">
                         <div class="inq-row">
                             <label class="inq-label">{{ __('home.inq_type') }}
                                 <select name="type" class="inq-input">
