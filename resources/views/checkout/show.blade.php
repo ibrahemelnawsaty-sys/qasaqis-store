@@ -76,19 +76,38 @@
                         </div>
 
                         {{-- عنوان الشحن --}}
-                        <div class="co-card">
+                        <div class="co-card" x-data="{ country: '{{ old('country_code', 'EG') }}' }">
                             <h2><span class="n" aria-hidden="true">2</span>{{ __('checkout.form.section_shipping') }}</h2>
 
+                            <div class="co-field">
+                                <label class="co-label" for="f-country">{{ __('checkout.form.country') }}</label>
+                                <select id="f-country" name="country_code" x-model="country"
+                                    class="co-select @error('country_code') err @enderror" required>
+                                    @foreach ($countries as $c)
+                                        <option value="{{ $c->iso_code }}" @selected(old('country_code', 'EG') === $c->iso_code)>{{ $c->name_ar }}</option>
+                                    @endforeach
+                                </select>
+                                @error('country_code') <p class="co-err">{{ $message }}</p> @enderror
+                            </div>
+
                             <div class="co-grid2">
-                                <div class="co-field half">
+                                {{-- محافظة (مصر فقط) --}}
+                                <div class="co-field half" x-show="country === 'EG'" x-cloak>
                                     <label class="co-label" for="f-gov">{{ __('checkout.form.governorate') }}</label>
-                                    <select id="f-gov" name="governorate" class="co-select @error('governorate') err @enderror" required>
+                                    <select id="f-gov" name="governorate" class="co-select @error('governorate') err @enderror" :required="country === 'EG'">
                                         <option value="" disabled @selected(! old('governorate'))>{{ __('checkout.form.governorate_ph') }}</option>
                                         @foreach ($governorates as $gov)
                                             <option value="{{ $gov }}" @selected(old('governorate') === $gov)>{{ $gov }}</option>
                                         @endforeach
                                     </select>
                                     @error('governorate') <p class="co-err">{{ $message }}</p> @enderror
+                                </div>
+                                {{-- ولاية/إقليم (دولي) --}}
+                                <div class="co-field half" x-show="country !== 'EG'" x-cloak>
+                                    <label class="co-label" for="f-state">{{ __('checkout.form.state_province') }}</label>
+                                    <input id="f-state" type="text" name="state_province" value="{{ old('state_province') }}" maxlength="100"
+                                        class="co-input @error('state_province') err @enderror" placeholder="{{ __('checkout.form.state_province_ph') }}" :required="country !== 'EG'">
+                                    @error('state_province') <p class="co-err">{{ $message }}</p> @enderror
                                 </div>
                                 <div class="co-field half">
                                     <label class="co-label" for="f-city">{{ __('checkout.form.city') }} <span class="opt">{{ __('checkout.form.optional') }}</span></label>

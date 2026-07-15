@@ -29,6 +29,9 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             SettingSeeder::class,
             PaymentMethodSeeder::class,
+            // مناطق الشحن ثم الدول (M5) — الدول تعتمد على المناطق (FK).
+            ShippingZoneSeeder::class,
+            CountrySeeder::class,
             // CMS content baseline. PageSeeder must precede MenuSeeder because
             // menu items reference the seeded pages by polymorphic linkable.
             PageSeeder::class,

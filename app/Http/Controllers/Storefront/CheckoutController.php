@@ -9,6 +9,7 @@ use App\Exceptions\CheckoutException;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CheckoutRequest;
+use App\Models\Country;
 use App\Models\Order;
 use App\Services\Cart\CartService;
 use App\Services\Payment\PaymentMethodResolver;
@@ -45,6 +46,7 @@ class CheckoutController extends Controller
             'onlineEnabled' => $resolver->isOnlineEnabled(),
             'onlineDisabledMessageKey' => $resolver->onlineDisabledMessageKey(),
             'governorates' => config('egypt.governorates'),
+            'countries' => Country::active()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
         ]);
     }
 

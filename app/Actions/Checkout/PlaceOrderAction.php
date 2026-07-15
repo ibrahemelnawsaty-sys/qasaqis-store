@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Checkout;
 
 use App\Exceptions\CheckoutException;
+use App\Models\Country;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Order;
@@ -73,7 +74,7 @@ class PlaceOrderAction
 
             $couponResult = $this->resolveCoupon($data, $cart);
 
-            $shipping = $this->shippingFor($data->governorate, $couponResult->freeShipping);
+            [$shipping, $shippingZoneCode] = $this->resolveShipping($data, $couponResult->freeShipping);
             $discount = $couponResult->discount;
             $grandTotal = Money::clampNonNegative(
                 Money::add(Money::sub($cart->subtotal, $discount), $shipping)
@@ -89,13 +90,16 @@ class PlaceOrderAction
                 'customer_phone' => $data->customerPhone,
                 'customer_phone_alt' => $data->customerPhoneAlt,
                 'customer_email' => $data->customerEmail,
+                'country_code' => $data->countryCode,
                 'governorate' => $data->governorate,
+                'state_province' => $data->stateProvince,
                 'city' => $data->city,
                 'address_line' => $data->addressLine,
                 'address_notes' => $data->addressNotes,
                 'subtotal' => $cart->subtotal,
                 'discount_total' => $discount,
                 'shipping_total' => $shipping,
+                'shipping_zone_code' => $shippingZoneCode,
                 'grand_total' => $grandTotal,
                 'coupon_id' => $couponResult->valid ? $couponResult->coupon?->id : null,
                 'coupon_code' => $couponResult->valid ? $couponResult->coupon?->code : null,
@@ -266,20 +270,36 @@ class PlaceOrderAction
     }
 
     /**
-     * Flat shipping from config/egypt.php (per-governorate override else flat).
-     * A free_shipping coupon zeroes it. Never invented in code.
+     * تحديد تكلفة الشحن ورمز المنطقة (M5). مصر: من config/egypt (تجاوز المحافظة
+     * أو الثابت) — تسعير مصر يبقى حرفيًا. دولي: flat_cost لمنطقة الدولة (بالجنيه،
+     * التحصيل EGP). كوبون free_shipping يصفّر أيّهما. لا تُخترع أسعار (بند 1.1).
+     *
+     * @return array{0: string, 1: string|null}  [cost, shipping_zone_code]
      */
-    private function shippingFor(string $governorate, bool $freeShipping): string
+    private function resolveShipping(PlaceOrderData $data, bool $freeShipping): array
     {
         if ($freeShipping) {
-            return Money::ZERO;
+            return [Money::ZERO, null];
         }
 
-        /** @var array<string, string> $overrides */
-        $overrides = (array) config('egypt.shipping.overrides', []);
-        $flat = (string) config('egypt.shipping.flat', Money::ZERO);
+        if ($data->countryCode === 'EG') {
+            /** @var array<string, string> $overrides */
+            $overrides = (array) config('egypt.shipping.overrides', []);
+            $flat = (string) config('egypt.shipping.flat', Money::ZERO);
 
-        return Money::normalize($overrides[$governorate] ?? $flat);
+            return [Money::normalize($overrides[$data->governorate] ?? $flat), 'EG'];
+        }
+
+        // دولي: منطقة الدولة (eager load لمنع N+1). الدولة مُتحقَّق منها في الطلب.
+        $zone = Country::query()->with('shippingZone')
+            ->where('iso_code', $data->countryCode)
+            ->first()?->shippingZone;
+
+        if ($zone === null) {
+            return [Money::ZERO, null];
+        }
+
+        return [Money::normalize((string) $zone->flat_cost), $zone->code];
     }
 
     /**

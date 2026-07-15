@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\Country;
 use App\Services\Payment\PaymentMethodResolver;
 use App\Support\Checkout\PlaceOrderData;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,9 +22,22 @@ class CheckoutRequest extends FormRequest
     /** Egyptian mobile: optional +20/20/0 prefix then 1[0125] + 8 digits. */
     private const EGYPT_PHONE_REGEX = '/^(?:\+?20|0)?1[0125]\d{8}$/';
 
+    /** International E.164: leading + then 8–15 digits (M5). */
+    private const INTL_PHONE_REGEX = '/^\+[1-9]\d{7,14}$/';
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * توافق خلفي: نماذج قديمة بلا country_code تُعامَل كمصرية (M5).
+     */
+    protected function prepareForValidation(): void
+    {
+        if (blank($this->input('country_code'))) {
+            $this->merge(['country_code' => 'EG']);
+        }
     }
 
     /**
@@ -33,13 +47,30 @@ class CheckoutRequest extends FormRequest
     {
         $availableCodes = app(PaymentMethodResolver::class)->availableCodes();
 
+        // مصر (الوطن) مسموحة دائمًا حتى قبل بذر جدول الدول؛ يُضاف إليها كل دولة
+        // مفعّلة. تسعير مصر يبقى مرجعه config/egypt لا صف الدولة.
+        $allowedCountries = array_values(array_unique(array_merge(
+            ['EG'],
+            Country::query()->where('is_active', true)->pluck('iso_code')->all(),
+        )));
+
+        $isEgypt = $this->input('country_code') === 'EG';
+        $phoneRule = 'regex:'.($isEgypt ? self::EGYPT_PHONE_REGEX : self::INTL_PHONE_REGEX);
+
         return [
             'name' => ['required', 'string', 'min:2', 'max:150'],
-            'phone' => ['required', 'string', 'regex:'.self::EGYPT_PHONE_REGEX],
-            'phone_alt' => ['nullable', 'string', 'regex:'.self::EGYPT_PHONE_REGEX],
+            'phone' => ['required', 'string', $phoneRule],
+            'phone_alt' => ['nullable', 'string', $phoneRule],
             'email' => ['nullable', 'email', 'max:191'],
 
-            'governorate' => ['required', 'string', Rule::in(config('egypt.governorates'))],
+            'country_code' => ['required', 'string', 'size:2', Rule::in($allowedCountries)],
+            // مصر → محافظة من القائمة؛ دولي → ولاية/إقليم نصّي.
+            'governorate' => $isEgypt
+                ? ['required', 'string', Rule::in(config('egypt.governorates'))]
+                : ['nullable', 'string', 'max:100'],
+            'state_province' => $isEgypt
+                ? ['nullable', 'string', 'max:100']
+                : ['required', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:80'],
             'address' => ['required', 'string', 'min:5', 'max:300'],
             'address_notes' => ['nullable', 'string', 'max:300'],
@@ -60,9 +91,13 @@ class CheckoutRequest extends FormRequest
      */
     public function messages(): array
     {
+        $phoneMessage = $this->input('country_code') === 'EG'
+            ? __('validation.egypt_phone')
+            : __('validation.international_phone');
+
         return [
-            'phone.regex' => __('validation.egypt_phone'),
-            'phone_alt.regex' => __('validation.egypt_phone'),
+            'phone.regex' => $phoneMessage,
+            'phone_alt.regex' => $phoneMessage,
         ];
     }
 
@@ -86,7 +121,9 @@ class CheckoutRequest extends FormRequest
             customerPhone: (string) $this->validated('phone'),
             customerPhoneAlt: $this->validated('phone_alt'),
             customerEmail: $this->validated('email'),
-            governorate: (string) $this->validated('governorate'),
+            countryCode: (string) $this->validated('country_code'),
+            governorate: $this->validated('governorate'),
+            stateProvince: $this->validated('state_province'),
             city: $this->validated('city'),
             addressLine: (string) $this->validated('address'),
             addressNotes: $this->validated('address_notes'),

@@ -51,6 +51,8 @@ class RolePermissionSeeder extends Seeder
         'payment_proof.view', 'payment_proof.review',
         'payments.methods.toggle', 'payments.settings',
         'payments.manual_accounts.manage',
+        // إدارة الشحن الدولي: الدول ومناطق الشحن (M5).
+        'shipping.view', 'shipping.create', 'shipping.update', 'shipping.delete',
         // 3.5 Reviews & support.
         'reviews.view', 'reviews.reply', 'reviews.moderate',
         'comments.view', 'comments.reply', 'comments.moderate',
@@ -97,6 +99,7 @@ class RolePermissionSeeder extends Seeder
                     'homepage', 'pages', 'menus', 'banners', 'media',
                     'coupons', 'popups', 'surveys', 'referrals',
                     'orders', 'payment_proof', 'reviews', 'comments', 'inquiries',
+                    'shipping',
                 ]),
                 [
                     'seo.view', 'seo.edit',
@@ -118,7 +121,7 @@ class RolePermissionSeeder extends Seeder
 
             // Order lifecycle, shipping and proof review.
             'orders_manager' => array_merge(
-                $byPrefix(['orders']),
+                $byPrefix(['orders', 'shipping']),
                 [
                     'payment_proof.view', 'payment_proof.review',
                     'products.view', 'products.inventory.manage',
