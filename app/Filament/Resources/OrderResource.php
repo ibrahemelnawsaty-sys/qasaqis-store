@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Orders & manual-payment review for «قصص أطفال» (group: الطلبات والدفع).
+ * Orders & manual-payment review for «قصاقيص أطفال» (group: الطلبات والدفع).
  *
  * Read-mostly by design: orders are created by customers at checkout, never in
  * the panel. All state changes go through gated header actions on the View page

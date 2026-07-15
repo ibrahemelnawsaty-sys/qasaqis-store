@@ -21,6 +21,17 @@
     <title>@yield('title', __('common.brand') . ' — ' . __('common.tagline'))</title>
     <meta name="description" content="@yield('meta_description', __('common.tagline'))">
 
+    {{-- خطوط عربية احترافية: Baloo Bhaijaan 2 (عناوين مرحة للأطفال) + Tajawal (نص نظيف للأمهات). --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700&display=swap">
+
+    {{-- أيقونة المتصفح --}}
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+
     {{-- وسوم SEO لكل صفحة (canonical / Open Graph / JSON-LD) تدفعها الصفحات (بند 0.8). --}}
     @stack('meta')
 

@@ -16,8 +16,9 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                // خط عربي واحد أساسي مع أوزان محدودة — يُحمَّل محليًا (subset) لخِفّة الأداء
-                sans: ['"Tajawal"', '"Cairo"', '"Segoe UI"', '"Noto Sans Arabic"', 'Tahoma', ...defaultTheme.fontFamily.sans],
+                // نص نظيف احترافي (Tajawal) + عناوين مرحة للأطفال (Baloo Bhaijaan 2)
+                sans: ['"Tajawal"', '"Segoe UI"', '"Noto Sans Arabic"', '"Cairo"', 'Tahoma', ...defaultTheme.fontFamily.sans],
+                display: ['"Baloo Bhaijaan 2"', '"Tajawal"', '"Segoe UI"', 'Tahoma', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 // ألوان هوية «قصص أطفال» المستخرجة من الشعار والتصميم المعتمد

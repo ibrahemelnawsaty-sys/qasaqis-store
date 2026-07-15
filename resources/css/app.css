@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
-  نظام تصميم «قصص أطفال» — منقول بأمانة من docs/approved-storefront-design.html
+  نظام تصميم «قصاقيص أطفال» — منقول بأمانة من docs/approved-storefront-design.html
   الثيمان (نهاري/ليلي) عبر CSS variables + [data-theme] + prefers-color-scheme.
   خطوط النظام فقط (لا CDN خارجي) حفاظًا على ميزانية الأداء.
 */
@@ -25,7 +25,8 @@
     --shadow-l:0 22px 48px -18px rgba(84,34,138,.42), 0 4px 10px rgba(84,34,138,.10);
     --r-lg:26px; --r-md:18px; --r-sm:12px; --r-pill:999px;
     --maxw:1180px;
-    --sans:"Segoe UI","Noto Sans Arabic","Tajawal","Cairo",Tahoma,system-ui,sans-serif;
+    --sans:"Tajawal","Segoe UI","Noto Sans Arabic","Cairo",Tahoma,system-ui,sans-serif;
+    --display:"Baloo Bhaijaan 2","Tajawal","Segoe UI","Noto Sans Arabic",Tahoma,system-ui,sans-serif;
     --mono:"SFMono-Regular","Cascadia Code",ui-monospace,monospace;
   }
 
@@ -98,7 +99,16 @@
   .logo .mark{ width:42px; height:42px; border-radius:13px; position:relative; background:conic-gradient(from 210deg,var(--purple),var(--pink),var(--orange),var(--gold),var(--teal),var(--purple)); display:grid; place-items:center; box-shadow:0 6px 16px -6px rgba(110,47,176,.5),inset 0 0 0 2px rgba(255,255,255,.4); flex:0 0 auto; }
   .logo .mark b{ color:#fff; font-size:19px; font-weight:900; text-shadow:0 1px 2px rgba(0,0,0,.25); }
   .logo .mark::after{ content:""; position:absolute; inset-inline-end:-3px; bottom:-3px; width:14px; height:14px; border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--cream); }
-  .logo-text{ white-space:nowrap; }
+  .logo-text{ white-space:nowrap; font-family:var(--display); }
+  .logo-img{ height:50px; width:auto; display:block; }
+  .logo-img--footer{ height:54px; }
+  @media (max-width:520px){ .logo-img{ height:44px; } }
+  /* خطوط العناوين المرحة (Baloo Bhaijaan 2) لانطباع أجمل مناسب للأطفال والأمهات */
+  h1,h2,h3,h4,h5,
+  .hero-title,.sec-title,.sec-eyebrow,.badge-happy,.promo h3,.promo-price .big,
+  .pdp h1,.cover .ctitle,.pdp-cover .ctitle,.stat .n,.hs .n,.price .now,.disc,.review .av{
+    font-family:var(--display);
+  }
 
   .searchbar-wrap{ position:relative; flex:1 1 auto; max-width:460px; }
   .searchbar{ display:flex; align-items:center; gap:10px; background:var(--surface); border:2px solid var(--line); border-radius:var(--r-pill); padding:9px 18px; color:var(--ink-faint); font-size:14.5px; transition:border-color .2s,box-shadow .2s; cursor:text; text-align:start; font-family:inherit; }

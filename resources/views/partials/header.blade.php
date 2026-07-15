@@ -42,9 +42,8 @@
 <header>
     <div class="nav">
         <div class="wrap">
-            <a class="logo" href="{{ route('home') }}">
-                <span class="mark" aria-hidden="true"><b>ق</b></span>
-                <span class="logo-text">{{ __('common.brand') }}</span>
+            <a class="logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">
+                <img class="logo-img" src="{{ asset('images/logo.png') }}" alt="{{ __('common.brand') }}" width="440" height="318">
             </a>
 
             {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine) — يُخفى على الموبايل --}}

@@ -22,7 +22,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * Admin panel for «قصص أطفال» on /admin.
+ * Admin panel for «قصاقيص أطفال» on /admin.
  *
  * Conventions established here for every other resource agent (see the handoff
  * memo): the five navigation groups below are the ONLY groups. A Resource nests
@@ -63,10 +63,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->brandName('قصص أطفال')
+            ->brandName('قصاقيص أطفال')
             ->login()
             ->colors([
-                // Brand primary — بنفسجي «قصص أطفال».
+                // Brand primary — بنفسجي «قصاقيص أطفال».
                 'primary' => Color::hex('#6E2FB0'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')

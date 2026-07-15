@@ -82,7 +82,7 @@ class Book extends Model
     public function publisher(): BelongsTo
     {
         // Books with no visible publisher fall back to the default label.
-        return $this->belongsTo(Publisher::class)->withDefault(['name' => 'قصص أطفال']);
+        return $this->belongsTo(Publisher::class)->withDefault(['name' => 'قصاقيص أطفال']);
     }
 
     public function categories(): BelongsToMany
