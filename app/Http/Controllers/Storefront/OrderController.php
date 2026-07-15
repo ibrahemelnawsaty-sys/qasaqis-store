@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Actions\Order\FindGuestOrderAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PaymentProofRequest;
+use App\Http\Requests\TrackOrderRequest;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Support\Order\OrderLinks;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\URL;
@@ -85,5 +88,34 @@ class OrderController extends Controller
         return view('orders.thankyou', [
             'order' => $order,
         ]);
+    }
+
+    /**
+     * «تتبّع الطلب» — نموذج عام للضيف (رقم الطلب + الجوال).
+     */
+    public function trackForm(): View
+    {
+        return view('orders.track');
+    }
+
+    /**
+     * يتحقق من المطابقة ويعيد توجيهًا برابط موقّت للصفحة المناسبة. عند الفشل رسالة
+     * موحّدة تمنع تعداد الطلبات (لا نعيد إدخال الجوال). المنطق في Action نحيف (2.2).
+     */
+    public function track(TrackOrderRequest $request, FindGuestOrderAction $finder): RedirectResponse
+    {
+        $order = $finder->execute(
+            (string) $request->validated('order_number'),
+            (string) $request->validated('phone'),
+        );
+
+        if ($order === null) {
+            return redirect()
+                ->route('orders.track.show')
+                ->withInput($request->only('order_number'))
+                ->with('error', __('payment.track.not_found'));
+        }
+
+        return redirect()->to(OrderLinks::signedDestinationFor($order));
     }
 }

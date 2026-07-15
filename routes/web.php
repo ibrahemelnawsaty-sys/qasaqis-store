@@ -88,6 +88,15 @@ Route::post('/coupon/apply', [CouponController::class, 'apply'])
     ->middleware('throttle:30,1')
     ->name('coupon.apply');
 
+// تتبّع/استرجاع طلب الضيف: مسار ثابت (لا يتعارض مع /orders/{order}/...).
+// POST مقيّد بـ throttle لمنع تخمين رقم الطلب + الجوال (بند 4.6). المفتاح على IP
+// (REMOTE_ADDR) — سليم على Hostinger المباشر؛ إن وُضع CDN/بروكسي لاحقًا فاضبط
+// trustProxies في bootstrap/app.php كي لا ينهار الحد إلى IP البروكسي.
+Route::get('/orders/track', [OrderController::class, 'trackForm'])->name('orders.track.show');
+Route::post('/orders/track', [OrderController::class, 'track'])
+    ->middleware('throttle:6,1')
+    ->name('orders.track.lookup');
+
 // صفحات الطلب للضيف — محميّة بروابط موقّعة (signed) لمنع تعداد الطلبات.
 Route::get('/orders/{order}/payment', [OrderController::class, 'payment'])
     ->middleware('signed')

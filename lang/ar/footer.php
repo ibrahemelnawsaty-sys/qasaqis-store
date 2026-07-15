@@ -16,6 +16,7 @@ return [
     'link_shipping' => 'سياسة الشحن',
     'link_returns' => 'الاستبدال والاسترجاع',
     'link_faq' => 'الأسئلة الشائعة',
+    'link_track' => 'تتبّع طلبك',
     'link_whatsapp' => '💬 واتساب: تواصل مباشر',
     'link_payment' => '💳 طرق الدفع',
     'visit_us' => 'موقعنا على الخريطة',

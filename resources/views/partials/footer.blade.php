@@ -106,6 +106,7 @@
                     <a href="{{ route('books.offers') }}">{{ __('footer.link_offers') }}</a>
                     <a href="{{ route('blog.index') }}">{{ __('nav.blog') }}</a>
                     <a href="{{ route('search') }}">{{ __('common.search_submit') }}</a>
+                    <a href="{{ route('orders.track.show') }}">{{ __('footer.link_track') }}</a>
 
                     {{-- روابط قائمة الفوتر (CMS: من نحن، الشحن، الاسترجاع…) تُلحق بعد الافتراضي --}}
                     @foreach ($footerMenuItems as $mi)
