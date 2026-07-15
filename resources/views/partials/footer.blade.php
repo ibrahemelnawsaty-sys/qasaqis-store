@@ -104,6 +104,7 @@
                 <div class="ft-links">
                     <a href="{{ route('books.index') }}">{{ __('footer.link_all_books') }}</a>
                     <a href="{{ route('books.offers') }}">{{ __('footer.link_offers') }}</a>
+                    <a href="{{ route('blog.index') }}">{{ __('nav.blog') }}</a>
                     <a href="{{ route('search') }}">{{ __('common.search_submit') }}</a>
 
                     {{-- روابط قائمة الفوتر (CMS: من نحن، الشحن، الاسترجاع…) تُلحق بعد الافتراضي --}}

@@ -88,4 +88,26 @@ trait HasResourcePermissions
     {
         return static::userCan('delete');
     }
+
+    // الاستعادة والحذف النهائي (softDeletes) — عمليات مدمّرة تُربط بصلاحية الحذف
+    // خادميًا (بند 4.4)؛ بدونها تُرجع Filament true افتراضيًا لأي مستخدم يصل للمورد.
+    public static function canRestore(Model $record): bool
+    {
+        return static::userCan('delete');
+    }
+
+    public static function canRestoreAny(): bool
+    {
+        return static::userCan('delete');
+    }
+
+    public static function canForceDelete(Model $record): bool
+    {
+        return static::userCan('delete');
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return static::userCan('delete');
+    }
 }

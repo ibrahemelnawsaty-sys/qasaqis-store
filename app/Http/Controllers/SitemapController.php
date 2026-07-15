@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Page;
@@ -141,6 +142,20 @@ class SitemapController extends Controller
                     'lastmod' => $this->stamp($page->updated_at),
                     'changefreq' => 'monthly',
                     'priority' => '0.5',
+                ];
+            });
+
+        // مقالات المدونة المنشورة فقط (/blog/{slug}) — lastmod من updated_at.
+        Article::query()
+            ->where('is_published', true)
+            ->select(['slug', 'updated_at'])
+            ->orderBy('id')
+            ->each(function (Article $article) use (&$urls): void {
+                $urls[] = [
+                    'loc' => $this->abs('/blog/'.$article->slug),
+                    'lastmod' => $this->stamp($article->updated_at),
+                    'changefreq' => 'weekly',
+                    'priority' => '0.6',
                 ];
             });
 

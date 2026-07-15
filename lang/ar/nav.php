@@ -6,6 +6,7 @@ return [
     'home' => 'الرئيسية',
     'all_books' => 'كل الكتب',
     'offers' => 'العروض',
+    'blog' => 'المدونة',
     'publishers' => 'دور النشر',
     'account' => 'حسابي',
     'favorites' => 'المفضلة',

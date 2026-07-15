@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CategoryController;
@@ -52,6 +53,10 @@ Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.s
 
 // صفحة القسم (تبقى كل الأقسام الستة موجودة حتى الفارغة)
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
+
+// المدونة (المقالات المنشورة). قائمة + صفحة مقال مربوطة بالـ slug؛ المسودّات تُعطي 404.
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{article:slug}', [BlogController::class, 'show'])->name('blog.show');
 
 // صفحات CMS الديناميكية (من نحن، سياسة الشحن…). المنشورة فقط؛ المسودّات تُعطي 404.
 Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.show');

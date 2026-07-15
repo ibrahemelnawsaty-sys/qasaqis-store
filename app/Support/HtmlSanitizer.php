@@ -31,7 +31,8 @@ final class HtmlSanitizer
      * @var array<int, string>
      */
     private const ALLOWED_TAGS = [
-        'p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'h3', 'h4', 'span',
+        'p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li',
+        'h2', 'h3', 'h4', 'h5', 'span', 'blockquote',
     ];
 
     public static function clean(string $html): string

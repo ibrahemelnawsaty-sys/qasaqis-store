@@ -125,6 +125,11 @@
                 <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
             </a>
 
+            <a class="catlink" href="{{ route('blog.index') }}"
+                @if (request()->routeIs('blog.*')) aria-current="page" @endif>
+                <span class="e" aria-hidden="true">📖</span> {{ __('nav.blog') }}
+            </a>
+
             {{-- روابط إضافية من قائمة الهيدر (CMS) — تُلحق بشريط الأقسام دون كسر الافتراضي --}}
             @foreach ($headerMenuItems as $mi)
                 @php $mu = $resolveMenuUrl($mi); @endphp
@@ -152,6 +157,7 @@
             <a href="{{ route('home') }}">🏠 {{ __('nav.home') }}</a>
             <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
             <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
+            <a href="{{ route('blog.index') }}">📖 {{ __('nav.blog') }}</a>
             @foreach ($navCategories as $cat)
                 <a href="{{ route('categories.show', $cat) }}">
                     @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}

@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             PublisherSeeder::class,
             BookSeeder::class,
+            // مقالات المدونة تُربط بالكتب عبر article_book، فتأتي بعد BookSeeder.
+            ArticleSeeder::class,
             RolePermissionSeeder::class,
             UserSeeder::class,
             SettingSeeder::class,

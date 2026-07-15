@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Storefront\Concerns\FiltersBooks;
+use App\Models\Article;
 use App\Models\Book;
 use App\Models\HomepageBlock;
 use App\Models\Review;
@@ -88,6 +89,20 @@ class HomeController extends Controller
             ->take(3)
             ->get();
 
+        // أحدث 3 مقالات منشورة للقسم «أحدث المقالات» بالرئيسية. لا علاقات مُحمّلة
+        // (بطاقة المقال لا تعرض كتبًا) => بلا N+1. rescue تُبقي الرئيسية تعمل حتى
+        // قبل تشغيل هجرة المدونة (مجموعة فارغة => القسم لا يظهر أصلًا).
+        $articles = rescue(
+            fn () => Article::query()
+                ->published()
+                ->orderByDesc('published_at')
+                ->orderByDesc('id')
+                ->take(3)
+                ->get(['id', 'title', 'slug', 'excerpt', 'cover_image', 'category', 'reading_minutes']),
+            collect(),
+            report: false,
+        );
+
         return view('home', [
             'slides' => $slides,
             'blocks' => $blocks,
@@ -96,6 +111,7 @@ class HomeController extends Controller
             'bestsellers' => $bestsellers,
             'latest' => $latest,
             'reviews' => $reviews,
+            'articles' => $articles,
         ]);
     }
 }
