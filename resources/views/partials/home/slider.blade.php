@@ -9,10 +9,13 @@
 @once
     @push('head')
         <style>
-            .hslider{position:relative;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-l);isolation:isolate;margin-block:clamp(14px,3vw,26px)}
-            .hslide{position:relative;min-height:clamp(280px,42vw,440px);display:grid;align-items:end}
-            .hslide-media{position:absolute;inset:0;z-index:0}
-            .hslide-media img{width:100%;height:100%;object-fit:cover;display:block}
+            .hslider{position:relative;min-height:clamp(280px,42vw,440px);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-l);isolation:isolate;margin-block:clamp(14px,3vw,26px)}
+            /* الشرائح متراكبة في نفس الموضع (لا تتكدّس عموديًا فتقفز الصفحة) */
+            .hslide{position:absolute;inset:0;display:grid;align-items:end}
+            .hslide-media{position:absolute;inset:0;z-index:0;overflow:hidden}
+            .hslide-media img{width:100%;height:100%;object-fit:cover;display:block;animation:hs-kenburns 7s ease-out both;will-change:transform}
+            @keyframes hs-kenburns{from{transform:scale(1.03)}to{transform:scale(1.12)}}
+            @media (prefers-reduced-motion:reduce){.hslide-media img{animation:none}}
             .hslide-fallback{position:absolute;inset:0;z-index:0}
             .hslide::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(0deg,rgba(20,10,32,.74),rgba(20,10,32,.18) 55%,rgba(20,10,32,.05))}
             .hslide-body{position:relative;z-index:2;padding:clamp(20px,4vw,46px);max-width:60ch;color:#fff}
@@ -77,7 +80,7 @@
 
             <div class="hslide" role="group" aria-label="{{ $slide->title }}"
                 x-show="i === {{ $loop->index }}" @unless ($loop->first) style="display:none" @endunless
-                x-transition.opacity.duration.500ms>
+                x-transition.opacity.duration.700ms>
                 @if ($img)
                     <div class="hslide-media">
                         <img src="{{ $img }}" alt="{{ $slide->title }}"
