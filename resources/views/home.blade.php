@@ -283,6 +283,40 @@
         </div>
     </section>
 
+    {{-- طلبات الجملة والاستفسارات + الموقع --}}
+    <section class="sec" aria-labelledby="bulk-title">
+        <div class="wrap">
+            <div class="sec-top">
+                <span class="sec-eyebrow">{{ __('home.bulk_eyebrow') }}</span>
+                <h2 class="sec-title" id="bulk-title">{{ __('home.bulk_title') }}</h2>
+                <p class="sec-desc">{{ __('home.bulk_desc') }}</p>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;max-width:900px;margin-inline:auto">
+                {{-- بطاقة واتساب --}}
+                <div style="background:linear-gradient(150deg,var(--purple),var(--pink));color:#fff;border-radius:var(--r-lg);padding:28px;text-align:center;box-shadow:var(--shadow)">
+                    <div style="font-size:44px;line-height:1" aria-hidden="true">💬</div>
+                    <h3 style="font-weight:900;font-size:20px;margin:12px 0 6px">{{ __('home.bulk_wa') }}</h3>
+                    <p style="opacity:.95;font-size:14.5px;margin-bottom:18px">{{ __('home.bulk_desc') }}</p>
+                    <x-wa-button :class="'btn btn-white'" :label="__('home.bulk_wa')" />
+                </div>
+                {{-- بطاقة الموقع --}}
+                @if (filled($storeSettings['contact_address'] ?? '') || filled($storeSettings['store_maps_url'] ?? ''))
+                    <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px;text-align:center;box-shadow:var(--shadow-s)">
+                        <div style="font-size:44px;line-height:1" aria-hidden="true">📍</div>
+                        <h3 style="font-weight:900;font-size:20px;margin:12px 0 6px">{{ __('home.bulk_visit_title') }}</h3>
+                        <p style="color:var(--ink-soft);font-size:14px;margin-bottom:6px">{{ __('home.bulk_visit_hint') }}</p>
+                        @if (filled($storeSettings['contact_address'] ?? ''))
+                            <p style="font-weight:800;color:var(--purple);margin-bottom:16px">🗺️ {{ $storeSettings['contact_address'] }}</p>
+                        @endif
+                        @if (filled($storeSettings['store_maps_url'] ?? ''))
+                            <a class="btn btn-ghost" href="{{ $storeSettings['store_maps_url'] }}" target="_blank" rel="noopener">{{ __('home.bulk_map_cta') }}</a>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        </div>
+    </section>
+
     {{-- REVIEWS (بيانات حقيقية فقط) --}}
     @if ($reviews->isNotEmpty())
         <section class="sec" style="padding-top:6px" aria-labelledby="rev-title">

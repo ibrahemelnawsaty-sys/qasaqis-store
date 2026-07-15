@@ -136,6 +136,12 @@
                 <h5>{{ __('footer.contact_heading') }}</h5>
                 <div class="ft-links">
                     <x-wa-button :class="'ft-wa-link'" :label="__('footer.link_whatsapp')" />
+                    @if (filled($storeSettings['store_maps_url'] ?? ''))
+                        <a href="{{ $storeSettings['store_maps_url'] }}" target="_blank" rel="noopener">📍 {{ __('footer.visit_us') }}</a>
+                    @endif
+                    @if (filled($storeSettings['contact_address'] ?? ''))
+                        <span style="color:var(--ink-soft);font-size:13px;line-height:1.6">{{ $storeSettings['contact_address'] }}</span>
+                    @endif
                 </div>
             </div>
         </div>

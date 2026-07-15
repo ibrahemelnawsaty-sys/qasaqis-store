@@ -96,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
             'contact_phone' => '',
             'contact_email' => '',
             'contact_address' => '',
+            'store_maps_url' => '',
+            'shipping_note' => '',
             // روابط السوشيال (المفاتيح الجديدة الموحّدة social_*).
             'social_facebook' => '',
             'social_instagram' => '',

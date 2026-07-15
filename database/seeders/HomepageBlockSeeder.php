@@ -40,10 +40,10 @@ class HomepageBlockSeeder extends Seeder
             [
                 'key' => 'home_slider_2',
                 'type' => 'slider',
-                'title' => 'شحن لكل مصر 🚚 والدفع عند الاستلام',
+                'title' => 'شحن دولي لكل الدول 🌍',
                 'sort_order' => 2,
                 'content' => [
-                    'body' => 'اطلبي وأنتِ مطمئنة — نوصّل كتبك لباب البيت بأمان وسرعة.',
+                    'body' => 'نوصّل كتبك لأي دولة عربية بأمان — اطلبي وأنتِ مطمئنة.',
                     'url' => route('books.index'),
                     'cta' => 'اطلبي الآن',
                     'image_url' => 'images/slider/slide-2.webp',

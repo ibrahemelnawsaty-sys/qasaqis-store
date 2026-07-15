@@ -37,14 +37,16 @@ class SettingSeeder extends Seeder
             // --- Contact (contact) ------------------------------------------
             // Placeholder WhatsApp number (E.164, no leading +). NOT a real line —
             // the admin sets the store's actual number from the panel.
-            ['contact', 'whatsapp_number', '201000000000', 'string'],
+            ['contact', 'whatsapp_number', '201018818720', 'string'],
             ['contact', 'contact_phone', '', 'string'],
             ['contact', 'contact_email', 'info@qasaqis.store', 'string'],
-            ['contact', 'contact_address', '', 'string'],
+            ['contact', 'contact_address', '6 أكتوبر، محافظة الجيزة، الحي الرابع', 'string'],
+            ['contact', 'store_maps_url', 'https://maps.app.goo.gl/C6P3GVQdRiVuEdK4A', 'string'],
+            ['contact', 'shipping_note', 'شحن دولي لكل الدول', 'string'],
 
             // --- Social media (social) — empty, ready for the admin to fill --
-            ['social', 'social_facebook', '', 'string'],
-            ['social', 'social_instagram', '', 'string'],
+            ['social', 'social_facebook', 'https://www.facebook.com/groups/1596310100703409/', 'string'],
+            ['social', 'social_instagram', 'https://www.instagram.com/qsaqis_kids/', 'string'],
             ['social', 'social_tiktok', '', 'string'],
             ['social', 'social_youtube', '', 'string'],
             ['social', 'social_twitter', '', 'string'],
@@ -57,7 +59,7 @@ class SettingSeeder extends Seeder
             ['payment', 'manual_instapay_enabled', '1', 'boolean'],
             ['payment', 'manual_vodafone_enabled', '1', 'boolean'],
             ['payment', 'manual_bank_enabled', '0', 'boolean'],
-            ['payment', 'cod_enabled', '1', 'boolean'],
+            ['payment', 'cod_enabled', '0', 'boolean'],
         ];
 
         foreach ($settings as [$group, $key, $value, $type]) {

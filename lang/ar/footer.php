@@ -18,6 +18,7 @@ return [
     'link_faq' => 'الأسئلة الشائعة',
     'link_whatsapp' => '💬 واتساب: تواصل مباشر',
     'link_payment' => '💳 طرق الدفع',
+    'visit_us' => 'موقعنا على الخريطة',
 
     'social_facebook' => 'فيسبوك',
     'social_instagram' => 'إنستجرام',

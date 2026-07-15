@@ -35,7 +35,8 @@ class PaymentMethodSeeder extends Seeder
     {
         // [code, name(ar, CMS-editable), type, is_enabled, requires_proof, sort_order]
         $methods = [
-            ['cod', 'الدفع عند الاستلام', 'cash_on_delivery', true, false, 1],
+            // الدفع عند الاستلام مُعطّل (شحن دولي) — يمكن إعادة تفعيله من لوحة الأدمن.
+            ['cod', 'الدفع عند الاستلام', 'cash_on_delivery', false, false, 1],
             ['instapay', 'إنستاباي', 'manual_transfer', true, true, 2],
             ['vodafone_cash', 'فودافون كاش', 'manual_transfer', true, true, 3],
             ['bank_transfer', 'تحويل بنكي', 'manual_transfer', true, true, 4],
