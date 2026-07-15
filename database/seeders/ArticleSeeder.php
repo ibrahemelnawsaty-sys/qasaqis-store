@@ -41,6 +41,19 @@ class ArticleSeeder extends Seeder
 
     public function run(): void
     {
+        // أغلفة مصمّمة جاهزة في public/images/articles (مرتبطة بالـ slug).
+        // يستطيع الأدمن استبدالها لاحقًا من لوحة التحكم.
+        $covers = [
+            'كيف-اجعل-طفلي-يحب-القراءة' => 'images/articles/article-1.jpg',
+            'قصص-لتعليم-الطفل-التحكم-في-الغضب' => 'images/articles/article-2.jpg',
+            'فوائد-القراءة-قبل-النوم-للاطفال' => 'images/articles/article-3.jpg',
+            'الذكاء-العاطفي-للاطفال-وقصص-المشاعر' => 'images/articles/article-4.jpg',
+            'غيرة-الطفل-من-المولود-الجديد' => 'images/articles/article-5.jpg',
+            'قصص-السيرة-النبوية-للاطفال' => 'images/articles/article-6.jpg',
+            'كيف-تعزز-ثقة-طفلك-بنفسه' => 'images/articles/article-7.jpg',
+            'افضل-الكتب-العلمية-للاطفال' => 'images/articles/article-8.jpg',
+        ];
+
         foreach ($this->articles() as $index => $data) {
             /** @var Article $article */
             $article = Article::updateOrCreate(
@@ -49,7 +62,7 @@ class ArticleSeeder extends Seeder
                     'title' => $data['title'],
                     'excerpt' => $data['excerpt'],
                     'content' => $data['content'],
-                    'cover_image' => null, // admin uploads a real cover later — never invented.
+                    'cover_image' => $covers[$data['slug']] ?? null,
                     'author_name' => self::AUTHOR,
                     'category' => $data['category'],
                     'reading_minutes' => $data['reading_minutes'],

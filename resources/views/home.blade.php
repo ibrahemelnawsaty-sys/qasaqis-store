@@ -337,7 +337,9 @@
                             $coverSrc = filled($article->cover_image)
                                 ? (\Illuminate\Support\Str::startsWith($article->cover_image, ['http://', 'https://'])
                                     ? $article->cover_image
-                                    : asset('storage/' . ltrim($article->cover_image, '/')))
+                                    : (\Illuminate\Support\Str::startsWith($article->cover_image, 'images/')
+                                        ? asset($article->cover_image)
+                                        : asset('storage/' . ltrim($article->cover_image, '/'))))
                                 : null;
                             $articleUrl = route('blog.show', $article);
                         @endphp
