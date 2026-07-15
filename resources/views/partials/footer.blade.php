@@ -88,7 +88,7 @@
         <div class="ft-grid">
             <div>
                 <a class="logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">
-                    <img class="logo-img logo-img--footer" src="{{ asset('images/logo.png') }}" alt="{{ __('common.brand') }}" width="440" height="318">
+                    <img class="logo-img logo-img--footer" src="{{ asset('images/logo.webp') }}" alt="{{ __('common.brand') }}" width="440" height="318">
                 </a>
                 <p class="ft-about">{{ __('footer.about') }}</p>
                 <div class="socials">

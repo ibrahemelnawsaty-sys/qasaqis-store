@@ -31,6 +31,24 @@
     @endpush
 @endonce
 
+@php
+    // preload لصورة أول شريحة (عنصر LCP غالبًا) لتسريع أكبر محتوى مرئي.
+    $firstSlide = $slides->first();
+    $fc = ($firstSlide && is_array($firstSlide->content)) ? $firstSlide->content : [];
+    $firstRaw = $fc['image_url'] ?? null;
+    $firstImg = null;
+    if (filled($firstRaw)) {
+        $firstImg = \Illuminate\Support\Str::startsWith($firstRaw, ['http://', 'https://'])
+            ? $firstRaw
+            : (\Illuminate\Support\Str::startsWith($firstRaw, 'images/')
+                ? asset($firstRaw)
+                : asset('storage/' . ltrim($firstRaw, '/')));
+    }
+@endphp
+@if ($firstImg)
+    @push('head')<link rel="preload" as="image" href="{{ $firstImg }}" fetchpriority="high">@endpush
+@endif
+
 <div class="wrap">
     <section class="hslider" aria-label="{{ __('common.brand') }}"
         x-data="{
@@ -84,8 +102,9 @@
                 @if ($img)
                     <div class="hslide-media">
                         <img src="{{ $img }}" alt="{{ $slide->title }}"
-                            loading="{{ $loop->first ? 'eager' : 'lazy' }}" decoding="async"
-                            width="1180" height="440">
+                            loading="{{ $loop->first ? 'eager' : 'lazy' }}"
+                            fetchpriority="{{ $loop->first ? 'high' : 'low' }}"
+                            decoding="async" width="1180" height="440">
                     </div>
                 @else
                     <div class="hslide-fallback" style="background:linear-gradient(135deg,{{ $pair[0] }},{{ $pair[1] }})"></div>

@@ -274,7 +274,7 @@
             <div class="reviews-gallery" role="list">
                 @foreach (range(1, 9) as $n)
                     <figure class="rev-card" role="listitem">
-                        <img src="{{ asset('images/reviews/review-' . $n . '.jpeg') }}"
+                        <img src="{{ asset('images/reviews/review-' . $n . '.webp') }}"
                             alt="{{ __('home.feedback_alt', ['n' => $n]) }}"
                             loading="lazy" decoding="async" width="640" height="537">
                     </figure>

@@ -27,7 +27,7 @@
     <link rel="preload" href="{{ asset('fonts/baloo-800-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
 
     {{-- أيقونة المتصفح --}}
-    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
 
     {{-- ===== SEO تقني افتراضي — تُغلَب قيمه عند دفع الصفحة عبر الأقسام/الـ stacks ===== --}}
     {{-- robots افتراضي: فهرسة وتتبّع؛ تغلبه الصفحة بـ @section('seo_robots', 'noindex, nofollow'). --}}

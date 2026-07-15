@@ -34,7 +34,7 @@ class HomepageBlockSeeder extends Seeder
                     'body' => 'مكتبة قصص أطفال مختارة بحب — قيم وسلوكيات ومغامرات تكبر مع طفلك.',
                     'url' => route('books.index'),
                     'cta' => 'تصفّحي المكتبة',
-                    'image_url' => 'images/slider/slide-1.jpg',
+                    'image_url' => 'images/slider/slide-1.webp',
                 ],
             ],
             [
@@ -46,7 +46,7 @@ class HomepageBlockSeeder extends Seeder
                     'body' => 'اطلبي وأنتِ مطمئنة — نوصّل كتبك لباب البيت بأمان وسرعة.',
                     'url' => route('books.index'),
                     'cta' => 'اطلبي الآن',
-                    'image_url' => 'images/slider/slide-2.jpg',
+                    'image_url' => 'images/slider/slide-2.webp',
                 ],
             ],
             [
@@ -58,7 +58,7 @@ class HomepageBlockSeeder extends Seeder
                     'body' => 'جودة عالية بأسعار في المتناول لكل بيت — لا تفوّتي العروض!',
                     'url' => route('books.offers'),
                     'cta' => 'شوفي العروض',
-                    'image_url' => 'images/slider/slide-3.jpg',
+                    'image_url' => 'images/slider/slide-3.webp',
                 ],
             ],
             [
@@ -70,7 +70,7 @@ class HomepageBlockSeeder extends Seeder
                     'body' => 'مدوّنة قصاقيص: مقالات عن حب القراءة والمشاعر وتربية طفلك.',
                     'url' => route('blog.index'),
                     'cta' => 'زوري المدوّنة',
-                    'image_url' => 'images/slider/slide-4.jpg',
+                    'image_url' => 'images/slider/slide-4.webp',
                 ],
             ],
             [

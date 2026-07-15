@@ -44,14 +44,14 @@ class ArticleSeeder extends Seeder
         // أغلفة مصمّمة جاهزة في public/images/articles (مرتبطة بالـ slug).
         // يستطيع الأدمن استبدالها لاحقًا من لوحة التحكم.
         $covers = [
-            'كيف-اجعل-طفلي-يحب-القراءة' => 'images/articles/article-1.jpg',
-            'قصص-لتعليم-الطفل-التحكم-في-الغضب' => 'images/articles/article-2.jpg',
-            'فوائد-القراءة-قبل-النوم-للاطفال' => 'images/articles/article-3.jpg',
-            'الذكاء-العاطفي-للاطفال-وقصص-المشاعر' => 'images/articles/article-4.jpg',
-            'غيرة-الطفل-من-المولود-الجديد' => 'images/articles/article-5.jpg',
-            'قصص-السيرة-النبوية-للاطفال' => 'images/articles/article-6.jpg',
-            'كيف-تعزز-ثقة-طفلك-بنفسه' => 'images/articles/article-7.jpg',
-            'افضل-الكتب-العلمية-للاطفال' => 'images/articles/article-8.jpg',
+            'كيف-اجعل-طفلي-يحب-القراءة' => 'images/articles/article-1.webp',
+            'قصص-لتعليم-الطفل-التحكم-في-الغضب' => 'images/articles/article-2.webp',
+            'فوائد-القراءة-قبل-النوم-للاطفال' => 'images/articles/article-3.webp',
+            'الذكاء-العاطفي-للاطفال-وقصص-المشاعر' => 'images/articles/article-4.webp',
+            'غيرة-الطفل-من-المولود-الجديد' => 'images/articles/article-5.webp',
+            'قصص-السيرة-النبوية-للاطفال' => 'images/articles/article-6.webp',
+            'كيف-تعزز-ثقة-طفلك-بنفسه' => 'images/articles/article-7.webp',
+            'افضل-الكتب-العلمية-للاطفال' => 'images/articles/article-8.webp',
         ];
 
         foreach ($this->articles() as $index => $data) {

@@ -43,7 +43,7 @@
     <div class="nav">
         <div class="wrap">
             <a class="logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">
-                <img class="logo-img" src="{{ asset('images/logo.png') }}" alt="{{ __('common.brand') }}" width="440" height="318">
+                <img class="logo-img" src="{{ asset('images/logo.webp') }}" alt="{{ __('common.brand') }}" width="440" height="318">
             </a>
 
             {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine) — يُخفى على الموبايل --}}
