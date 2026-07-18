@@ -117,7 +117,7 @@
             <div class="trust">
                 @foreach (__('home.trust') as $item)
                     <div class="trust-item">
-                        <span class="e" style="background:var(--purple-soft)" aria-hidden="true">{{ $item['emoji'] }}</span>
+                        <span class="e" style="background:var(--purple-soft);color:var(--purple)" aria-hidden="true"><x-ui-icon :name="$item['icon'] ?? 'badge-check'" :size="26" /></span>
                         <div>
                             <div class="t">{{ $item['title'] }}</div>
                             <div class="d">{{ $item['desc'] }}</div>
@@ -142,7 +142,7 @@
                         @endphp
                         <a class="cat {{ $cat->books_count === 0 ? 'empty' : '' }}"
                             href="{{ route('categories.show', $cat) }}" style="background:{{ $bg }}">
-                            <span class="ce" aria-hidden="true">{{ filled($cat->icon) ? $cat->icon : '📚' }}</span>
+                            <span class="ce" aria-hidden="true"><x-category-icon :cat="$cat" /></span>
                             <span class="cn">{{ $cat->name }}</span>
                             <span class="cc">
                                 {{ $cat->books_count > 0 ? trans_choice('nav.books_count', $cat->books_count, ['count' => $cat->books_count]) : __('nav.coming_soon') }}
