@@ -14,6 +14,7 @@ use App\Http\Controllers\Storefront\OrderController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\SearchController;
+use App\Http\Controllers\Storefront\SeriesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -60,6 +61,9 @@ Route::get('/books/{book:slug}', [BookController::class, 'show'])->name('books.s
 
 // صفحة القسم (تبقى كل الأقسام الستة موجودة حتى الفارغة)
 Route::get('/category/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
+
+// صفحة السلسلة: تعرض كل عناوين السلسلة بالترتيب (السلاسل غير المفعّلة تُعطي 404).
+Route::get('/series/{series:slug}', [SeriesController::class, 'show'])->name('series.show');
 
 // المدونة (المقالات المنشورة). قائمة + صفحة مقال مربوطة بالـ slug؛ المسودّات تُعطي 404.
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');

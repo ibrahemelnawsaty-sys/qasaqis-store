@@ -54,11 +54,20 @@ trait FiltersBooks
                 'publisher:id,name,slug',
             ]);
 
-        // Category context: a category page pins one category.
+        // Category context: a category page pins one category. A book belongs to a
+        // category if it is its MAIN category (books.category_id) OR one of its EXTRA
+        // categories (book_category pivot) — so multi-category books list under each.
         if ($category !== null) {
-            $query->where('category_id', $category->id);
+            $query->where(function (Builder $q) use ($category): void {
+                $q->where('category_id', $category->id)
+                    ->orWhereHas('categories', fn (Builder $c) => $c->whereKey($category->id));
+            });
         } elseif (filled($request->input('cat'))) {
-            $query->whereIn('category_id', (array) $request->input('cat'));
+            $ids = array_values(array_filter(array_map('intval', (array) $request->input('cat'))));
+            $query->where(function (Builder $q) use ($ids): void {
+                $q->whereIn('category_id', $ids)
+                    ->orWhereHas('categories', fn (Builder $c) => $c->whereIn('categories.id', $ids));
+            });
         }
 
         // Free-text search (Arabic-normalized).
@@ -194,13 +203,28 @@ trait FiltersBooks
      */
     protected function categoriesWithCounts()
     {
+        // العدّ يشمل الكتب التي هذا قسمها الرئيسي (books.category_id) أو أحد أقسامها
+        // الإضافية (book_category) — كتاب واحد يُحسب مرة واحدة عبر استعلام فرعي مترابط.
         return Category::query()
             ->active()
             ->whereNull('parent_id')
             ->orderBy('sort_order')
-            ->withCount(['books as books_count' => function (Builder $q): void {
-                $q->where('is_published', true);
-            }])
+            ->select('categories.*')
+            ->selectSub(
+                Book::query()
+                    ->where('is_published', true)
+                    ->where(function (Builder $q): void {
+                        $q->whereColumn('books.category_id', 'categories.id')
+                            ->orWhereExists(function ($e): void {
+                                $e->selectRaw('1')
+                                    ->from('book_category')
+                                    ->whereColumn('book_category.book_id', 'books.id')
+                                    ->whereColumn('book_category.category_id', 'categories.id');
+                            });
+                    })
+                    ->selectRaw('count(*)'),
+                'books_count'
+            )
             ->get();
     }
 

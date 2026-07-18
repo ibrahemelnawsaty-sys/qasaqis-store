@@ -125,6 +125,21 @@
         .lightbox__count{ position:absolute; bottom:18px; left:50%; transform:translateX(-50%); color:#fff; font-weight:700; font-size:14px; background:rgba(0,0,0,.45); padding:6px 16px; border-radius:99px; font-variant-numeric:tabular-nums; direction:ltr; }
         @media (max-width:600px){ .lightbox__btn{ width:42px; height:42px; } .lightbox__prev{ inset-inline-start:8px; } .lightbox__next{ inset-inline-end:8px; } }
         @media (prefers-reduced-motion:reduce){ .pdp-thumb img{ transition:none; } }
+        /* مبدّل عناوين السلسلة */
+        .series-switch{ margin-top:20px; padding:16px; border:1px solid var(--line); border-radius:var(--r-md); background:var(--surface); box-shadow:var(--shadow-s); }
+        .series-switch__head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+        .series-switch__label{ font-weight:800; font-size:15px; }
+        .series-switch__all{ font-size:12.5px; font-weight:700; color:var(--purple); text-decoration:none; }
+        .series-switch__all:hover{ text-decoration:underline; }
+        .series-switch__row{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
+        .series-item{ flex:0 0 auto; width:88px; text-decoration:none; color:var(--ink); }
+        .series-item__cover{ display:grid; place-items:center; width:88px; height:112px; border-radius:10px; overflow:hidden; border:2px solid var(--line); background:var(--purple-soft); transition:border-color .15s, transform .15s; }
+        .series-item__cover img{ width:100%; height:100%; object-fit:cover; }
+        .series-item__ph{ font-weight:900; font-size:30px; color:var(--purple); }
+        .series-item__title{ margin-top:6px; font-size:11.5px; font-weight:700; line-height:1.35; text-align:center; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .series-item:hover .series-item__cover{ border-color:var(--purple); transform:translateY(-2px); }
+        .series-item.is-current{ pointer-events:none; }
+        .series-item.is-current .series-item__cover{ border-color:var(--purple); box-shadow:0 0 0 3px var(--purple-soft); }
     </style>
 @endpush
 
@@ -272,6 +287,12 @@
                     @if ($book->category)
                         <a class="pill" href="{{ route('categories.show', $book->category) }}">{{ $book->category->name }}</a>
                     @endif
+                    {{-- أقسام إضافية (متعدّدة الأقسام) — نتجاوز القسم الرئيسي كي لا يتكرّر --}}
+                    @foreach ($book->categories as $extraCategory)
+                        @if ((int) $extraCategory->id !== (int) $book->category_id)
+                            <a class="pill" href="{{ route('categories.show', $extraCategory) }}">{{ $extraCategory->name }}</a>
+                        @endif
+                    @endforeach
                     @if ($ageText)
                         <span class="pill teal">{{ $ageText }}</span>
                     @endif
@@ -306,6 +327,43 @@
                         <span class="pill" style="background:var(--pink-soft);color:var(--pink)">{{ __('common.out_of_stock') }}</span>
                     @endunless
                 </div>
+
+                {{-- مبدّل عناوين السلسلة: كل عنوان كتاب مستقل بغلافه وسعره؛ النقر ينقل لصفحته --}}
+                @if ($seriesBooks->count() > 1)
+                    <div class="series-switch">
+                        <div class="series-switch__head">
+                            <span class="series-switch__label">{{ __('book.series_titles') }}</span>
+                            @if ($book->series)
+                                <a class="series-switch__all" href="{{ route('series.show', $book->series) }}"
+                                    aria-label="{{ __('book.series_browse') }}">{{ $book->series->name }} <span aria-hidden="true">←</span></a>
+                            @endif
+                        </div>
+                        <div class="series-switch__row">
+                            @foreach ($seriesBooks as $sb)
+                                @php
+                                    $isCurrent = (int) $sb->id === (int) $book->id;
+                                    $sbCover = filled($sb->cover_image)
+                                        ? (\Illuminate\Support\Str::startsWith($sb->cover_image, ['http://', 'https://'])
+                                            ? $sb->cover_image
+                                            : asset('storage/' . ltrim($sb->cover_image, '/')))
+                                        : null;
+                                @endphp
+                                <a class="series-item {{ $isCurrent ? 'is-current' : '' }}"
+                                    @if ($isCurrent) aria-current="true" @else href="{{ route('books.show', $sb) }}" @endif
+                                    title="{{ $sb->title }}">
+                                    <span class="series-item__cover">
+                                        @if ($sbCover)
+                                            <img src="{{ $sbCover }}" loading="lazy" decoding="async" alt="{{ $isCurrent ? '' : $sb->title }}">
+                                        @else
+                                            <span class="series-item__ph" aria-hidden="true">{{ mb_substr($sb->title, 0, 1) }}</span>
+                                        @endif
+                                    </span>
+                                    <span class="series-item__title">{{ $sb->title }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
 
                 @if ($safeDescription)
                     <h2 style="font-size:17px;font-weight:800;margin-top:20px">{{ __('book.description_title') }}</h2>

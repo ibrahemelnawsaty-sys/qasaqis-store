@@ -21,6 +21,8 @@ class Book extends Model
     protected $fillable = [
         'category_id',
         'publisher_id',
+        'series_id',
+        'series_position',
         'title',
         'slug',
         'sku',
@@ -85,6 +87,11 @@ class Book extends Model
     {
         // Books with no visible publisher fall back to the default label.
         return $this->belongsTo(Publisher::class)->withDefault(['name' => 'قصاقيص أطفال']);
+    }
+
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(Series::class);
     }
 
     public function categories(): BelongsToMany

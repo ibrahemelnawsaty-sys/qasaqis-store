@@ -74,21 +74,36 @@ class SearchController extends Controller
             ->with(['publisher:id,name'])
             ->orderBy('sort_order')
             ->orderByDesc('id')
-            ->get(['id', 'title', 'slug', 'author', 'publisher_id']);
+            ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price']);
 
         // دار النشر الافتراضية (اسم المتجر) لا تُدرَج في بيانات البحث حتى لا تُطابق
         // كل الكتب المرتبطة بها عند كتابة أي حرف من اسمها.
         $defaultPublishers = ['قصص أطفال', 'قصاقيص أطفال'];
 
+        $currency = __('common.currency');
+
         return response()->json([
-            'books' => $books->map(function (Book $b) use ($defaultPublishers) {
+            'books' => $books->map(function (Book $b) use ($defaultPublishers, $currency) {
                 $pub = $b->publisher?->name;
+
+                // رابط الغلاف (خارجي كما هو، أو من التخزين العام) — null لو لا غلاف.
+                $cover = $b->cover_image;
+                $img = filled($cover)
+                    ? (\Illuminate\Support\Str::startsWith($cover, ['http://', 'https://'])
+                        ? $cover
+                        : asset('storage/'.ltrim($cover, '/')))
+                    : null;
 
                 return [
                     't' => $b->title,
                     'a' => $b->author,
                     'p' => in_array($pub, $defaultPublishers, true) ? null : $pub,
                     'u' => route('books.show', $b),
+                    'img' => $img,
+                    // السعر منسّق للعرض؛ null لو لا سعر (لا نختلق قيمة — بند 0.4).
+                    'pr' => $b->price !== null
+                        ? number_format((float) $b->price, 0).' '.$currency
+                        : null,
                 ];
             })->values(),
         ])->header('Cache-Control', 'public, max-age=300');

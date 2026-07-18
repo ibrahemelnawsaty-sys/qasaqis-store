@@ -89,11 +89,21 @@ class BookResource extends Resource
                         ->unique(ignoreRecord: true),
 
                     Forms\Components\Select::make('category_id')
-                        ->label('القسم')
+                        ->label('القسم الرئيسي')
                         ->relationship('category', 'name')
                         ->searchable()
                         ->preload()
                         ->required(),
+
+                    // أقسام إضافية (many-to-many عبر book_category). Filament يزامن الجدول
+                    // الوسيط تلقائيًا. القسم الرئيسي أعلاه يبقى إلزاميًا؛ هذه إضافية فقط.
+                    Forms\Components\Select::make('categories')
+                        ->label('أقسام إضافية')
+                        ->relationship('categories', 'name')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->helperText('أقسام أخرى يظهر فيها الكتاب أيضًا (اختياري) — بالإضافة إلى القسم الرئيسي.'),
 
                     Forms\Components\Select::make('publisher_id')
                         ->label('دار النشر')
@@ -101,6 +111,20 @@ class BookResource extends Resource
                         ->searchable()
                         ->preload()
                         ->helperText('اتركه فارغًا للكتب بلا دار نشر ظاهرة — لا تُسنِد دارًا تخمينًا.'),
+
+                    // السلسلة (اختياري): إن كان الكتاب أحد عناوين سلسلة.
+                    Forms\Components\Select::make('series_id')
+                        ->label('السلسلة')
+                        ->relationship('series', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('اختر السلسلة إن كان الكتاب جزءًا منها (اختياري) — أنشئ السلاسل من «سلاسل الكتب».'),
+
+                    Forms\Components\TextInput::make('series_position')
+                        ->label('ترتيب العنوان داخل السلسلة')
+                        ->integer()
+                        ->minValue(0)
+                        ->helperText('رقم ترتيب هذا العنوان بين عناوين السلسلة (يظهر بالترتيب في المبدّل).'),
 
                     Forms\Components\TextInput::make('author')
                         ->label('المؤلف')
@@ -325,6 +349,12 @@ class BookResource extends Resource
                     ->label('دار النشر')
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('series.name')
+                    ->label('السلسلة')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('price')
                     ->label('السعر')
                     ->money('EGP')
@@ -443,7 +473,7 @@ class BookResource extends Resource
         // Eager-load list relations (constitution 2.5 — no N+1) and include
         // soft-deleted books so they can be restored/force-deleted.
         return parent::getEloquentQuery()
-            ->with(['category', 'publisher'])
+            ->with(['category', 'publisher', 'series'])
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

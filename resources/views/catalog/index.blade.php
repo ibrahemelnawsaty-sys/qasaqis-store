@@ -4,10 +4,17 @@
 
 @section('content')
     @php
-        // مسار النموذج ووجهة «مسح الكل» بحسب سياق الصفحة (قسم / بحث / كل الكتب)
+        // صفحة السلسلة: قائمة عناوين مرتّبة (بلا فلاتر/فرز — الترتيب ثابت حسب السلسلة).
+        $series = $series ?? null;
+        $plainList = $series !== null;
+
+        // مسار النموذج ووجهة «مسح الكل» بحسب سياق الصفحة (قسم / سلسلة / بحث / كل الكتب)
         if ($category) {
             $formAction = route('categories.show', $category);
             $clearUrl = route('categories.show', $category);
+        } elseif ($series) {
+            $formAction = route('series.show', $series);
+            $clearUrl = route('series.show', $series);
         } elseif (! is_null($searchTerm)) {
             $formAction = route('search');
             $clearUrl = route('search', ['q' => $searchTerm]);
@@ -42,40 +49,44 @@
             <div class="catalog-toolbar">
                 <span class="catalog-count">{{ trans_choice('catalog.results_count', $books->total(), ['count' => $books->total()]) }}</span>
 
-                <div style="display:flex;gap:8px;align-items:center">
-                    <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true">
-                        🔽 {{ __('catalog.filters_open') }}
-                    </button>
-                    <label style="display:flex;align-items:center;gap:6px">
-                        <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.sort_label') }}</span>
-                        <select name="sort" class="sort-select" onchange="this.form.requestSubmit()"
-                            aria-label="{{ __('catalog.sort_label') }}">
-                            @foreach ($sortOptions as $opt)
-                                <option value="{{ $opt }}" @selected($currentSort === $opt)>{{ __('catalog.sort.' . $opt) }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                </div>
+                @unless ($plainList)
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true">
+                            🔽 {{ __('catalog.filters_open') }}
+                        </button>
+                        <label style="display:flex;align-items:center;gap:6px">
+                            <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.sort_label') }}</span>
+                            <select name="sort" class="sort-select" onchange="this.form.requestSubmit()"
+                                aria-label="{{ __('catalog.sort_label') }}">
+                                @foreach ($sortOptions as $opt)
+                                    <option value="{{ $opt }}" @selected($currentSort === $opt)>{{ __('catalog.sort.' . $opt) }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                @endunless
             </div>
 
-            <div class="catalog-grid">
-                {{-- backdrop للـ bottom-sheet على الموبايل --}}
-                <div class="drawer-backdrop" x-show="sheet" x-cloak @click="sheet = false" style="z-index:74"></div>
+            <div class="catalog-grid" @if ($plainList) style="grid-template-columns:1fr" @endif>
+                @unless ($plainList)
+                    {{-- backdrop للـ bottom-sheet على الموبايل --}}
+                    <div class="drawer-backdrop" x-show="sheet" x-cloak @click="sheet = false" style="z-index:74"></div>
 
-                <aside class="filters as-sidebar" :class="{ 'sheet-open': sheet }" aria-label="{{ __('catalog.filters') }}">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                        <strong>{{ __('catalog.filters') }}</strong>
-                        <a href="{{ $clearUrl }}" style="font-size:13px;color:var(--purple);text-decoration:none">{{ __('catalog.filters_clear') }}</a>
-                    </div>
-                    @include('partials.filters', [
-                        'categories' => $categories,
-                        'publishers' => $publishers,
-                        'ageOptions' => $ageOptions,
-                        'category' => $category,
-                    ])
-                    <button type="button" class="btn btn-ghost btn-block filters-toggle" style="margin-top:8px"
-                        @click="sheet = false">{{ __('common.close') }}</button>
-                </aside>
+                    <aside class="filters as-sidebar" :class="{ 'sheet-open': sheet }" aria-label="{{ __('catalog.filters') }}">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                            <strong>{{ __('catalog.filters') }}</strong>
+                            <a href="{{ $clearUrl }}" style="font-size:13px;color:var(--purple);text-decoration:none">{{ __('catalog.filters_clear') }}</a>
+                        </div>
+                        @include('partials.filters', [
+                            'categories' => $categories,
+                            'publishers' => $publishers,
+                            'ageOptions' => $ageOptions,
+                            'category' => $category,
+                        ])
+                        <button type="button" class="btn btn-ghost btn-block filters-toggle" style="margin-top:8px"
+                            @click="sheet = false">{{ __('common.close') }}</button>
+                    </aside>
+                @endunless
 
                 <div>
                     @if ($books->isNotEmpty())

@@ -25,6 +25,11 @@ return [
     'related_title' => 'كتب مشابهة',
     'related_desc' => 'قد تعجب طفلك أيضًا',
 
+    // سلسلة الكتب (مبدّل العناوين)
+    'series_titles' => 'عناوين هذه السلسلة',
+    'series_browse' => 'تصفّح كل عناوين السلسلة',
+    'series_current' => 'العنوان الحالي',
+
     'gallery_thumb_alt' => 'صورة إضافية للكتاب :title',
     'gallery_dialog' => 'معرض صور الكتاب',
     'gallery_view_alt' => 'عرض الصورة رقم :n',

@@ -39,6 +39,111 @@
     $headerMenuItems = $headerMenu?->items ?? collect();
 @endphp
 
+@once
+    {{-- أنماط البحث الفوري (غلاف + عنوان + سعر). مضمّنة (بلا بناء أصول): <style> داخل
+         الصفحة يعمل في كل الصفحات لأن الهيدر مُضمَّن دائمًا. --}}
+    <style>
+        .s-res{ display:flex; align-items:center; gap:12px; padding:9px 12px; text-decoration:none; color:var(--ink); border-radius:12px; }
+        .s-res:hover,.s-res.is-active{ background:var(--purple-soft); }
+        .s-res__thumb{ flex:0 0 auto; width:42px; height:54px; border-radius:8px; overflow:hidden; background:var(--purple-soft); display:grid; place-items:center; border:1px solid var(--line); }
+        .s-res__thumb img{ width:100%; height:100%; object-fit:cover; }
+        .s-res__ph{ font-weight:900; font-size:18px; color:var(--purple); }
+        .s-res__body{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+        .s-res__title{ font-weight:800; font-size:14px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .s-res__sub{ font-size:11.5px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .s-res__price{ flex:0 0 auto; font-weight:900; font-size:13.5px; color:var(--purple); white-space:nowrap; }
+        .s-suggest{ padding:6px; }
+        .s-empty{ display:flex; align-items:center; gap:10px; padding:16px 14px; color:var(--ink-soft); font-size:13.5px; }
+        /* شاشة بحث الموبايل */
+        .s-ov-top{ display:flex; align-items:center; gap:10px; }
+        .s-ov-form{ flex:1 1 auto; display:flex; align-items:center; gap:10px; background:var(--surface); border:2px solid var(--line); border-radius:var(--r-pill); padding:10px 16px; transition:border-color .2s; }
+        .s-ov-form:focus-within{ border-color:var(--purple); }
+        .s-ov-icon{ color:var(--ink-faint); display:grid; place-items:center; flex:0 0 auto; }
+        .s-ov-form input{ flex:1; min-width:0; border:0; background:transparent; font-family:inherit; font-size:15px; color:var(--ink); outline:none; }
+        .s-results{ margin-top:14px; display:flex; flex-direction:column; gap:8px; max-height:72vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+        .s-results .s-res{ padding:10px 12px; border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow-s); }
+        .s-hint{ margin-top:26px; text-align:center; color:var(--ink-soft); font-size:14px; }
+    </style>
+
+    {{-- تسجيل مخزن بحث مشترك (Alpine store) يخدم شريط سطح المكتب وشاشة الموبايل معًا:
+         يُحمّل فهرس الكتب مرّة واحدة ويفلتره في المتصفح لحظيًا. سكربت كلاسيكي يسبق وحدة
+         app.js المؤجّلة فيُسجّل مستمع alpine:init قبل Alpine.start(). --}}
+    @push('scripts')
+        <script>
+            document.addEventListener('alpine:init', () => {
+                Alpine.store('search', {
+                    q: '',
+                    all: null,
+                    items: [],
+                    open: false,
+                    active: -1,
+                    loaded: false,
+                    loading: false,
+                    indexUrl: @js(route('search.index')),
+                    norm(s) {
+                        return (s || '').toString().toLowerCase()
+                            .replace(/[ً-ٰٟـ]/g, '')
+                            .replace(/[أإآ]/g, 'ا')
+                            .replace(/ى/g, 'ي')
+                            .replace(/ة/g, 'ه')
+                            .replace(/ؤ/g, 'و')
+                            .replace(/ئ/g, 'ي')
+                            .replace(/ء/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    },
+                    async load() {
+                        // حارس ضد النداء المزدوج (شريط سطح المكتب + شاشة الموبايل معًا)
+                        // كي لا يُطلب الفهرس مرّتين على كل صفحة.
+                        if (this.all || this.loading || !this.indexUrl) return;
+                        this.loading = true;
+                        try {
+                            const res = await fetch(this.indexUrl, { headers: { Accept: 'application/json' } });
+                            if (res.ok) {
+                                const data = await res.json();
+                                this.all = (data.books || []).map((b) => ({
+                                    t: b.t, a: b.a, p: b.p, u: b.u, img: b.img, pr: b.pr,
+                                    title: this.norm(b.t),
+                                    hay: this.norm(`${b.t} ${b.a || ''} ${b.p || ''}`),
+                                }));
+                                this.loaded = true;
+                                if (this.q.trim()) this.filter();
+                            }
+                        } catch (e) {} finally {
+                            this.loading = false;
+                        }
+                    },
+                    filter() {
+                        const term = this.norm(this.q).replace(/^ال/, '');
+                        this.active = -1;
+                        if (!term) { this.items = []; this.open = false; return; }
+                        this.open = true; // يوجد نص → أظهر القائمة (نتائج أو رسالة «لا نتائج»)
+                        if (!this.all) { this.load(); return; }
+                        const titleHits = [], otherHits = [];
+                        for (const it of this.all) {
+                            if (it.title.includes(term)) titleHits.push(it);
+                            else if (it.hay.includes(term)) otherHits.push(it);
+                        }
+                        this.items = titleHits.concat(otherHits).slice(0, 8);
+                    },
+                    move(dir) {
+                        if (!this.items.length) return;
+                        this.active = (this.active + dir + this.items.length) % this.items.length;
+                    },
+                    onEnter(e) {
+                        if (this.open && this.active >= 0 && this.items[this.active]) {
+                            e.preventDefault();
+                            window.location.href = this.items[this.active].u;
+                        }
+                    },
+                    reopen() { if (this.q.trim()) this.open = true; },
+                    close() { this.open = false; this.active = -1; },
+                });
+            });
+        </script>
+    @endpush
+@endonce
+
 <header>
     <div class="nav">
         <div class="wrap">
@@ -46,38 +151,34 @@
                 <img class="logo-img" src="{{ asset('images/logo.webp') }}" alt="{{ __('common.brand') }}" width="440" height="318">
             </a>
 
-            {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine) — يُخفى على الموبايل --}}
-            <div class="searchbar-wrap" x-data="searchBox(@js((string) request('q')))"
-                data-index-url="{{ route('search.index') }}" @click.outside="close()">
+            {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine store مشترك) — يُخفى على الموبايل.
+                 x-init يضبط النص الحالي من الرابط ويُحمّل الفهرس مرّة واحدة (يعمل حتى وهو مخفي). --}}
+            <div class="searchbar-wrap"
+                x-init="$store.search.q = @js((string) request('q')); $store.search.load()"
+                @click.outside="$store.search.close()">
                 <form class="searchbar" action="{{ route('search') }}" method="get" role="search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
                         stroke-linecap="round" aria-hidden="true">
                         <circle cx="11" cy="11" r="7"></circle>
                         <path d="m21 21-4.3-4.3"></path>
                     </svg>
-                    <input type="search" name="q" x-model="q" autocomplete="off"
+                    <input type="search" name="q" x-model="$store.search.q" autocomplete="off"
                         role="combobox" aria-controls="search-suggest" aria-autocomplete="list"
-                        :aria-expanded="open.toString()"
-                        @input="filter()"
-                        @focus="reopen()"
-                        @keydown.arrow-down.prevent="move(1)"
-                        @keydown.arrow-up.prevent="move(-1)"
-                        @keydown.enter="onEnter($event)"
-                        @keydown.escape="close()"
+                        :aria-expanded="$store.search.open.toString()"
+                        @input="$store.search.filter()"
+                        @focus="$store.search.reopen()"
+                        @keydown.arrow-down.prevent="$store.search.move(1)"
+                        @keydown.arrow-up.prevent="$store.search.move(-1)"
+                        @keydown.enter="$store.search.onEnter($event)"
+                        @keydown.escape="$store.search.close()"
                         placeholder="{{ __('common.search_placeholder') }}"
                         aria-label="{{ __('common.search_placeholder') }}">
                 </form>
 
-                <div class="suggest" id="search-suggest" role="listbox" x-show="open" x-cloak
+                <div class="suggest s-suggest" id="search-suggest" role="listbox"
+                    x-show="$store.search.open && ($store.search.loaded || $store.search.items.length > 0)" x-cloak
                     x-transition.opacity aria-label="{{ __('search.suggest_label') }}">
-                    <template x-for="(item, i) in items" :key="item.kind + '-' + i">
-                        <a :href="item.url" role="option" class="suggest-item"
-                            :class="{ active: i === active }" :aria-selected="(i === active).toString()"
-                            @mouseenter="active = i">
-                            <span class="si" aria-hidden="true" x-text="icon(item.kind)"></span>
-                            <span x-text="item.label"></span>
-                        </a>
-                    </template>
+                    @include('partials.search-results')
                 </div>
             </div>
 
@@ -177,20 +278,32 @@
     </div>
 </template>
 
-{{-- شاشة البحث (موبايل) --}}
+{{-- شاشة البحث (موبايل) — بحث فوري: يظهر اسم الكتاب وصورته وسعره تحت خانة البحث --}}
 <template x-teleport="body">
     <div class="search-overlay" x-show="searchOpen" x-cloak x-transition role="dialog" aria-modal="true"
         aria-label="{{ __('common.search_submit') }}">
-        <div style="display:flex;justify-content:flex-end">
+        <div class="s-ov-top">
+            <form class="s-ov-form" action="{{ route('search') }}" method="get" role="search">
+                <span class="s-ov-icon" aria-hidden="true"><x-ui-icon name="search" :size="20" /></span>
+                <input type="search" name="q" x-model="$store.search.q" autocomplete="off"
+                    @input="$store.search.filter()"
+                    @keydown.escape="searchOpen = false"
+                    placeholder="{{ __('common.search_placeholder') }}"
+                    aria-label="{{ __('common.search_placeholder') }}"
+                    aria-controls="s-ov-results" role="combobox" aria-autocomplete="list"
+                    x-init="$store.search.load(); $watch('searchOpen', v => { if (v) { $store.search.load(); $nextTick(() => $el.focus()); } })">
+            </form>
             <button type="button" class="icon-btn" @click="searchOpen = false"
-                aria-label="{{ __('common.close') }}">✕</button>
+                aria-label="{{ __('common.close') }}"><x-ui-icon name="close" /></button>
         </div>
-        <form action="{{ route('search') }}" method="get" role="search">
-            <input type="search" name="q" value="{{ request('q') }}"
-                placeholder="{{ __('common.search_placeholder') }}"
-                aria-label="{{ __('common.search_placeholder') }}" autofocus
-                x-init="$watch('searchOpen', v => v && $nextTick(() => $el.focus()))">
-            <button type="submit" class="btn btn-primary">{{ __('common.search_submit') }}</button>
-        </form>
+
+        {{-- النتائج الفورية أسفل خانة البحث (غلاف + عنوان + سعر) --}}
+        <div class="s-results" id="s-ov-results" role="listbox" aria-label="{{ __('search.suggest_label') }}"
+            x-show="$store.search.q.trim().length > 0">
+            @include('partials.search-results')
+        </div>
+
+        {{-- تلميح قبل الكتابة --}}
+        <p class="s-hint" x-show="! $store.search.q.trim().length" x-cloak>{{ __('search.live_hint') }}</p>
     </div>
 </template>

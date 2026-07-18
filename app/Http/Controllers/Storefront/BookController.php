@@ -43,10 +43,25 @@ class BookController extends Controller
 
         $book->load([
             'category:id,name,slug,color_hex,icon',
+            'categories:id,name,slug',
             'publisher:id,name,slug,website',
+            'series:id,name,slug,is_active',
             'images',
             'seo',
         ]);
+
+        // عناوين نفس السلسلة (بما فيها الحالي) للمبدّل — فقط لسلسلة مُفعّلة وغير محذوفة.
+        $seriesBooks = collect();
+        if ($book->series && $book->series->is_active) {
+            $seriesBooks = Book::query()
+                ->published()
+                ->where('series_id', $book->series_id)
+                ->select(['id', 'title', 'slug', 'cover_image', 'price', 'series_position'])
+                ->orderByRaw('series_position IS NULL')
+                ->orderBy('series_position')
+                ->orderBy('id')
+                ->get();
+        }
 
         $reviews = $book->reviews()
             ->where('status', 'published')
@@ -74,6 +89,7 @@ class BookController extends Controller
             'book' => $book,
             'reviews' => $reviews,
             'related' => $related,
+            'seriesBooks' => $seriesBooks,
         ]);
     }
 }
