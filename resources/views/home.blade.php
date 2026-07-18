@@ -143,8 +143,9 @@
                         <a class="cat {{ $cat->books_count === 0 ? 'empty' : '' }}"
                             href="{{ route('categories.show', $cat) }}" style="background:{{ $bg }}">
                             <span class="ce" aria-hidden="true"><x-category-icon :cat="$cat" /></span>
-                            <span class="cn">{{ $cat->name }}</span>
-                            <span class="cc">
+                            {{-- العنوان في سطر مستقل، وعدد الكتب في سطر تحته (block بدل inline) --}}
+                            <span class="cn" style="display:block">{{ $cat->name }}</span>
+                            <span class="cc" style="display:block">
                                 {{ $cat->books_count > 0 ? trans_choice('nav.books_count', $cat->books_count, ['count' => $cat->books_count]) : __('nav.coming_soon') }}
                             </span>
                         </a>

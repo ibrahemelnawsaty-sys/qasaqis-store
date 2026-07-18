@@ -10,7 +10,7 @@
 @if ($hasImage)
     <img class="cat-img" src="{{ asset('images/categories/' . $cat->slug . '.png') }}"
         alt="" loading="lazy" decoding="async" width="200" height="200"
-        style="width:60px;height:60px;display:block;margin-inline:auto;object-fit:contain">
+        style="width:100px;height:100px;display:block;margin-inline:auto;object-fit:contain">
 @else
 @php
     // أيقونة SVG احترافية مميّزة لكل قسم بلونه (heroicons + هلال للديني). اللون من
