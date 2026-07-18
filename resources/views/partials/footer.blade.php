@@ -29,13 +29,13 @@
     // كل رابط سوشيال: [الرابط، أيقونة emoji خفيفة، مفتاح aria]. يُعرض فقط إن كان غير فارغ.
     $socials = [];
     foreach ([
-        ['social_facebook', 'facebook_url', '📘', 'social_facebook'],
-        ['social_instagram', 'instagram_url', '📸', 'social_instagram'],
-        ['social_tiktok', 'tiktok_url', '🎵', 'social_tiktok'],
-        ['social_youtube', '', '▶️', 'social_youtube'],
-        ['social_twitter', '', '🐦', 'social_twitter'],
-        ['social_snapchat', '', '👻', 'social_snapchat'],
-        ['social_telegram', '', '✈️', 'social_telegram'],
+        ['social_facebook', 'facebook_url', 'facebook', 'social_facebook'],
+        ['social_instagram', 'instagram_url', 'instagram', 'social_instagram'],
+        ['social_tiktok', 'tiktok_url', 'tiktok', 'social_tiktok'],
+        ['social_youtube', '', 'youtube', 'social_youtube'],
+        ['social_twitter', '', 'twitter', 'social_twitter'],
+        ['social_snapchat', '', 'snapchat', 'social_snapchat'],
+        ['social_telegram', '', 'telegram', 'social_telegram'],
     ] as [$key, $legacy, $icon, $ariaKey]) {
         $href = $socialLink($key, $legacy);
 
@@ -43,6 +43,9 @@
             $socials[] = ['href' => $href, 'icon' => $icon, 'aria' => $ariaKey];
         }
     }
+
+    // رقم واتساب لبلاطة أيقونة واتساب في صفّ السوشيال.
+    $waNumber = preg_replace('/\D+/', '', (string) ($storeSettings['whatsapp_number'] ?? ''));
 
     // قائمة الفوتر المُدارة من الـ CMS (Menu location=footer). eager load للعناصر
     // وأبنائها وربطها لتفادي N+1. عند غيابها تبقى الروابط الافتراضية كما هي.
@@ -93,9 +96,15 @@
                 <p class="ft-about">{{ __('footer.about') }}</p>
                 <div class="socials">
                     @foreach ($socials as $social)
-                        <a href="{{ $social['href'] }}" target="_blank" rel="noopener" aria-label="{{ __('footer.' . $social['aria']) }}">{{ $social['icon'] }}</a>
+                        <a href="{{ $social['href'] }}" target="_blank" rel="noopener" aria-label="{{ __('footer.' . $social['aria']) }}">
+                            <x-social-icon :name="$social['icon']" />
+                        </a>
                     @endforeach
-                    <x-wa-button :class="'socials-wa'" :aria="__('footer.social_whatsapp')" :label="'💬'" />
+                    @if (filled($waNumber))
+                        <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" aria-label="{{ __('footer.social_whatsapp') }}">
+                            <x-social-icon name="whatsapp" />
+                        </a>
+                    @endif
                 </div>
             </div>
 

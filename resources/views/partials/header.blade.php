@@ -84,25 +84,25 @@
             <div class="nav-actions">
                 {{-- زر البحث (موبايل) --}}
                 <button type="button" class="icon-btn only-mobile" @click="searchOpen = true"
-                    aria-label="{{ __('common.open_search') }}">🔎</button>
+                    aria-label="{{ __('common.open_search') }}"><x-ui-icon name="search" /></button>
 
                 {{-- تبديل الوضع الليلي/النهاري --}}
                 <button type="button" class="icon-btn" @click="$store.theme.toggle()"
                     aria-label="{{ __('common.toggle_theme') }}">
-                    <span x-show="!$store.theme.isDark" aria-hidden="true">🌙</span>
-                    <span x-show="$store.theme.isDark" aria-hidden="true" x-cloak>☀️</span>
+                    <span x-show="!$store.theme.isDark" aria-hidden="true"><x-ui-icon name="moon" /></span>
+                    <span x-show="$store.theme.isDark" aria-hidden="true" x-cloak><x-ui-icon name="sun" /></span>
                 </button>
 
                 {{-- السلة --}}
                 <button type="button" class="icon-btn" @click="$store.cart.open = true"
                     aria-label="{{ __('nav.cart') }}">
-                    🛒
+                    <x-ui-icon name="cart" />
                     <span class="cart-badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
                 </button>
 
                 {{-- قائمة الموبايل --}}
                 <button type="button" class="icon-btn only-mobile" @click="menuOpen = true"
-                    aria-label="{{ __('common.open_menu') }}">☰</button>
+                    aria-label="{{ __('common.open_menu') }}"><x-ui-icon name="menu" /></button>
             </div>
         </div>
     </div>
@@ -152,7 +152,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                 <span style="font-weight:900">{{ __('common.brand') }}</span>
                 <button type="button" class="icon-btn" @click="menuOpen = false"
-                    aria-label="{{ __('common.close') }}">✕</button>
+                    aria-label="{{ __('common.close') }}"><x-ui-icon name="close" /></button>
             </div>
             <a href="{{ route('home') }}">🏠 {{ __('nav.home') }}</a>
             <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
