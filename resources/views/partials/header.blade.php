@@ -305,7 +305,7 @@
             @if (request()->routeIs('books.index') || request()->routeIs('categories.show') || request()->routeIs('series.show')) aria-current="page" @endif>
             <span class="dot" aria-hidden="true"></span>
             <x-ui-icon name="grid" :size="24" />
-            <span>{{ __('nav.categories') }}</span>
+            <span>{{ __('nav.shop') }}</span>
         </a>
         <button type="button" class="botbar__tab" @click="$store.cart.open = true">
             <span class="botbar__badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
