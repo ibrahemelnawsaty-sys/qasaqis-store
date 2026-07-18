@@ -1,8 +1,20 @@
 @props(['cat'])
 
 @php
-    // أيقونة احترافية مميّزة لكل قسم بلونه (heroicons + هلال للديني). تُطابق بالـ
-    // slug؛ اللون من color_hex. الحركة (scale/rotate عند hover) من .cat .ce.
+    // صور أيقونات الأقسام المرسومة (public/images/categories/<slug>.png، خلفية شفافة،
+    // مطابقة بالـ slug). عند غياب صورة لقسمٍ نرجع لأيقونة SVG بلونه (احتياطي، بلا اختلاق).
+    $imageSlugs = ['novels', 'science', 'behavior-emotions', 'stories', 'early-childhood', 'religious', 'language'];
+    $hasImage = in_array($cat->slug, $imageSlugs, true);
+@endphp
+
+@if ($hasImage)
+    <img class="cat-img" src="{{ asset('images/categories/' . $cat->slug . '.png') }}"
+        alt="" loading="lazy" decoding="async" width="200" height="200"
+        style="width:60px;height:60px;display:block;margin-inline:auto;object-fit:contain">
+@else
+@php
+    // أيقونة SVG احترافية مميّزة لكل قسم بلونه (heroicons + هلال للديني). اللون من
+    // color_hex. الحركة (scale/rotate عند hover) من .cat .ce.
     $map = [
         'novels' => 'cap',              // اليافعين والناشئة
         'science' => 'beaker',          // علمية
@@ -33,3 +45,4 @@
 
 <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="{{ $color }}"
     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;margin-inline:auto">{!! $paths[$key] !!}</svg>
+@endif
