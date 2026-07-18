@@ -380,6 +380,30 @@
 
   .pagination-wrap{ margin-top:32px; }
   .pagination-wrap nav{ display:flex; justify-content:center; }
+
+  /* ترقيم الصفحات — يتبع الثيمين عبر المتغيّرات، ولمسه ≥44px لجمهور الجوال (6.3) */
+  .pgn{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .pgn-sum{ color:var(--ink-soft); font-size:13.5px; }
+  .pgn-list{ display:flex; align-items:center; gap:6px; list-style:none; flex-wrap:wrap; justify-content:center; padding:0; margin:0; }
+  .pgn-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:44px; min-height:44px; padding-inline:12px;
+    border:1px solid var(--line); border-radius:var(--r-sm);
+    background:var(--surface); color:var(--ink); text-decoration:none;
+    font-weight:700; font-size:15px; font-variant-numeric:tabular-nums;
+    transition:background .16s, border-color .16s, color .16s, transform .16s;
+  }
+  .pgn-btn:hover{ background:var(--purple-soft); border-color:var(--purple); color:var(--purple-deep); transform:translateY(-1px); }
+  .pgn-btn:focus-visible{ outline:3px solid var(--purple); outline-offset:2px; }
+  /* لون صلب لا تدرّج purple→pink: النص الأبيض على طرف الوردي يعطي 3.44:1 نهارًا
+     و2.37:1 ليلًا (دون AA). purple-deep + cream يعطي 9.95:1 و6.11:1 (الدستور 6.3). */
+  .pgn-btn.is-current{ background:var(--purple-deep); border-color:transparent; color:var(--cream); box-shadow:var(--shadow-s); }
+  .pgn-btn.is-disabled{ opacity:.42; pointer-events:none; }
+  .pgn-gap{ display:inline-flex; align-items:center; min-height:44px; padding-inline:4px; color:var(--ink-faint); }
+  .pgn-ico{ display:inline-flex; }
+  /* السهم منطقي الاتجاه: «السابق» يشير لجهة البداية و«التالي» لجهة النهاية */
+  [dir="rtl"] .pgn-ico-prev{ transform:scaleX(-1); }
+  [dir="ltr"] .pgn-ico-next{ transform:scaleX(-1); }
 }
 
 @media (prefers-reduced-motion:reduce){
