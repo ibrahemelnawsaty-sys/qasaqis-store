@@ -266,24 +266,44 @@
         </section>
     @endif
 
-    {{-- WHY MOMS --}}
-    <section class="sec" style="padding-top:6px" aria-labelledby="why-title">
-        <div class="wrap">
-            <div class="sec-top">
-                <span class="sec-eyebrow">{{ __('home.why_eyebrow') }}</span>
-                <h2 class="sec-title" id="why-title">{{ __('home.why_title') }}</h2>
+    {{-- WHY MOMS — بطاقات من قاعدة البيانات (جدول why_items). rescue تُرجع null قبل
+         الهجرة فنرجع لقيم ملف اللغة؛ ومصفوفة فارغة تعني حذف الأدمن كلَّها فنخفي القسم. --}}
+    @php
+        $whyItems = rescue(
+            fn () => \App\Models\WhyItem::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($w) => ['emoji' => $w->icon, 'title' => $w->title, 'desc' => $w->description])
+                ->all(),
+            null,
+            report: false,
+        );
+
+        if ($whyItems === null) {
+            $whyItems = __('home.why');
+        }
+    @endphp
+    @if (filled($whyItems))
+        <section class="sec" style="padding-top:6px" aria-labelledby="why-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.why_eyebrow') }}</span>
+                    <h2 class="sec-title" id="why-title">{{ __('home.why_title') }}</h2>
+                </div>
+                <div class="why">
+                    @foreach ($whyItems as $i => $card)
+                        <div class="why-card">
+                            <div class="we" style="background:{{ $softBg[$i % count($softBg)] }}" aria-hidden="true">{{ $card['emoji'] }}</div>
+                            <h4>{{ $card['title'] }}</h4>
+                            <p>{{ $card['desc'] ?? '' }}</p>
+                        </div>
+                    @endforeach
+                </div>
             </div>
-            <div class="why">
-                @foreach (__('home.why') as $i => $card)
-                    <div class="why-card">
-                        <div class="we" style="background:{{ $softBg[$i % count($softBg)] }}" aria-hidden="true">{{ $card['emoji'] }}</div>
-                        <h4>{{ $card['title'] }}</h4>
-                        <p>{{ $card['desc'] }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    </section>
+        </section>
+    @endif
 
     {{-- شهادات العملاء: بطاقات تقييم حقيقية من عملاء سعداء --}}
     <section class="sec" aria-labelledby="feedback-title">
