@@ -37,6 +37,18 @@
     );
 
     $headerMenuItems = $headerMenu?->items ?? collect();
+
+    // روابط شريط التنقّل: تُبنى من قائمة الهيدر في الأدمن (بعد استبعاد ما لا يُحلّ رابطه).
+    // إن لم تُنشأ قائمة header أصلًا نرجع للروابط الافتراضية أدناه، فلا تختفي الملاحة.
+    $stripLinks = $headerMenuItems
+        ->map(fn ($mi) => [
+            'url' => $resolveMenuUrl($mi),
+            'label' => $mi->label,
+            'icon' => $mi->icon,
+            'target' => $mi->target,
+        ])
+        ->filter(fn (array $l): bool => filled($l['url']))
+        ->values();
 @endphp
 
 @once
@@ -230,38 +242,39 @@
         </div>
     </div>
 
-    {{-- شريط الأقسام --}}
+    {{-- شريط التنقّل: روابطه تُدار من «القوائم» (قائمة location=header) فلا تتكرّر مع
+         روابط ثابتة؛ والأقسام تُضاف تلقائيًا من «الأقسام» فيظهر الجديد منها بلا عمل يدوي. --}}
     <nav class="catstrip" aria-label="{{ __('nav.categories') }}">
         <div class="wrap">
-            <a class="catlink" href="{{ route('books.index') }}"
-                @if (request()->routeIs('books.index')) aria-current="page" @endif>
-                <span class="e" aria-hidden="true">🧸</span> {{ __('nav.all_books') }}
-            </a>
+            @if ($stripLinks->isNotEmpty())
+                @foreach ($stripLinks as $link)
+                    <a class="catlink" href="{{ $link['url'] }}"@if ($link['target'] === '_blank') target="_blank" rel="noopener"@endif>
+                        @if (filled($link['icon']))<span class="e" aria-hidden="true">{{ $link['icon'] }}</span>@endif
+                        {{ $link['label'] }}
+                    </a>
+                @endforeach
+            @else
+                {{-- افتراضي: تظهر فقط حين لا توجد قائمة header في الأدمن --}}
+                <a class="catlink" href="{{ route('books.index') }}"
+                    @if (request()->routeIs('books.index')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">🧸</span> {{ __('nav.all_books') }}
+                </a>
+                <a class="catlink" href="{{ route('books.offers') }}">
+                    <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
+                </a>
+                <a class="catlink" href="{{ route('blog.index') }}"
+                    @if (request()->routeIs('blog.*')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">📖</span> {{ __('nav.blog') }}
+                </a>
+            @endif
+
+            {{-- الأقسام (تلقائيًا من «الأقسام») --}}
             @foreach ($navCategories as $cat)
                 <a class="catlink" href="{{ route('categories.show', $cat) }}"
                     @if (request()->routeIs('categories.show') && request()->route('category')?->id === $cat->id) aria-current="page" @endif>
                     @if (filled($cat->icon))<span class="e" aria-hidden="true">{{ $cat->icon }}</span>@endif
                     {{ $cat->name }}
                 </a>
-            @endforeach
-            <a class="catlink" href="{{ route('books.offers') }}">
-                <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
-            </a>
-
-            <a class="catlink" href="{{ route('blog.index') }}"
-                @if (request()->routeIs('blog.*')) aria-current="page" @endif>
-                <span class="e" aria-hidden="true">📖</span> {{ __('nav.blog') }}
-            </a>
-
-            {{-- روابط إضافية من قائمة الهيدر (CMS) — تُلحق بشريط الأقسام دون كسر الافتراضي --}}
-            @foreach ($headerMenuItems as $mi)
-                @php $mu = $resolveMenuUrl($mi); @endphp
-                @if ($mu)
-                    <a class="catlink" href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>
-                        @if (filled($mi->icon))<span class="e" aria-hidden="true">{{ $mi->icon }}</span>@endif
-                        {{ $mi->label }}
-                    </a>
-                @endif
             @endforeach
         </div>
     </nav>
@@ -310,24 +323,23 @@
                 <button type="button" class="icon-btn" @click="menuOpen = false"
                     aria-label="{{ __('common.close') }}"><x-ui-icon name="close" /></button>
             </div>
+            {{-- الرئيسية ثابتة (مرساة الدرج)، وبقية الروابط من «القوائم» كشريط التنقّل --}}
             <a href="{{ route('home') }}">🏠 {{ __('nav.home') }}</a>
-            <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
-            <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
-            <a href="{{ route('blog.index') }}">📖 {{ __('nav.blog') }}</a>
+            @if ($stripLinks->isNotEmpty())
+                @foreach ($stripLinks as $link)
+                    <a href="{{ $link['url'] }}"@if ($link['target'] === '_blank') target="_blank" rel="noopener"@endif>
+                        @if (filled($link['icon'])){{ $link['icon'] }} @else 🔗 @endif{{ $link['label'] }}
+                    </a>
+                @endforeach
+            @else
+                <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
+                <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
+                <a href="{{ route('blog.index') }}">📖 {{ __('nav.blog') }}</a>
+            @endif
             @foreach ($navCategories as $cat)
                 <a href="{{ route('categories.show', $cat) }}">
                     @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}
                 </a>
-            @endforeach
-
-            {{-- روابط قائمة الهيدر (CMS) داخل درج الموبايل --}}
-            @foreach ($headerMenuItems as $mi)
-                @php $mu = $resolveMenuUrl($mi); @endphp
-                @if ($mu)
-                    <a href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>
-                        @if (filled($mi->icon)){{ $mi->icon }} @else 🔗 @endif{{ $mi->label }}
-                    </a>
-                @endif
             @endforeach
         </div>
     </div>
