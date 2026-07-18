@@ -26,4 +26,10 @@ return [
     'related_desc' => 'قد تعجب طفلك أيضًا',
 
     'gallery_thumb_alt' => 'صورة إضافية للكتاب :title',
+    'gallery_dialog' => 'معرض صور الكتاب',
+    'gallery_view_alt' => 'عرض الصورة رقم :n',
+    'gallery_prev' => 'الصورة السابقة',
+    'gallery_next' => 'الصورة التالية',
+    'gallery_of' => 'الصورة :n من :total',
+    'zoom_hint' => 'اضغط لعرض الصورة بحجم أكبر',
 ];
