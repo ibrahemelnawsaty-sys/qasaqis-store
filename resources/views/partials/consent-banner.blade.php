@@ -34,5 +34,7 @@
         .qs-consent { position: fixed; inset-inline: 12px; bottom: 12px; z-index: 60; max-width: 520px; margin-inline: auto; background: var(--surface, #fff); border: 1px solid var(--line, #e5e0d8); border-radius: 14px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0, 0, 0, .18); display: flex; flex-direction: column; gap: 10px; }
         .qs-consent p { margin: 0; font-size: 14px; color: var(--ink, #333); line-height: 1.7; }
         .qs-consent-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        /* على الجوال: نرفع الشريط فوق شريط التنقّل السفلي كي لا يغطّيه (نفس مقدار زرّ واتساب) */
+        @media (max-width: 860px) { .qs-consent { bottom: calc(80px + env(safe-area-inset-bottom)); } }
     </style>
 @endif

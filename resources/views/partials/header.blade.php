@@ -63,6 +63,36 @@
         .s-results{ margin-top:14px; display:flex; flex-direction:column; gap:8px; max-height:72vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
         .s-results .s-res{ padding:10px 12px; border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow-s); }
         .s-hint{ margin-top:26px; text-align:center; color:var(--ink-soft); font-size:14px; }
+
+        /* ===== هيدر جديد: الشعار في المنتصف + توزيع متوازن (بلا بناء أصول) ===== */
+        .nav-brand{ max-width:var(--maxw); margin-inline:auto; padding:12px clamp(16px,4vw,34px); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; }
+        /* أعمدة صريحة كي يبقى الشعار في الوسط حتى عند إخفاء البحث على الجوال */
+        .nav-search{ grid-column:1; position:relative; justify-self:start; width:100%; max-width:340px; }
+        .nav-logo{ grid-column:2; justify-self:center; display:block; padding:2px 6px; line-height:0; text-decoration:none; }
+        .nav-logo img{ height:60px; width:auto; display:block; filter:drop-shadow(0 6px 14px rgba(110,47,176,.22)); }
+        .nav-tools{ grid-column:3; justify-self:end; display:flex; align-items:center; gap:8px; }
+        @media (min-width:861px){ .catstrip .wrap{ justify-content:safe center; } }
+        @media (max-width:860px){
+            .nav-search{ display:none; }
+            .nav-tools .desk-only{ display:none; }
+            .nav-logo img{ height:46px; }
+            .nav-brand{ padding:10px 14px; }
+        }
+
+        /* ===== شريط التنقّل السفلي (جوال) — شفّاف زجاجي زي تلغرام ===== */
+        .botbar{ display:none; }
+        .botbar__tab{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:4px 2px; background:none; border:0; cursor:pointer; color:var(--ink-soft); font-size:10.5px; line-height:1.15; font-weight:700; font-family:inherit; text-decoration:none; position:relative; -webkit-tap-highlight-color:transparent; }
+        .botbar__tab svg{ width:24px; height:24px; }
+        .botbar__tab.on,.botbar__tab[aria-current="page"]{ color:var(--purple); }
+        .botbar__tab .dot{ position:absolute; top:-5px; width:5px; height:5px; border-radius:50%; background:var(--purple); opacity:0; transition:opacity .15s; }
+        .botbar__tab.on .dot,.botbar__tab[aria-current="page"] .dot{ opacity:1; }
+        .botbar__badge{ position:absolute; top:-4px; inset-inline-end:calc(50% - 22px); min-width:16px; height:16px; padding:0 4px; border-radius:999px; background:var(--pink); color:#fff; font-size:9.5px; font-weight:800; display:grid; place-items:center; line-height:1; }
+        @media (max-width:860px){
+            .botbar{ position:fixed; left:0; right:0; bottom:0; z-index:45; display:grid; grid-template-columns:repeat(5,1fr); gap:2px; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); background:color-mix(in srgb,var(--surface) 68%,transparent); -webkit-backdrop-filter:blur(22px) saturate(1.6); backdrop-filter:blur(22px) saturate(1.6); border-top:1px solid var(--line); box-shadow:0 -6px 20px -12px rgba(84,34,138,.3); }
+            body{ padding-bottom:calc(66px + env(safe-area-inset-bottom)); }
+            .wa-float{ bottom:calc(80px + env(safe-area-inset-bottom)) !important; }
+        }
+        @media (prefers-reduced-motion:reduce){ .botbar__tab .dot{ transition:none; } }
     </style>
 
     {{-- تسجيل مخزن بحث مشترك (Alpine store) يخدم شريط سطح المكتب وشاشة الموبايل معًا:
@@ -146,14 +176,10 @@
 
 <header>
     <div class="nav">
-        <div class="wrap">
-            <a class="logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">
-                <img class="logo-img" src="{{ asset('images/logo.webp') }}" alt="{{ __('common.brand') }}" width="440" height="318">
-            </a>
-
-            {{-- بحث سطح المكتب مع اقتراح فوري خفيف (Alpine store مشترك) — يُخفى على الموبايل.
-                 x-init يضبط النص الحالي من الرابط ويُحمّل الفهرس مرّة واحدة (يعمل حتى وهو مخفي). --}}
-            <div class="searchbar-wrap"
+        <div class="nav-brand">
+            {{-- بحث سطح المكتب (Alpine store مشترك) — يُخفى على الجوال؛ البحث هناك في الشريط السفلي.
+                 x-init يضبط النص الحالي من الرابط ويُحمّل الفهرس مرّة واحدة. --}}
+            <div class="searchbar-wrap nav-search"
                 x-init="$store.search.q = @js((string) request('q')); $store.search.load()"
                 @click.outside="$store.search.close()">
                 <form class="searchbar" action="{{ route('search') }}" method="get" role="search">
@@ -182,28 +208,24 @@
                 </div>
             </div>
 
-            <div class="nav-actions">
-                {{-- زر البحث (موبايل) --}}
-                <button type="button" class="icon-btn only-mobile" @click="searchOpen = true"
-                    aria-label="{{ __('common.open_search') }}"><x-ui-icon name="search" /></button>
+            {{-- الشعار في المنتصف (أكبر وأوضح) --}}
+            <a class="nav-logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">
+                <img src="{{ asset('images/logo.webp') }}" alt="{{ __('common.brand') }}" width="440" height="318">
+            </a>
 
-                {{-- تبديل الوضع الليلي/النهاري --}}
+            {{-- الأدوات: الوضع الليلي دائمًا + السلة على الشاشات الكبيرة (على الجوال في الشريط السفلي) --}}
+            <div class="nav-tools">
                 <button type="button" class="icon-btn" @click="$store.theme.toggle()"
                     aria-label="{{ __('common.toggle_theme') }}">
                     <span x-show="!$store.theme.isDark" aria-hidden="true"><x-ui-icon name="moon" /></span>
                     <span x-show="$store.theme.isDark" aria-hidden="true" x-cloak><x-ui-icon name="sun" /></span>
                 </button>
 
-                {{-- السلة --}}
-                <button type="button" class="icon-btn" @click="$store.cart.open = true"
+                <button type="button" class="icon-btn desk-only" @click="$store.cart.open = true"
                     aria-label="{{ __('nav.cart') }}">
                     <x-ui-icon name="cart" />
                     <span class="cart-badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
                 </button>
-
-                {{-- قائمة الموبايل --}}
-                <button type="button" class="icon-btn only-mobile" @click="menuOpen = true"
-                    aria-label="{{ __('common.open_menu') }}"><x-ui-icon name="menu" /></button>
             </div>
         </div>
     </div>
@@ -244,6 +266,39 @@
         </div>
     </nav>
 </header>
+
+{{-- شريط التنقّل السفلي (جوال فقط) — ثابت وشفّاف زجاجي (زي تلغرام). يُنقل إلى نهاية
+     body ليطابق ترتيبُ التنقّل موضعَه المرئي أسفل الصفحة. النصّ الظاهر هو الاسم
+     الوصولي لكل تبويب (بلا aria-label يخالفه — بند 2.5.3 Label in Name). --}}
+<template x-teleport="body">
+    <nav class="botbar" aria-label="{{ __('nav.primary') }}">
+        <a class="botbar__tab" href="{{ route('home') }}"
+            @if (request()->routeIs('home')) aria-current="page" @endif>
+            <span class="dot" aria-hidden="true"></span>
+            <x-ui-icon name="home" :size="24" />
+            <span>{{ __('nav.home') }}</span>
+        </a>
+        <button type="button" class="botbar__tab" @click="searchOpen = true">
+            <x-ui-icon name="search" :size="24" />
+            <span>{{ __('nav.search') }}</span>
+        </button>
+        <a class="botbar__tab" href="{{ route('books.index') }}"
+            @if (request()->routeIs('books.index') || request()->routeIs('categories.show') || request()->routeIs('series.show')) aria-current="page" @endif>
+            <span class="dot" aria-hidden="true"></span>
+            <x-ui-icon name="grid" :size="24" />
+            <span>{{ __('nav.categories') }}</span>
+        </a>
+        <button type="button" class="botbar__tab" @click="$store.cart.open = true">
+            <span class="botbar__badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
+            <x-ui-icon name="cart" :size="24" />
+            <span>{{ __('nav.cart') }}</span>
+        </button>
+        <button type="button" class="botbar__tab" @click="menuOpen = true">
+            <x-ui-icon name="menu" :size="24" />
+            <span>{{ __('nav.more') }}</span>
+        </button>
+    </nav>
+</template>
 
 {{-- قائمة الموبايل (Drawer) --}}
 <template x-teleport="body">
