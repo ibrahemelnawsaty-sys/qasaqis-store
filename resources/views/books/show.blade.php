@@ -80,9 +80,10 @@
             'alt' => $img->alt ?: __('book.gallery_thumb_alt', ['title' => $book->title]),
         ];
     }
-    // شريط المصغّرات: عند وجود غلاف قابل للتكبير نعرضه فقط لو توجد صورة إضافية (>1)؛
-    // أمّا لو لا غلاف حقيقي (الكبير مجرّد بديل غير قابل للنقر) فأي صورة تحتاج مصغّرة لتُرى.
-    $showThumbs = $coverIsImage ? count($galleryImages) > 1 : count($galleryImages) >= 1;
+    // معرض بصورة رئيسية متبدّلة: نعرض المسرح عند وجود صورة واحدة على الأقل، وشريط
+    // المصغّرات للتنقّل عند وجود أكثر من صورة.
+    $hasGallery = count($galleryImages) > 0;
+    $showThumbs = count($galleryImages) > 1;
 @endphp
 
 @section('title', $metaTitle)
@@ -98,12 +99,19 @@
          خادم الاستضافة بلا بناء أصول (npm)؛ يُنشر عبر git مباشرةً (نفس نهج بند 5.2). --}}
     <style>
         .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-        .pdp-zoombtn{ position:absolute; inset:0; z-index:2; margin:0; padding:0; border:0; background:none; cursor:zoom-in; }
-        .pdp-zoombtn:focus-visible{ outline:3px solid #fff; outline-offset:-4px; border-radius:var(--r-md); }
-        .pdp-zoombadge{ position:absolute; bottom:12px; inset-inline-start:12px; z-index:3; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.92); color:var(--purple); display:grid; place-items:center; box-shadow:0 4px 14px -4px rgba(0,0,0,.45); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
-        .pdp-thumb{ padding:0; border:0; background:none; line-height:0; cursor:zoom-in; border-radius:9px; }
-        .pdp-thumb img{ display:block; transition:border-color .15s, transform .15s; }
+        /* المسرح الرئيسي: صورة متبدّلة (تلقائيًا + بالمصغّرات)؛ التكبير عبر زر مخصّص فقط */
+        .pdp-stage{ position:relative; aspect-ratio:.82; border-radius:var(--r-md); overflow:hidden; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow); }
+        .pdp-stage__img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+        .pdp-zoombtn{ position:absolute; bottom:12px; inset-inline-end:12px; z-index:3; width:46px; height:46px; border-radius:50%; border:0; background:rgba(255,255,255,.92); color:var(--purple); display:grid; place-items:center; cursor:zoom-in; box-shadow:0 6px 16px -6px rgba(0,0,0,.5); transition:transform .15s, background .15s; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+        .pdp-zoombtn:hover{ background:#fff; transform:scale(1.06); }
+        .pdp-zoombtn:focus-visible{ outline:3px solid var(--purple); outline-offset:2px; }
+        .pdp-playbtn{ position:absolute; bottom:12px; inset-inline-start:12px; z-index:3; width:40px; height:40px; border-radius:50%; border:0; background:rgba(255,255,255,.8); color:var(--purple); display:grid; place-items:center; cursor:pointer; box-shadow:0 6px 16px -6px rgba(0,0,0,.45); transition:transform .15s, background .15s; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+        .pdp-playbtn:hover{ background:#fff; transform:scale(1.06); }
+        .pdp-playbtn:focus-visible{ outline:3px solid var(--purple); outline-offset:2px; }
+        .pdp-thumb{ padding:0; border:0; background:none; line-height:0; cursor:pointer; border-radius:9px; }
+        .pdp-thumb img{ display:block; object-fit:contain; background:var(--surface); transition:border-color .15s, transform .15s; }
         .pdp-thumb:hover img{ border-color:var(--purple); transform:translateY(-2px); }
+        .pdp-thumb.is-active img{ border-color:var(--purple); }
         .pdp-thumb:focus-visible{ outline:3px solid var(--purple); outline-offset:2px; }
         [x-cloak]{ display:none !important; }
         .lightbox{ position:fixed; inset:0; z-index:1200; background:rgba(18,9,28,.94); display:grid; place-items:center; padding:clamp(14px,4vw,48px); }
@@ -133,43 +141,82 @@
         </nav>
 
         <div class="pdp">
-            {{-- معرض صور الكتاب: نقرة على الغلاف أو أي مصغّرة تفتح عارضًا مكبّرًا (Lightbox) --}}
+            {{-- معرض صور الكتاب: صورة رئيسية تتبدّل تلقائيًا وبالنقر على المصغّرات؛
+                 التكبير في وضع الشاشة الكاملة عبر زر التكبير فقط. --}}
+            @if ($hasGallery)
             <div x-data="{
                     images: JSON.parse(document.getElementById('pdpGalleryData').textContent),
-                    i: null,
-                    isOpen: false,
+                    i: 0,
+                    lightboxOpen: false,
+                    hovered: false,
+                    paused: false,
+                    inView: true,
+                    canHover: false,
+                    reduceMotion: false,
+                    autoEnabled: false,
+                    timer: null,
+                    io: null,
                     opener: null,
-                    get current() { return (this.i === null ? null : this.images[this.i]) || { src: '', alt: '' }; },
-                    show(n, opener) { this.opener = opener || document.activeElement; this.i = n; this.isOpen = true; document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; },
-                    close() { this.isOpen = false; document.documentElement.style.overflow = ''; document.body.style.overflow = ''; if (this.opener && this.opener.focus) this.opener.focus(); },
-                    next() { if (! this.isOpen || this.images.length < 2) return; this.i = (this.i + 1) % this.images.length; },
-                    prev() { if (! this.isOpen || this.images.length < 2) return; this.i = (this.i - 1 + this.images.length) % this.images.length; },
+                    get current() { return this.images[this.i] || { src: '', alt: '' }; },
+                    init() {
+                        this.canHover = !! (window.matchMedia && window.matchMedia('(hover: hover)').matches);
+                        this.reduceMotion = !! (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+                        this.autoEnabled = this.images.length > 1 && ! this.reduceMotion;
+                        if (this.autoEnabled && 'IntersectionObserver' in window) {
+                            this.io = new IntersectionObserver((es) => { this.inView = es[0].isIntersecting; }, { threshold: 0.25 });
+                            this.io.observe(this.$el);
+                        }
+                        this.start();
+                    },
+                    start() { this.stop(); if (this.autoEnabled) this.timer = setInterval(() => { if (! this.paused && ! this.hovered && ! this.lightboxOpen && this.inView) this.i = (this.i + 1) % this.images.length; }, 4500); },
+                    stop() { if (this.timer) { clearInterval(this.timer); this.timer = null; } },
+                    go(n) { this.i = n; this.start(); },
+                    togglePause() { this.paused = ! this.paused; },
+                    openZoom() { this.opener = document.activeElement; this.lightboxOpen = true; document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; },
+                    closeZoom() { if (! this.lightboxOpen) return; this.lightboxOpen = false; document.documentElement.style.overflow = ''; document.body.style.overflow = ''; if (this.opener && this.opener.focus) this.opener.focus(); this.start(); },
+                    next() { if (! this.lightboxOpen || this.images.length < 2) return; this.i = (this.i + 1) % this.images.length; },
+                    prev() { if (! this.lightboxOpen || this.images.length < 2) return; this.i = (this.i - 1 + this.images.length) % this.images.length; },
                     trap(e) { const f = Array.from(e.currentTarget.querySelectorAll('button')).filter(b => b.offsetParent !== null); if (! f.length) return; const first = f[0], last = f[f.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (! e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
                  }">
                 <script type="application/json" id="pdpGalleryData">@json($galleryImages, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP)</script>
 
-                {{-- منطقة حيّة لقارئ الشاشة: خارج الحاوية المخفية كي تُعلن «الصورة n من total»
-                     عند الفتح وعند كل تنقّل (لو كانت داخل x-show تظهر مملوءة فلا تُنطق أوّل مرة). --}}
+                {{-- منطقة حيّة لقارئ الشاشة: تُعلن «الصورة n من total» داخل وضع التكبير فقط
+                     (كي لا تُزعج القارئ أثناء التبديل التلقائي للصورة الرئيسية). --}}
                 <div class="sr-only" aria-live="polite"
-                    x-text="isOpen && i !== null ? '{{ __('book.gallery_of') }}'.replace(':n', i + 1).replace(':total', images.length) : ''"></div>
+                    x-text="lightboxOpen ? '{{ __('book.gallery_of') }}'.replace(':n', i + 1).replace(':total', images.length) : ''"></div>
 
-                <x-book-cover :book="$book" variant="pdp">
-                    {{-- شارة الخصم تبقى خارج زر التكبير كي يقرأها قارئ الشاشة (لا تُقصّ من شجرة الوصول) --}}
+                {{-- الصورة الرئيسية المتبدّلة: تتغيّر تلقائيًا كل بضع ثوانٍ (تتوقّف عند مرور المؤشّر)
+                     وعند النقر على مصغّرة؛ زر التكبير وحده يفتح وضع الشاشة الكاملة. --}}
+                <div class="pdp-stage" @mouseenter="hovered = canHover" @mouseleave="hovered = false">
+                    {{-- src ثابت (يراه ماسح التحميل المسبق) + :src للتبديل؛ fetchpriority لتحسين LCP على الموبايل --}}
+                    <img class="pdp-stage__img" src="{{ $galleryImages[0]['src'] }}" :src="current.src"
+                        alt="{{ $galleryImages[0]['alt'] }}" :alt="current.alt" fetchpriority="high"
+                        x-init="$watch('i', () => { if (! reduceMotion) $el.animate([{ opacity: .4 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' }); })">
+
                     @if ($discount)
                         <span class="disc" style="width:56px;height:56px;pointer-events:none">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
                     @endif
-                    {{-- زر شفّاف يغطّي الغلاف بالكامل: نقرة في أي مكان تفتح العارض المكبّر (زر أصلي = لوحة مفاتيح سليمة) --}}
-                    @if ($coverIsImage)
-                        <button type="button" class="pdp-zoombtn" @click="show(0, $event.currentTarget)" aria-label="{{ __('book.zoom_hint') }}">
-                            <span class="pdp-zoombadge" aria-hidden="true"><x-ui-icon name="search" :size="18" /></span>
+
+                    {{-- زر إيقاف/تشغيل التبديل التلقائي (يظهر فقط عند تفعيل التبديل) — متطلّب وصولية WCAG 2.2.2 --}}
+                    @if ($showThumbs)
+                        <button type="button" class="pdp-playbtn" x-show="autoEnabled" x-cloak @click="togglePause()"
+                            :aria-label="paused ? '{{ __('book.gallery_play') }}' : '{{ __('book.gallery_pause') }}'"
+                            :aria-pressed="paused ? 'true' : 'false'">
+                            <span x-show="! paused"><x-ui-icon name="pause" :size="18" /></span>
+                            <span x-show="paused" x-cloak><x-ui-icon name="play" :size="18" /></span>
                         </button>
                     @endif
-                </x-book-cover>
+
+                    <button type="button" class="pdp-zoombtn" @click="openZoom()" aria-label="{{ __('book.zoom_hint') }}">
+                        <x-ui-icon name="search" :size="20" />
+                    </button>
+                </div>
 
                 @if ($showThumbs)
                     <div class="pdp-thumbs">
                         @foreach ($galleryImages as $gi => $img)
-                            <button type="button" class="pdp-thumb" @click="show({{ $gi }}, $event.currentTarget)"
+                            <button type="button" class="pdp-thumb" @click="go({{ $gi }})"
+                                :class="{ 'is-active': i === {{ $gi }} }" :aria-current="i === {{ $gi }}"
                                 aria-label="{{ __('book.gallery_view_alt', ['n' => $gi + 1]) }}">
                                 <img src="{{ $img['src'] }}" loading="lazy" decoding="async" alt="{{ $img['alt'] }}">
                             </button>
@@ -179,18 +226,18 @@
 
                 {{-- العارض المكبّر — يُنقل إلى نهاية body لتفادي قصّه بحدود العمود --}}
                 <template x-teleport="body">
-                    <div class="lightbox" x-show="isOpen" x-cloak x-transition.opacity
-                        @keydown.escape.window="close()"
+                    <div class="lightbox" x-show="lightboxOpen" x-cloak x-transition.opacity
+                        @keydown.escape.window="closeZoom()"
                         @keydown.arrow-left.window="next()"
                         @keydown.arrow-right.window="prev()"
                         @keydown.tab="trap($event)"
-                        @click="close()" role="dialog" aria-modal="true"
+                        @click="closeZoom()" role="dialog" aria-modal="true"
                         aria-label="{{ __('book.gallery_dialog') }}">
 
                         <img class="lightbox__img" :src="current.src" :alt="current.alt" @click.stop>
 
-                        <button type="button" class="lightbox__btn lightbox__close" @click.stop="close()"
-                            x-init="$watch('isOpen', v => { if (v) $nextTick(() => $el.focus()); })"
+                        <button type="button" class="lightbox__btn lightbox__close" @click.stop="closeZoom()"
+                            x-init="$watch('lightboxOpen', v => { if (v) $nextTick(() => $el.focus()); })"
                             aria-label="{{ __('common.close') }}"><x-ui-icon name="close" :size="24" /></button>
 
                         <template x-if="images.length > 1">
@@ -211,6 +258,14 @@
                     </div>
                 </template>
             </div>
+            @else
+                {{-- لا صور للكتاب: نعرض بطاقة الغلاف البديلة (بلا معرض) --}}
+                <x-book-cover :book="$book" variant="pdp">
+                    @if ($discount)
+                        <span class="disc" style="width:56px;height:56px">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
+                    @endif
+                </x-book-cover>
+            @endif
 
             <div>
                 <div class="metaline">
