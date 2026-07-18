@@ -91,6 +91,10 @@ class MenuResource extends Resource
                     Forms\Components\Toggle::make('is_active')
                         ->label('مُفعّلة')
                         ->default(true),
+                    Forms\Components\Toggle::make('show_categories')
+                        ->label('إظهار الأقسام تلقائيًا')
+                        ->default(true)
+                        ->helperText('يخصّ قائمة الترويسة: إظهار روابط الأقسام (المكتبة) تلقائيًا بعد روابط القائمة في شريط التنقّل. أطفئه لعرض روابط القائمة وحدها.'),
                 ])
                 ->columns(2),
         ]);
@@ -113,6 +117,10 @@ class MenuResource extends Resource
                     ->label('عدد الروابط'),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('مُفعّلة')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('show_categories')
+                    ->label('إظهار الأقسام')
                     ->boolean()
                     ->sortable(),
             ])

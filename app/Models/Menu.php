@@ -13,6 +13,7 @@ class Menu extends Model
         'name',
         'location',
         'is_active',
+        'show_categories',
     ];
 
     /**
@@ -22,6 +23,7 @@ class Menu extends Model
     {
         return [
             'is_active' => 'boolean',
+            'show_categories' => 'boolean',
         ];
     }
 

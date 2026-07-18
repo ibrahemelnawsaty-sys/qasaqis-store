@@ -38,6 +38,10 @@
 
     $headerMenuItems = $headerMenu?->items ?? collect();
 
+    // خيار من إعدادات قائمة الترويسة: إظهار روابط الأقسام تلقائيًا أم لا.
+    // الافتراضي true (وكذلك قبل تشغيل الهجرة، إذ يعود العمود غير موجود بقيمة null).
+    $showNavCategories = $headerMenu?->show_categories ?? true;
+
     // روابط شريط التنقّل: تُبنى من قائمة الهيدر في الأدمن (بعد استبعاد ما لا يُحلّ رابطه).
     // إن لم تُنشأ قائمة header أصلًا نرجع للروابط الافتراضية أدناه، فلا تختفي الملاحة.
     $stripLinks = $headerMenuItems
@@ -268,14 +272,16 @@
                 </a>
             @endif
 
-            {{-- الأقسام (تلقائيًا من «الأقسام») --}}
-            @foreach ($navCategories as $cat)
-                <a class="catlink" href="{{ route('categories.show', $cat) }}"
-                    @if (request()->routeIs('categories.show') && request()->route('category')?->id === $cat->id) aria-current="page" @endif>
-                    @if (filled($cat->icon))<span class="e" aria-hidden="true">{{ $cat->icon }}</span>@endif
-                    {{ $cat->name }}
-                </a>
-            @endforeach
+            {{-- الأقسام (تلقائيًا من «الأقسام») — يتحكّم بإظهارها خيار في إعدادات قائمة الترويسة --}}
+            @if ($showNavCategories)
+                @foreach ($navCategories as $cat)
+                    <a class="catlink" href="{{ route('categories.show', $cat) }}"
+                        @if (request()->routeIs('categories.show') && request()->route('category')?->id === $cat->id) aria-current="page" @endif>
+                        @if (filled($cat->icon))<span class="e" aria-hidden="true">{{ $cat->icon }}</span>@endif
+                        {{ $cat->name }}
+                    </a>
+                @endforeach
+            @endif
         </div>
     </nav>
 </header>
@@ -336,11 +342,13 @@
                 <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
                 <a href="{{ route('blog.index') }}">📖 {{ __('nav.blog') }}</a>
             @endif
-            @foreach ($navCategories as $cat)
-                <a href="{{ route('categories.show', $cat) }}">
-                    @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}
-                </a>
-            @endforeach
+            @if ($showNavCategories)
+                @foreach ($navCategories as $cat)
+                    <a href="{{ route('categories.show', $cat) }}">
+                        @if (filled($cat->icon)){{ $cat->icon }}@else 📚 @endif {{ $cat->name }}
+                    </a>
+                @endforeach
+            @endif
         </div>
     </div>
 </template>
