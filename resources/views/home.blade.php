@@ -305,25 +305,51 @@
         </section>
     @endif
 
-    {{-- شهادات العملاء: بطاقات تقييم حقيقية من عملاء سعداء --}}
-    <section class="sec" aria-labelledby="feedback-title">
-        <div class="wrap">
-            <div class="sec-top">
-                <span class="sec-eyebrow">{{ __('home.feedback_eyebrow') }}</span>
-                <h2 class="sec-title" id="feedback-title">{{ __('home.feedback_title') }}</h2>
-                <p class="sec-desc">{{ __('home.feedback_desc') }}</p>
+    {{-- شهادات العملاء (صور) — من قاعدة البيانات (جدول feedback_images) ليضيف الأدمن صورًا.
+         rescue تُرجع null قبل الهجرة فنرجع للصور الساكنة التسع؛ ومصفوفة فارغة تعني حذف
+         الأدمن كلَّها فنخفي القسم. --}}
+    @php
+        $feedbackImages = rescue(
+            fn () => \App\Models\FeedbackImage::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($f) => ['url' => $f->url, 'alt' => $f->alt])
+                ->all(),
+            null,
+            report: false,
+        );
+
+        if ($feedbackImages === null) {
+            $feedbackImages = collect(range(1, 9))
+                ->map(fn ($n) => [
+                    'url' => asset('images/reviews/review-'.$n.'.webp'),
+                    'alt' => __('home.feedback_alt', ['n' => $n]),
+                ])
+                ->all();
+        }
+    @endphp
+    @if (filled($feedbackImages))
+        <section class="sec" aria-labelledby="feedback-title">
+            <div class="wrap">
+                <div class="sec-top">
+                    <span class="sec-eyebrow">{{ __('home.feedback_eyebrow') }}</span>
+                    <h2 class="sec-title" id="feedback-title">{{ __('home.feedback_title') }}</h2>
+                    <p class="sec-desc">{{ __('home.feedback_desc') }}</p>
+                </div>
+                <div class="reviews-gallery" role="list">
+                    @foreach ($feedbackImages as $img)
+                        <figure class="rev-card" role="listitem">
+                            <img src="{{ $img['url'] }}"
+                                alt="{{ filled($img['alt'] ?? null) ? $img['alt'] : __('home.feedback_alt', ['n' => $loop->iteration]) }}"
+                                loading="lazy" decoding="async" width="640" height="537">
+                        </figure>
+                    @endforeach
+                </div>
             </div>
-            <div class="reviews-gallery" role="list">
-                @foreach (range(1, 9) as $n)
-                    <figure class="rev-card" role="listitem">
-                        <img src="{{ asset('images/reviews/review-' . $n . '.webp') }}"
-                            alt="{{ __('home.feedback_alt', ['n' => $n]) }}"
-                            loading="lazy" decoding="async" width="640" height="537">
-                    </figure>
-                @endforeach
-            </div>
-        </div>
-    </section>
+        </section>
+    @endif
 
     {{-- طلبات الجملة والاستفسارات + الموقع --}}
     <section class="sec" aria-labelledby="bulk-title">
