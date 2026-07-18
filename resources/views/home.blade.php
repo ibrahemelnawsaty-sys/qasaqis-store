@@ -113,18 +113,39 @@
 
     <div class="band band-lilac">
         <div class="wrap">
-            {{-- TRUST --}}
-            <div class="trust">
-                @foreach (__('home.trust') as $item)
-                    <div class="trust-item">
-                        <span class="e" style="background:var(--purple-soft);color:var(--purple)" aria-hidden="true"><x-ui-icon :name="$item['icon'] ?? 'badge-check'" :size="26" /></span>
-                        <div>
-                            <div class="t">{{ $item['title'] }}</div>
-                            <div class="d">{{ $item['desc'] }}</div>
+            {{-- TRUST — محتوى قابل للتحرير من الأدمن (جدول trust_items). rescue تُرجع null
+                 لو الجدول غير موجود (قبل الهجرة) فنرجع لقيم ملف اللغة؛ ومصفوفة فارغة تعني
+                 أن الأدمن حذف كل العناصر عمدًا فلا نعرض الشريط. --}}
+            @php
+                $trustItems = rescue(
+                    fn () => \App\Models\TrustItem::query()
+                        ->where('is_active', true)
+                        ->orderBy('sort_order')
+                        ->orderBy('id')
+                        ->get()
+                        ->map(fn ($t) => ['icon' => $t->icon, 'title' => $t->title, 'desc' => $t->description])
+                        ->all(),
+                    null,
+                    report: false,
+                );
+
+                if ($trustItems === null) {
+                    $trustItems = __('home.trust');
+                }
+            @endphp
+            @if (filled($trustItems))
+                <div class="trust">
+                    @foreach ($trustItems as $item)
+                        <div class="trust-item">
+                            <span class="e" style="background:var(--purple-soft);color:var(--purple)" aria-hidden="true"><x-ui-icon :name="$item['icon'] ?? 'badge-check'" :size="26" /></span>
+                            <div>
+                                <div class="t">{{ $item['title'] }}</div>
+                                <div class="d">{{ $item['desc'] ?? '' }}</div>
+                            </div>
                         </div>
-                    </div>
-                @endforeach
-            </div>
+                    @endforeach
+                </div>
+            @endif
 
             {{-- CATEGORIES --}}
             <section class="sec" style="padding-top:6px" aria-labelledby="cats-title">
