@@ -12,10 +12,12 @@ use App\Models\Book;
 use App\Providers\Filament\AdminPanelProvider;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 /**
@@ -335,10 +337,12 @@ class BookResource extends Resource
                     ->sortable()
                     ->wrap(),
 
+                // الأعمدة الثانوية مخفية افتراضيًا كي يظهر الجدول كاملًا بلا سحب أفقي؛
+                // تُفعَّل بنقرة من قائمة «الأعمدة» أعلى الجدول عند الحاجة.
                 Tables\Columns\TextColumn::make('author')
                     ->label('المؤلف')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('القسم')
@@ -347,13 +351,13 @@ class BookResource extends Resource
 
                 Tables\Columns\TextColumn::make('publisher.name')
                     ->label('دار النشر')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('series.name')
                     ->label('السلسلة')
                     ->badge()
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('price')
                     ->label('السعر')
@@ -383,15 +387,20 @@ class BookResource extends Resource
                     ->boolean()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('stock_quantity')
+                    ->label('الكمية')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\IconColumn::make('is_featured')
                     ->label('مميّز')
                     ->boolean()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\IconColumn::make('is_bestseller')
                     ->label('الأكثر مبيعًا')
                     ->boolean()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('sort_order')
                     ->label('الترتيب')
@@ -444,6 +453,95 @@ class BookResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    // إجراءات جماعية للكتب المحدَّدة. كلها مقيّدة بصلاحية products.update
+                    // خادميًا (بند 4.4)، وتُحفظ عبر النموذج لا باستعلام جماعي حتى تعمل
+                    // المراقِبات (إعادة بناء فهرس البحث).
+                    Tables\Actions\BulkAction::make('publish')
+                        ->label('نشر المحدَّد')
+                        ->icon('heroicon-o-eye')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->action(function (Collection $records): void {
+                            $records->each(function (Book $book): void {
+                                $book->update([
+                                    'is_published' => true,
+                                    // نختم تاريخ النشر مرة واحدة فقط.
+                                    'published_at' => $book->published_at ?? now(),
+                                ]);
+                            });
+
+                            Notification::make()
+                                ->title('تم نشر '.$records->count().' كتابًا')
+                                ->success()
+                                ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('unpublish')
+                        ->label('إلغاء نشر المحدَّد')
+                        ->icon('heroicon-o-eye-slash')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->action(function (Collection $records): void {
+                            $records->each(fn (Book $book) => $book->update(['is_published' => false]));
+
+                            Notification::make()
+                                ->title('تم إلغاء نشر '.$records->count().' كتابًا')
+                                ->success()
+                                ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('feature')
+                        ->label('تمييز / إلغاء التمييز')
+                        ->icon('heroicon-o-star')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\Toggle::make('is_featured')
+                                ->label('مميّز')
+                                ->default(true),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $featured = (bool) ($data['is_featured'] ?? false);
+                            $records->each(fn (Book $book) => $book->update(['is_featured' => $featured]));
+
+                            Notification::make()
+                                ->title(($featured ? 'تم تمييز ' : 'أُلغي تمييز ').$records->count().' كتابًا')
+                                ->success()
+                                ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('setStock')
+                        ->label('تعديل المخزون')
+                        ->icon('heroicon-o-archive-box')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\TextInput::make('stock_quantity')
+                                ->label('الكمية')
+                                ->integer()
+                                ->minValue(0)
+                                ->required()
+                                ->helperText('تُطبَّق على كل الكتب المحدَّدة. الصفر يجعلها «غير متوفر».'),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $qty = max(0, (int) $data['stock_quantity']);
+
+                            $records->each(fn (Book $book) => $book->update([
+                                'stock_quantity' => $qty,
+                                // الحالة تُشتق من الكمية فلا تتناقض مع المعروض.
+                                'stock_status' => $qty > 0 ? 'in_stock' : 'out_of_stock',
+                            ]));
+
+                            Notification::make()
+                                ->title('تم ضبط مخزون '.$records->count().' كتابًا على '.$qty)
+                                ->success()
+                                ->send();
+                        }),
+
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                     Tables\Actions\ForceDeleteBulkAction::make(),
