@@ -115,6 +115,13 @@ class HomepageBlockResource extends Resource
                         ->label('الترتيب')
                         ->integer()
                         ->default(0),
+
+                    Forms\Components\Select::make('background_pattern')
+                        ->label('نقش الخلفية')
+                        ->options(\App\Enums\BackgroundPattern::options())
+                        ->native(false)
+                        ->placeholder('بلا نقش')
+                        ->helperText('يظهر كشريط بخلفية كريمية خفيفة يلفّ هذه الكتلة.'),
                 ])
                 ->columns(2),
         ]);

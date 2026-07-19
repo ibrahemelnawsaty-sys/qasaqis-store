@@ -76,6 +76,13 @@ class PageResource extends Resource
                         ->label('القالب')
                         ->maxLength(60)
                         ->helperText('اسم قالب Blade اختياري لعرض الصفحة.'),
+
+                    Forms\Components\Select::make('background_pattern')
+                        ->label('نقش الخلفية')
+                        ->options(\App\Enums\BackgroundPattern::options())
+                        ->native(false)
+                        ->placeholder('الافتراضي — نقش الصفحات الثابتة')
+                        ->helperText('اتركيه فارغًا لتتبع الصفحة النقش المضبوط في «نقوش الخلفية».'),
                 ])
                 ->columns(2),
 

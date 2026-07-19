@@ -1,7 +1,5 @@
 @extends('layouts.app')
 
-{{-- نقش خلفية تتبّع الطلب --}}
-@section('body_class', 'pat-dots-and-arcs')
 
 @section('title', __('payment.track.title') . ' — ' . __('common.brand'))
 

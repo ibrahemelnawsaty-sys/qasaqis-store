@@ -142,8 +142,9 @@
     @include('partials.analytics-head')
     @stack('head')
 </head>
-{{-- body_class: نقش خلفية القسم (.pat-* في app.css). القوالب بلا @section تبقى بلا نقش. --}}
-<body x-data="shell" class="@yield('body_class')">
+{{-- نقش الخلفية: يحلّه BackgroundPatternService من اختيار الأدمن حسب المسار
+     (bodyPattern)، ويظل بإمكان أي قالب تجاوزه بـ @section('body_class'). --}}
+<body x-data="shell" class="@yield('body_class', $bodyPattern ?? '')">
     @include('partials.analytics-body')
     <a href="#main" class="skip-link btn btn-primary">{{ __('common.skip_to_content') }}</a>
 

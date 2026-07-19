@@ -1,7 +1,5 @@
 @extends('layouts.app')
 
-{{-- نقش خلفية الرئيسية --}}
-@section('body_class', 'pat-storybook-lattice')
 
 @php
     // نصوص الهيرو قابلة للتحرير من إعدادات المتجر (CMS، الدستور 0.8) مع رجوع

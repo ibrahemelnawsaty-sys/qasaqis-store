@@ -1,16 +1,12 @@
 @extends('layouts.app')
 
-{{-- نقش خلفية فهرس المدوّنة --}}
-@section('body_class', 'pat-calligraphic-curls')
 
 @section('title', __('blog.index_title') . ' — ' . __('common.brand'))
 @section('meta_description', __('blog.index_meta'))
 
-@push('meta')
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="{{ __('blog.index_title') }} — {{ __('common.brand') }}">
-    <meta property="og:description" content="{{ __('blog.index_meta') }}">
-@endpush
+{{-- لا نُعيد دفع og:type/og:title/og:description: التخطيط يُصدرها من @section('title')
+     و@section('meta_description') أعلاه بنفس القيم تمامًا (app.blade.php:52-61)، ودفعها
+     هنا يُنتج وسمًا مكرّرًا. هذا القالب كان آخر ما فات على تمرير إزالة التكرار. --}}
 
 @section('content')
     @php

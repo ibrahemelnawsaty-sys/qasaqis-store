@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-{{-- نقش خلفية صفحة ثابتة من الـCMS --}}
-@section('body_class', 'pat-calligraphic-curls')
+{{-- نقش الخلفية: اختيار هذه الصفحة إن وُجد، وإلا نقش «الصفحات الثابتة». --}}
+@section('body_class', $page->patternClass())
 
 @php
     // SEO يُدار من الـ CMS (SeoMeta) مع الرجوع لعنوان الصفحة وشعار العلامة عند غيابه.

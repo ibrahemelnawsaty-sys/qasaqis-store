@@ -9,8 +9,10 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
+use App\Enums\PatternSurface;
 use App\Observers\BookObserver;
 use App\Observers\OrderObserver;
+use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\View\View as ViewContract;
@@ -40,8 +42,21 @@ class AppServiceProvider extends ServiceProvider
         // الروابط من ترويسة Host الواردة، فتُصدر نسخة www وسومًا canonical تشير
         // إلى نفسها — أي نسختان كاملتان متنافستان في الفهرس. إعادة التوجيه 301 في
         // public/.htaccess تعالج الطلب، وهذا يعالج ما نولّده نحن (canonical/sitemap/OG).
+        //
+        // ‏forceRootUrl يحكم **كل** ما يولّده asset()/url()، بما فيه روابط أصول Vite.
+        // فقيمة فيها خطأ مطبعي أو مسار فرعي لا تُنتج sitemap معطوبًا فحسب، بل موقعًا
+        // كاملًا بلا CSS ولا JS لكل زائر — وسببه يبدو غير مرتبط بما غُيّر. لذلك نتحقّق
+        // أن القيمة رابط مطلق سليم ذو مضيف قبل فرضها، ونتركها كما هي إن لم تكن.
         if (App::environment('production')) {
-            URL::forceRootUrl((string) config('seo.site_url'));
+            $siteUrl = (string) config('seo.site_url');
+
+            // المسار: null بلا شرطة، و'/' معها — كلاهما جذر مقبول.
+            if (filter_var($siteUrl, FILTER_VALIDATE_URL) !== false
+                && filled(parse_url($siteUrl, PHP_URL_HOST))
+                && in_array(parse_url($siteUrl, PHP_URL_PATH), [null, '', '/'], true)) {
+                URL::forceRootUrl($siteUrl);
+            }
+
             URL::forceScheme('https');
         }
 
@@ -78,9 +93,49 @@ class AppServiceProvider extends ServiceProvider
         // service; device/trigger/frequency are handled client-side in the partial.
         View::composer('layouts.app', static function (ViewContract $view): void {
             $view->with('activePopup', app(PopupService::class)->forRequest(request()));
+
+            // نقش خلفية الصفحة الحالية (CMS، الدستور 0.8). يُحلّ وقت العرض لا في
+            // boot() لأن المسار لم يُطابَق بعد حينها. القالب يقرؤه كقيمة افتراضية
+            // لـ @yield('body_class')، فتظل أي صفحة قادرة على تجاوزه صراحةً.
+            $surface = self::surfaceForRoute(request()->route()?->getName());
+
+            $view->with('bodyPattern', $surface === null
+                ? ''
+                : app(BackgroundPatternService::class)->cssClass($surface));
+        });
+
+        // خريطة نقوش أقسام الرئيسية — تُحسب مرة واحدة للقالب بلا منطق داخل Blade.
+        View::composer('home', static function (ViewContract $view): void {
+            $view->with('sectionPatterns', app(BackgroundPatternService::class)->sectionClasses());
         });
 
         $this->registerBackupSafeguards();
+    }
+
+    /**
+     * يربط اسم المسار بسطح النقش المقابل. الأسماء منقولة حرفيًا من routes/web.php
+     * ولم تُخمَّن (الدستور 1.1). أي مسار غير مذكور (صفحات الخطأ مثلًا) يعود بلا
+     * نقش — وهو السلوك المقصود لا إغفال.
+     *
+     * ملاحظة: pages.show يعود بـ PageStatic كافتراضي فقط؛ الصفحة نفسها قد
+     * تتجاوزه بعمود background_pattern عبر Page::patternClass().
+     */
+    protected static function surfaceForRoute(?string $routeName): ?PatternSurface
+    {
+        return match ($routeName) {
+            'home' => PatternSurface::PageHome,
+            'books.index', 'categories.show', 'series.show',
+            'search', 'search.index' => PatternSurface::PageCatalog,
+            'books.show' => PatternSurface::PageBook,
+            'blog.index', 'blog.show' => PatternSurface::PageBlog,
+            'pages.show' => PatternSurface::PageStatic,
+            'cart.show' => PatternSurface::PageCart,
+            'checkout.show' => PatternSurface::PageCheckout,
+            'orders.payment' => PatternSurface::PageOrderPayment,
+            'orders.track.show', 'orders.track.lookup' => PatternSurface::PageOrderTrack,
+            'orders.thankyou' => PatternSurface::PageThankYou,
+            default => null,
+        };
     }
 
     /**

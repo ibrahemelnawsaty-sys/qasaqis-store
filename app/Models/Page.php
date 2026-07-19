@@ -18,6 +18,7 @@ class Page extends Model
         'slug',
         'content',
         'template',
+        'background_pattern',
         'is_published',
         'published_at',
         'sort_order',
@@ -37,6 +38,20 @@ class Page extends Model
     public function seo(): MorphOne
     {
         return $this->morphOne(SeoMeta::class, 'seoable');
+    }
+
+    /**
+     * فئة نقش الخلفية لهذه الصفحة: اختيار الصفحة نفسها إن وُجد، وإلا النقش
+     * المضبوط لـ«الصفحات الثابتة» في شاشة نقوش الخلفية. قيمة فارغة = لا نقش.
+     */
+    public function patternClass(): string
+    {
+        if (filled($this->background_pattern)) {
+            return \App\Enums\BackgroundPattern::fromValue($this->background_pattern)->cssClass() ?? '';
+        }
+
+        return app(\App\Services\Cms\BackgroundPatternService::class)
+            ->cssClass(\App\Enums\PatternSurface::PageStatic);
     }
 
     public function scopePublished(Builder $query): Builder

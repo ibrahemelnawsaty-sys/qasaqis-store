@@ -15,6 +15,7 @@ class HomepageBlock extends Model
         'type',
         'title',
         'content',
+        'background_pattern',
         'is_active',
         'sort_order',
     ];
