@@ -6,9 +6,11 @@ namespace Tests\Feature\Checkout;
 
 use App\Models\Order;
 use App\Models\PaymentProof;
+use App\Notifications\CustomerOrderNotification;
 use Database\Factories\OrderFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -46,6 +48,36 @@ final class PaymentProofUploadTest extends TestCase
     private function signedUrl(Order $order): string
     {
         return URL::signedRoute('orders.proof.store', ['order' => $order->id]);
+    }
+
+    public function test_customer_is_emailed_once_no_matter_how_many_times_the_proof_is_re_uploaded(): void
+    {
+        Notification::fake();
+        // لا مستخدم بصلاحية orders.view في هذا الملف، ونُصفّر البريد الاحتياطي
+        // صراحةً — فيصبح كل إشعار يُعدّ هنا إشعارَ عميلة، والعدّ حتميًا.
+        config(['orders.admin_fallback_email' => null]);
+
+        $order = OrderFactory::new()->manualTransfer('instapay')->create([
+            'grand_total' => '200.00',
+            'customer_email' => 'mom@example.com',
+        ]);
+        $url = $this->signedUrl($order);
+
+        // ثلاث محاولات رفع — وهو سلوك متوقّع تمامًا: رفع صورة ثقيلة على شبكة
+        // بطيئة يدفع للنقر مرارًا، ومسار الرفع يسمح بستّ محاولات في الدقيقة.
+        for ($i = 0; $i < 3; $i++) {
+            $this->post($url, ['proof' => UploadedFile::fake()->image("receipt-{$i}.jpg")]);
+        }
+
+        $this->assertSame(3, PaymentProof::where('order_id', $order->id)->count());
+
+        // إيصال واحد فقط للعميلة — وإلا وصلتها ثلاث رسائل متطابقة تقول لها
+        // «لا حاجة لإرسال الإثبات مرة أخرى».
+        Notification::assertCount(1);
+        Notification::assertSentOnDemand(
+            CustomerOrderNotification::class,
+            fn ($n) => $n->kind === CustomerOrderNotification::PROOF_RECEIVED
+        );
     }
 
     public function test_valid_jpg_proof_is_accepted_and_stored_privately_with_a_random_name(): void

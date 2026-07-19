@@ -6,6 +6,16 @@
     @include('partials.checkout-styles')
     @include('partials.clear-local-cart')
 
+    {{-- أرجح مواضع النقر المزدوج في المتجر كله: رفع صورة إثبات ثقيلة على شبكة
+         بطيئة. مهلة أطول (90 ثانية) لأن الرفع نفسه يستغرق وقتًا — تحرير الزر بعد
+         20 ثانية كان سيدعوها للنقر ثانيةً أثناء رفع جارٍ فعلًا. --}}
+    @include('partials.submit-guard', [
+        'formId' => 'proofForm',
+        'buttonId' => 'proofSubmitBtn',
+        'busyLabel' => __('checkout.payment.submitting'),
+        'busyTimeout' => 90000,
+    ])
+
     @php
         $money2 = fn ($v) => number_format((float) $v, 2);
         $thankyouUrl = \Illuminate\Support\Facades\URL::signedRoute('orders.thankyou', ['order' => $order->id]);
@@ -63,7 +73,7 @@
                 <h2><span class="n" aria-hidden="true">2</span>{{ __('checkout.payment.upload_title') }}</h2>
                 <p class="co-hint" style="margin-bottom:14px">{{ __('checkout.payment.upload_hint') }}</p>
 
-                <form method="POST" action="{{ $proofUrl }}" enctype="multipart/form-data">
+                <form id="proofForm" method="POST" action="{{ $proofUrl }}" enctype="multipart/form-data">
                     @csrf
 
                     <div class="co-field">
@@ -89,7 +99,7 @@
                     </div>
 
                     <div class="co-actions">
-                        <button type="submit" class="btn btn-primary">📤 {{ __('checkout.payment.submit') }}</button>
+                        <button id="proofSubmitBtn" type="submit" class="btn btn-primary">📤 {{ __('checkout.payment.submit') }}</button>
                         <a class="btn btn-ghost" href="{{ $thankyouUrl }}">{{ __('checkout.payment.to_thankyou') }} ←</a>
                     </div>
                 </form>

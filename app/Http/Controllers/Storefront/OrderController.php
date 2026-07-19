@@ -40,7 +40,13 @@ class OrderController extends Controller
         return view('orders.payment', [
             'order' => $order,
             'method' => $method,
-            'proofUrl' => URL::signedRoute('orders.proof.store', ['order' => $order->id]),
+            // موقّت لا أبدي (M7): الرابط الأبدي يُبقي لمن حصل عليه مرة قدرةً دائمة
+            // على الرفع. يُولَّد جديدًا مع كل عرض للصفحة، فالمهلة لا تُعيق العميلة.
+            'proofUrl' => URL::temporarySignedRoute(
+                'orders.proof.store',
+                now()->addMinutes((int) config('orders.proof_link_ttl_minutes', 10080)),
+                ['order' => $order->id],
+            ),
         ]);
     }
 
