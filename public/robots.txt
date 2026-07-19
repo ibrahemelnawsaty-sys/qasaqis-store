@@ -1,4 +1,17 @@
 User-agent: *
 Disallow: /admin
 
+# نقطتا AJAX تُستهلكان من المتصفح فقط (اقتراح البحث وفهرسه الكامل). حجبهما يوفّر
+# زحفًا بلا أي أثر على المستخدم — robots.txt لا يقيّد المتصفحات، الزواحف فقط.
+Disallow: /search/suggest
+Disallow: /search/index.json
+Disallow: /coupon/
+Disallow: /inquiries
+
+# ملاحظة مقصودة: صفحات المعاملات (/cart و /checkout و /search و /orders/) تحمل
+# noindex في وسومها ولا تُحجب هنا. الحجب بـ robots.txt يمنع الزحف، فلا يرى Google
+# وسم noindex أصلًا — ويظل قادرًا على فهرسة الرابط عاريًا إن أشار إليه رابط خارجي.
+# الطريقة الموثّقة لإبقاء صفحة خارج الفهرس: اسمح بالزحف + noindex. وميزانية الزحف
+# غير معنية هنا (٨٩ رابطًا فقط).
+
 Sitemap: https://qasaqis.store/sitemap.xml

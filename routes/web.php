@@ -32,8 +32,11 @@ Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 // التصفح الكامل + الفلاتر (?cat[]=&pub[]=&age[]=&min=&max=&sale=1&sort=)
 Route::get('/books', [BookController::class, 'index'])->name('books.index');
 
-// العروض = تصفّح الكتب مع فلتر الخصم مفعّلًا
-Route::redirect('/offers', '/books?sale=1')->name('books.offers');
+// العروض = تصفّح الكتب مع فلتر الخصم مفعّلًا. مسار 200 حقيقي لا تحويلًا:
+// كان Route::redirect إلى /books?sale=1، ووجهته تُصدر canonical=/books لأن
+// url()->current() يحذف الـ query string — فكانت الصفحة تُلغي نفسها من الفهرس
+// رغم أن عنوانها و<h1> مختلفان. الفلتر يُفرض في BookController::index.
+Route::get('/offers', [BookController::class, 'index'])->name('books.offers');
 
 // البحث (نتائج قابلة للمشاركة). throttle لمنع الإساءة.
 Route::get('/search', [SearchController::class, 'index'])

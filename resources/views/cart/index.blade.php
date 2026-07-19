@@ -5,6 +5,9 @@
 
 @section('title', __('checkout.cart.title') . ' — ' . __('common.brand'))
 
+{{-- صفحة السلة: محتوى خاص بالجلسة، لا قيمة لها في الفهرس. --}}
+@section('seo_robots', 'noindex, follow')
+
 @section('content')
     @include('partials.checkout-styles')
     @include('partials.checkout-scripts')

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
@@ -34,6 +35,15 @@ class AppServiceProvider extends ServiceProvider
         // Arabic RTL is the storefront default (config/app.php may ship 'en').
         // Also drives the Filament admin panel's dir="rtl" (constitution 6.2).
         App::setLocale('ar');
+
+        // تثبيت أصل الروابط المولَّدة على دومين SEO في الإنتاج. بدونه يبني Laravel
+        // الروابط من ترويسة Host الواردة، فتُصدر نسخة www وسومًا canonical تشير
+        // إلى نفسها — أي نسختان كاملتان متنافستان في الفهرس. إعادة التوجيه 301 في
+        // public/.htaccess تعالج الطلب، وهذا يعالج ما نولّده نحن (canonical/sitemap/OG).
+        if (App::environment('production')) {
+            URL::forceRootUrl((string) config('seo.site_url'));
+            URL::forceScheme('https');
+        }
 
         // Super admin bypasses every ability check (docs/04 §2, §7.2). Returning
         // null (not false) for everyone else lets spatie's own Gate::before and

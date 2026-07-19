@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 return [
     'brand' => 'قصاقيص أطفال',
+    // أسماء بديلة للعلامة تُغذّي WebSite.alternateName في JSON-LD. تساعد Google على
+    // ربط الصيغة اللاتينية بالعربية عند اختيار «اسم الموقع» في نتائج البحث، وتميّزنا
+    // عن نطاقات أخرى تتقاسم رمز «قصاقيص». عدّلها إن اعتمد المالك صيغة لاتينية رسمية.
+    'brand_alt' => ['Qasaqis Atfal', 'Qasaqis'],
     'tagline' => 'مكتبة كتب أطفال مختارة بحب',
     'domain' => 'qasaqis.store',
     'currency' => 'ج.م',

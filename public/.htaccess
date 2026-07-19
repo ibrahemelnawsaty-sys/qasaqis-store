@@ -5,6 +5,14 @@
 
     RewriteEngine On
 
+    # توحيد المضيف: www نسخة كاملة مكرّرة من الموقع (كل صفحة متاحة على المضيفين،
+    # وكل واحد يجعل نفسه canonical لأن url()->current() يبني الرابط من ترويسة Host).
+    # نثبّت النطاق المجرّد لأن sitemap و JSON-LD وكل الروابط الداخلية تشير إليه.
+    # ملاحظة تشغيلية: شهادة TLS الحالية لا تغطّي www — يجب إضافته إلى SAN في hPanel
+    # وإلا استقبل الزائر تحذير شهادة قبل أن تعمل إعادة التوجيه هذه على HTTPS.
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]

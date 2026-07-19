@@ -5,6 +5,9 @@
 
 @section('title', __('payment.track.title') . ' — ' . __('common.brand'))
 
+{{-- نموذج تتبّع الطلب: صفحة أداة لا محتوى. --}}
+@section('seo_robots', 'noindex, follow')
+
 @section('content')
     @include('partials.checkout-styles')
 

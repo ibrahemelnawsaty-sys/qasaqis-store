@@ -26,8 +26,13 @@
     <link rel="preload" href="{{ asset('fonts/tajawal-400-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="{{ asset('fonts/baloo-800-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
 
-    {{-- أيقونة المتصفح --}}
-    <link rel="icon" type="image/webp" href="{{ asset('images/logo.webp') }}">
+    {{-- أيقونة المتصفح ونتائج البحث.
+         Google يشترط أيقونة مربّعة (1:1) بصيغة ICO/PNG/SVG/JPEG/GIF/BMP ولا يدعم WebP،
+         ويوصي بأكبر من 48×48. لذلك نخدم ICO متعدد الأحجام + PNG مربّعًا 512.
+         الروابط ثابتة عمدًا: تغييرها يُبطل ما خزّنه Google ويؤخّر ظهور الأيقونة. --}}
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/icon-512.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/icon-192.png') }}">
 
     {{-- ===== SEO تقني افتراضي — تُغلَب قيمه عند دفع الصفحة عبر الأقسام/الـ stacks ===== --}}
     {{-- robots افتراضي: فهرسة وتتبّع؛ تغلبه الصفحة بـ @section('seo_robots', 'noindex, nofollow'). --}}
@@ -48,14 +53,18 @@
     <meta property="og:site_name" content="{{ __('common.brand') }}">
     <meta property="og:locale" content="{{ config('seo.og_locale', 'ar_AR') }}">
     <meta property="og:url" content="@yield('og_url', url()->current())">
-    <meta property="og:title" content="@yield('title', __('common.brand') . ' — ' . __('common.tagline'))">
-    <meta property="og:description" content="@yield('meta_description', __('common.tagline'))">
+    {{-- og_title/og_description: منفذان اختياريان تغلب بهما الصفحة عنوان/وصف المشاركة
+         دون تغيير <title> ووصف الميتا. الصفحات التي لا تعرّفهما ترث القسمين العاديين.
+         (صفحات CMS كانت تدفع og:title ثانيًا عبر @push فيأتي بعد وسم التخطيط،
+         ومعظم المحلّلات تأخذ الأول — أي أن og_title الذي يضبطه الأدمن كان مُهمَلًا.) --}}
+    <meta property="og:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title', __('common.brand') . ' — ' . __('common.tagline'))@endif">
+    <meta property="og:description" content="@hasSection('og_description')@yield('og_description')@else@yield('meta_description', __('common.tagline'))@endif">
     <meta property="og:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
 
     {{-- Twitter Card افتراضي. --}}
     <meta name="twitter:card" content="{{ config('seo.twitter_card', 'summary_large_image') }}">
-    <meta name="twitter:title" content="@yield('title', __('common.brand') . ' — ' . __('common.tagline'))">
-    <meta name="twitter:description" content="@yield('meta_description', __('common.tagline'))">
+    <meta name="twitter:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title', __('common.brand') . ' — ' . __('common.tagline'))@endif">
+    <meta name="twitter:description" content="@hasSection('og_description')@yield('og_description')@else@yield('meta_description', __('common.tagline'))@endif">
     <meta name="twitter:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
 
     {{-- JSON-LD ثابت للموقع: Organization + WebSite (بحث داخلي). أعلام HEX تمنع كسر </script>. --}}
@@ -77,6 +86,7 @@
         $seoOrg = [
             '@context' => 'https://schema.org',
             '@type' => 'Organization',
+            '@id' => $seoSiteUrl . '/#organization',
             'name' => $seoName,
             'url' => $seoSiteUrl,
             'logo' => $seoLogo,
@@ -85,12 +95,24 @@
             $seoOrg['sameAs'] = $seoSameAs;
         }
 
+        // alternateName: صيغ لاتينية للعلامة. Google يعتمد WebSite أهمَّ مصدر لاختيار
+        // «اسم الموقع» في النتائج، وهذه تساعده على ربط qasaqis اللاتينية بالاسم العربي
+        // وتمييزنا عن نطاقات أخرى تتقاسم الرمز نفسه. (بند 6.4: النص من ملف الترجمة.)
+        // ملاحظة: __() يُعيد اسم المفتاح نصًّا حين يغيب (مثلًا في لغة بلا ترجمة)، لذا
+        // نقبل المصفوفة فقط — وإلا انبعث alternateName وهمي اسمه "common.brand_alt".
+        $seoBrandAlt = __('common.brand_alt');
+        $seoAltNames = is_array($seoBrandAlt)
+            ? array_values(array_filter($seoBrandAlt, 'filled'))
+            : [];
+
         $seoWebSite = [
             '@context' => 'https://schema.org',
             '@type' => 'WebSite',
+            '@id' => $seoSiteUrl . '/#website',
             'name' => $seoName,
             'url' => $seoSiteUrl,
             'inLanguage' => 'ar',
+            'publisher' => ['@id' => $seoSiteUrl . '/#organization'],
             'potentialAction' => [
                 '@type' => 'SearchAction',
                 'target' => [
@@ -100,6 +122,9 @@
                 'query-input' => 'required name=search_term_string',
             ],
         ];
+        if ($seoAltNames !== []) {
+            $seoWebSite['alternateName'] = $seoAltNames;
+        }
 
         $seoJsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
             | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;

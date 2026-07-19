@@ -5,6 +5,48 @@
 
 @section('title', $heading . ' — ' . __('common.brand'))
 
+@php
+    // وصف ميتا فريد لكل سياق. كانت كل صفحات الأقسام والتصفّح والسلاسل ترث الوصف
+    // الافتراضي الواحد من التخطيط (common.tagline)، فتتنافس على نفس المقتطف في النتائج.
+    // الأولوية: وصف SEO من الأدمن ← وصف القسم ← وصف مُركَّب من السياق.
+    $seoCategory = $category ?? null;
+    $seoSeries = $series ?? null;
+    $catalogMetaDescription = $seoCategory?->seo?->meta_description
+        ?: ($seoCategory?->description
+        ?: __('catalog.meta_description', ['context' => $heading, 'brand' => __('common.brand')]));
+
+    // canonical صريح: url()->current() يحذف الـ query string فيوحّد كل الفلاتر
+    // والفرز والتصفيح على رابط واحد — وهو المطلوب، عدا /offers الذي يستحق رابطه.
+    $catalogCanonical = match (true) {
+        $seoCategory !== null => route('categories.show', $seoCategory),
+        $seoSeries !== null => route('series.show', $seoSeries),
+        request()->routeIs('books.offers') => route('books.offers'),
+        request()->routeIs('search') => null,
+        default => route('books.index'),
+    };
+@endphp
+
+@section('meta_description', $catalogMetaDescription)
+
+@if ($catalogCanonical !== null)
+    @section('seo_canonical', $catalogCanonical)
+@endif
+
+{{-- نتائج البحث لا تُفهرس: محتوى مولَّد بلا قيمة مستقلة، وقد يولّد روابط لا نهائية. --}}
+@if (request()->routeIs('search'))
+    @section('seo_robots', 'noindex, follow')
+@endif
+
+{{-- يقابل مسار الفتات المرئي. صفحات البحث مستثناة: لا تُفهرس فلا قيمة لوسمها. --}}
+@if ($catalogCanonical !== null)
+    @push('head')
+        <x-breadcrumb-ld :items="[
+            ['name' => __('nav.home'), 'url' => route('home')],
+            ['name' => $heading, 'url' => $catalogCanonical],
+        ]" />
+    @endpush
+@endif
+
 @section('content')
     @php
         // صفحة السلسلة: قائمة عناوين مرتّبة (بلا فلاتر/فرز — الترتيب ثابت حسب السلسلة).
@@ -21,6 +63,12 @@
         } elseif (! is_null($searchTerm)) {
             $formAction = route('search');
             $clearUrl = route('search', ['q' => $searchTerm]);
+        } elseif (request()->routeIs('books.offers')) {
+            // /offers صار صفحة 200 قائمة بذاتها (كان تحويلًا إلى /books?sale=1).
+            // بلا هذا الفرع يُرسل النموذج إلى /books فيغادر الزائر صفحة العروض
+            // ويسقط فلتر الخصم عند أول فلترة أو فرز.
+            $formAction = route('books.offers');
+            $clearUrl = route('books.offers');
         } else {
             $formAction = route('books.index');
             $clearUrl = route('books.index');

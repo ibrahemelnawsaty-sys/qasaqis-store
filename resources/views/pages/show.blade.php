@@ -29,18 +29,33 @@
 @section('title', $metaTitle)
 @section('meta_description', $metaDesc)
 
+{{-- كل ما يلي يُصدره التخطيط مرّة واحدة. كانت هذه الصفحة تدفعه ثانيةً عبر الـ stack
+     فينبعث robots و canonical و og:* مرّتين — و Google يتجاهل canonical المتعارضة
+     ويختار بنفسه. الآن نغلب قيم التخطيط بالأقسام بدل تكرار الوسوم.
+     og:url محذوف عمدًا: افتراض التخطيط url()->current() مطابق تمامًا. --}}
+@section('seo_robots', $robots)
+@section('og_type', 'article')
+@section('og_title', $ogTitle)
+@section('og_description', $ogDesc)
+
+@if ($canonical)
+    @section('seo_canonical', $canonical)
+@endif
+
+@if ($ogImage)
+    @section('og_image', $ogImage)
+@endif
+
 @push('head')
-    <meta name="robots" content="{{ $robots }}">
-    @if ($canonical)
-        <link rel="canonical" href="{{ $canonical }}">
+    {{-- يقابل مسار الفتات المرئي. يُخطّى حين يُدخل الأدمن بيانات breadcrumb خاصة في
+         SeoMeta، حتى لا ينبعث BreadcrumbList مرّتين بمحتوى مختلف. --}}
+    @if (! \Illuminate\Support\Str::contains(json_encode($structured), 'BreadcrumbList'))
+        <x-breadcrumb-ld :items="[
+            ['name' => __('nav.home'), 'url' => route('home')],
+            ['name' => $page->title, 'url' => route('pages.show', $page)],
+        ]" />
     @endif
-    <meta property="og:type" content="article">
-    <meta property="og:title" content="{{ $ogTitle }}">
-    <meta property="og:description" content="{{ $ogDesc }}">
-    <meta property="og:url" content="{{ url()->current() }}">
-    @if ($ogImage)
-        <meta property="og:image" content="{{ $ogImage }}">
-    @endif
+
     @if (! empty($structured))
         {{-- HEX flags تمنع كسر السياق بـ </script>؛ UNESCAPED_UNICODE يُبقي العربية مقروءة. --}}
         <script type="application/ld+json">{!! json_encode($structured, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>

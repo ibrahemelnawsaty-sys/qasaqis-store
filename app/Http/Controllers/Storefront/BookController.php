@@ -19,6 +19,19 @@ class BookController extends Controller
      */
     public function index(CatalogFilterRequest $request): View
     {
+        // /offers هو نفس صفحة التصفّح بفلتر الخصم مفروضًا. نفرضه هنا لا عبر
+        // ->defaults() لأن الأخير يضبط معامل مسار لا يقرأه $request->boolean().
+        //
+        // يجب الدمج في الطلبين معًا: الحاوية تُنشئ الـ FormRequest عبر
+        // FormRequest::createFrom() الذي يبني InputBag جديدة، فيبقى الطلب المربوط في
+        // الحاوية منفصلًا. الاستعلام يقرأ $request (هنا)، بينما القوالب — خانة
+        // «العروض فقط» في partials/filters.blade.php — تقرأ request() المساعدة.
+        // لولا الثانية لظهرت الخانة غير مؤشَّرة وسقط الفلتر عند أول إرسال للنموذج.
+        if ($request->routeIs('books.offers')) {
+            $request->merge(['sale' => 1]);
+            request()->merge(['sale' => 1]);
+        }
+
         $heading = $request->boolean('sale')
             ? __('catalog.offers_heading')
             : __('catalog.all_heading');

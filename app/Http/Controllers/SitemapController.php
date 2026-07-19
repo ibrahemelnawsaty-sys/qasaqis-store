@@ -41,9 +41,16 @@ class SitemapController extends Controller
     {
         $site = (string) config('seo.site_url');
 
+        // يطابق public/robots.txt الساكن — أي تباعد بينهما يعني سلوكًا مختلفًا بين
+        // الإنتاج (الساكن) وبيئة التطوير (هذا المسار). صفحات المعاملات غير محجوبة
+        // عمدًا: تحمل noindex، والحجب هنا كان سيمنع Google من رؤيته أصلًا.
         $body = implode("\n", [
             'User-agent: *',
             'Disallow: /admin',
+            'Disallow: /search/suggest',
+            'Disallow: /search/index.json',
+            'Disallow: /coupon/',
+            'Disallow: /inquiries',
             '',
             'Sitemap: '.$site.'/sitemap.xml',
             '',
@@ -101,6 +108,35 @@ class SitemapController extends Controller
             'lastmod' => $this->stamp($homeLastmod),
             'changefreq' => 'daily',
             'priority' => '1.0',
+        ];
+
+        // صفحات المحاور: التصفّح الكامل والعروض وفهرس المدوّنة. الثلاثة مربوطة داخليًا
+        // بكثافة (هيدر/فوتر/الشريط السفلي) لكنها كانت غائبة عن الخريطة، فبقيت ناقصة
+        // أهمّ روابطها بعد الرئيسية. /offers صار مسار 200 يشير canonical إلى نفسه
+        // (لا تحويلًا إلى /books كما كان)، فصار إدراجه صحيحًا.
+        $urls[] = [
+            'loc' => $this->abs('/books'),
+            'lastmod' => $this->stamp($homeLastmod),
+            'changefreq' => 'daily',
+            'priority' => '0.9',
+        ];
+
+        $urls[] = [
+            'loc' => $this->abs('/offers'),
+            'lastmod' => $this->stamp($homeLastmod),
+            'changefreq' => 'daily',
+            'priority' => '0.7',
+        ];
+
+        $blogLastmod = Article::query()
+            ->where('is_published', true)
+            ->max('updated_at');
+
+        $urls[] = [
+            'loc' => $this->abs('/blog'),
+            'lastmod' => $this->stamp($blogLastmod),
+            'changefreq' => 'weekly',
+            'priority' => '0.8',
         ];
 
         // الأقسام الفعّالة (تبقى الأقسام الستة حتى الفارغة — بند 0.3).

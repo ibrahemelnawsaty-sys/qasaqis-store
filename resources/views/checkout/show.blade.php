@@ -5,6 +5,9 @@
 
 @section('title', __('checkout.form.title') . ' — ' . __('common.brand'))
 
+{{-- صفحة الدفع: خطوة معاملة خاصة بالجلسة، لا قيمة لها في الفهرس. --}}
+@section('seo_robots', 'noindex, follow')
+
 @section('content')
     @include('partials.checkout-styles')
     @include('partials.checkout-scripts')

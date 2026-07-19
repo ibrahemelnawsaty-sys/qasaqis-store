@@ -42,22 +42,6 @@
         'url' => route('books.show', $book),
     ];
 
-    $ld = array_filter([
-        '@context' => 'https://schema.org',
-        '@type' => 'Book',
-        'name' => $book->title,
-        'author' => $book->author ?: null,
-        'inLanguage' => 'ar',
-        'publisher' => ['@type' => 'Organization', 'name' => $book->publisher->name],
-        'offers' => $hasPrice ? [
-            '@type' => 'Offer',
-            'price' => (string) $book->price,
-            'priceCurrency' => 'EGP',
-            'availability' => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-            'url' => route('books.show', $book),
-        ] : null,
-    ]);
-
     // معرض الصور القابل للتكبير: الغلاف (فهرس 0) ثم الصور الإضافية الحقيقية فقط.
     // الغلاف مخزَّن مرّتين: عمود cover_image + صف is_cover في book_images. لذا نبني
     // القائمة من عمود الغلاف ثم نضمّ بقية الصور مع استبعاد صف الغلاف (is_cover) وأي
@@ -87,6 +71,39 @@
     // المصغّرات للتنقّل عند وجود أكثر من صورة.
     $hasGallery = count($galleryImages) > 0;
     $showThumbs = count($galleryImages) > 1;
+
+    // JSON-LD للكتاب. يُبنى هنا (بعد المعرض) لأنه يحتاج $galleryImages للحقل image.
+    // النوع مزدوج [Product, Book]: أهلية «نتائج المنتجات الغنية» عند Google تقوم على
+    // Product، بينما Book يحفظ الدلالة الحقيقية — وschema.org يسمح بتعدّد الأنواع.
+    // متروك عمدًا: aggregateRating. المراجعات تُجلب بـ ->take(6) في BookController،
+    // فحسابها منها يُنتج reviewCount مقصوصًا ومتوسطًا مغلوطًا — وهو تعارض يستدعي
+    // إجراءً يدويًا من Google. تُضاف لاحقًا من $book->avg_rating و reviews_count.
+    $ld = array_filter([
+        '@context' => 'https://schema.org',
+        // Product يُضاف فقط حين يوجد سعر. مواصفة Google تشترط على Product أحد ثلاثة:
+        // offers أو review أو aggregateRating — ونحن لا نُصدر الأخيرين. فكتاب بلا
+        // سعر (مثل BOOK1) كان سيصير Product بلا offers أي خطأ معلَن في Search Console،
+        // بينما Book وحده وسم صحيح تمامًا لأنه ليس نوع نتيجة غنية عند Google.
+        '@type' => $hasPrice ? ['Product', 'Book'] : 'Book',
+        '@id' => route('books.show', $book) . '#product',
+        'url' => route('books.show', $book),
+        'name' => $book->title,
+        'description' => $metaDesc,
+        'image' => array_column($galleryImages, 'src'),
+        'author' => $book->author ?: null,
+        'inLanguage' => 'ar',
+        'isbn' => $book->isbn ?: null,
+        'numberOfPages' => $book->pages_count ?: null,
+        'brand' => ['@type' => 'Brand', 'name' => $book->publisher->name],
+        'publisher' => ['@type' => 'Organization', 'name' => $book->publisher->name],
+        'offers' => $hasPrice ? [
+            '@type' => 'Offer',
+            'price' => (string) $book->price,
+            'priceCurrency' => 'EGP',
+            'availability' => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'url' => route('books.show', $book),
+        ] : null,
+    ]);
 @endphp
 
 @section('title', $metaTitle)
@@ -95,6 +112,13 @@
 @push('head')
     {{-- HEX flags تمنع كسر السياق بـ </script> أو "؛ UNESCAPED_UNICODE يُبقي العربية مقروءة. --}}
     <script type="application/ld+json">{!! json_encode($ld, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+
+    {{-- يقابل مسار الفتات المرئي أسفل الصفحة. القسم اختياري: كتب بلا قسم تُعطي مسارًا من عنصرين. --}}
+    <x-breadcrumb-ld :items="array_values(array_filter([
+        ['name' => __('nav.home'), 'url' => route('home')],
+        $book->category ? ['name' => $book->category->name, 'url' => route('categories.show', $book->category)] : null,
+        ['name' => $book->title, 'url' => route('books.show', $book)],
+    ]))" />
 @endpush
 
 @push('head')

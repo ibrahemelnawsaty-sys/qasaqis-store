@@ -5,6 +5,9 @@
 
 @section('title', __('checkout.payment.title') . ' — ' . __('common.brand'))
 
+{{-- صفحة دفع خاصة برابط موقّع — يجب ألا تُفهرس إطلاقًا. --}}
+@section('seo_robots', 'noindex, follow')
+
 @section('content')
     @include('partials.checkout-styles')
     @include('partials.clear-local-cart')
