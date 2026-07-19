@@ -227,7 +227,7 @@
 
                         <p class="co-hint">{{ __('checkout.summary.shipping_note') }}</p>
 
-                        <button type="submit" form="checkoutForm" class="btn btn-primary btn-block" style="margin-top:14px"
+                        <button id="placeOrderBtn" type="submit" form="checkoutForm" class="btn btn-primary btn-block" style="margin-top:14px"
                             @if ($methods->isEmpty()) disabled @endif>✅ {{ __('checkout.form.place_order') }}</button>
 
                         <div style="text-align:center;margin-top:12px">
@@ -253,6 +253,51 @@
                 if (ga) { var parts = ga.split('.'); if (parts.length >= 4) { set('qs-gacid', parts[2] + '.' + parts[3]); } }
                 // موافقة إعلانية صريحة → تُرسَل PII خادميًا لـ Meta CAPI (وإلا لا).
                 try { if (localStorage.getItem('qs-consent') === 'granted') { document.getElementById('qs-consent').value = '1'; } } catch (e) {}
+            })();
+        </script>
+
+        {{-- منع الإرسال المزدوج (M7 — المرحلة 5). الخادم يحمي نهائيًا عبر مفتاح
+             منع التكرار؛ هذا يمنع الضغطة الثانية أصلًا ويطمئن العميلة أن شيئًا يحدث،
+             وهو ما يدفعها للضغط ثانيةً على الشبكات البطيئة. Vanilla لا Alpine:
+             السكربت المضمّن ينفَّذ قبل حزمة Vite المؤجّلة (بند 5.2). --}}
+        <script>
+            (function () {
+                var form = document.getElementById('checkoutForm');
+                var btn = document.getElementById('placeOrderBtn');
+                if (!form || !btn) return;
+
+                // الحالة الأصلية كما رسمها الخادم: الزر معطّل أصلًا حين لا توجد
+                // طريقة دفع مفعّلة. نحفظها ولا نتجاوزها لاحقًا بتفعيل أعمى.
+                var lockedByServer = btn.disabled;
+                var originalLabel = btn.textContent;
+                var timer = null;
+
+                function release() {
+                    if (timer) { clearTimeout(timer); timer = null; }
+                    btn.disabled = lockedByServer;
+                    btn.textContent = originalLabel;
+                }
+
+                form.addEventListener('submit', function () {
+                    // بعد إطلاق submit فعليًا: لو فشل تحقّق المتصفح الأصلي لا يصل
+                    // هذا السطر، فلا نُعطّل زرًا يحتاجه العميل لإعادة المحاولة.
+                    btn.disabled = true;
+                    btn.textContent = @js(__('checkout.form.placing'));
+
+                    // شبكة مقطوعة أو ضغط «إيقاف» يترك الصفحة قائمة والزر معطّلًا
+                    // إلى الأبد — وهذا جمهور الميزة بالذات. نُحرّره بعد مهلة.
+                    timer = setTimeout(release, 20000);
+                });
+
+                // الاستعادة من ذاكرة المتصفح (زر الرجوع) تُظهر صفحة دفع تبدو جاهزة
+                // بينما مفتاح المحاولة في الجلسة قد يكون استُهلك بطلب مكتمل — فإرسال
+                // ثانٍ يُردّ بصمت بالطلب القديم. نُحمّل الصفحة من الخادم بدل تفعيل
+                // الزر: العرض الجديد يُصدر مفتاحًا جديدًا فتعمل الصفحة كما تبدو.
+                window.addEventListener('pageshow', function (e) {
+                    if (e.persisted) {
+                        window.location.reload();
+                    }
+                });
             })();
         </script>
     @endpush

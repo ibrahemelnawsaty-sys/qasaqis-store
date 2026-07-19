@@ -17,6 +17,8 @@ class Order extends Model
 
     protected $fillable = [
         'order_number',
+        // مفتاح منع التكرار (M7). يُشتق من الجلسة خادميًا لا من مدخلات العميل.
+        'idempotency_key',
         'user_id',
         'status',
         'customer_name',

@@ -6,6 +6,7 @@ namespace App\Http\Requests;
 
 use App\Models\Country;
 use App\Services\Payment\PaymentMethodResolver;
+use App\Support\Checkout\CheckoutSession;
 use App\Support\Checkout\PlaceOrderData;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -139,6 +140,8 @@ class CheckoutRequest extends FormRequest
             customerNote: $this->validated('note'),
             userId: $this->user()?->id,
             ipAddress: $this->ip(),
+            // من الجلسة لا من النموذج (بند 4.1) — انظر CheckoutSession.
+            idempotencyKey: CheckoutSession::currentIdempotencyKey($this->session()),
             fbp: $this->validated('fbp'),
             fbc: $this->validated('fbc'),
             gaClientId: $this->validated('ga_client_id'),

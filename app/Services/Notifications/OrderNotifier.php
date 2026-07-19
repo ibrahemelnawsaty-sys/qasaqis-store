@@ -23,8 +23,20 @@ class OrderNotifier
         $this->toAdmins($order, AdminOrderNotification::NEW_ORDER);
     }
 
-    public function paymentProofSubmitted(Order $order): void
+    /**
+     * $notifyCustomer=false للرفع المتكرّر: مسار الرفع يسمح بستّ محاولات في الدقيقة،
+     * ورفع صورة ثقيلة على شبكة بطيئة هو بالضبط ما يدفع لتكرار النقر — فبلا حارس
+     * تصل العميلة ستُّ رسائل متطابقة تقول لها «لا حاجة لإرسال الإثبات مرة أخرى».
+     * تنبيه الأدمن يبقى في كل مرة: كل إثبات جديد يحتاج مراجعة فعلية.
+     */
+    public function paymentProofSubmitted(Order $order, bool $notifyCustomer = true): void
     {
+        // إيصال للعميلة (M7): كانت تحوّل المال وترفع الصورة ثم لا يصلها شيء، فتبقى
+        // في أعلى نقطة قلق في المسار كله وتتصل بالدعم أو تتراجع عن الشراء.
+        if ($notifyCustomer) {
+            $this->toCustomer($order, CustomerOrderNotification::PROOF_RECEIVED);
+        }
+
         $this->toAdmins($order, AdminOrderNotification::PROOF_SUBMITTED);
     }
 

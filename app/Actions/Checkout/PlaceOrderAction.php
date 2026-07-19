@@ -20,6 +20,7 @@ use App\Support\Checkout\OrderPlacementResult;
 use App\Support\Checkout\PlaceOrderData;
 use App\Support\Coupon\CouponResult;
 use App\Support\Money;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -62,7 +63,163 @@ class PlaceOrderAction
             throw CheckoutException::invalidPaymentMethod();
         }
 
-        [$order, $onlinePaymentId] = DB::transaction(function () use ($data, $method) {
+        // منع التكرار (M7): نقرة مزدوجة على «تأكيد الطلب» — شائعة على الشبكات
+        // البطيئة — كانت تُنشئ طلبين وتخصم المخزون مرتين. الفحص المسبق يلتقط
+        // الحالة الشائعة (الطلب الثاني يصل بعد اكتمال الأول)، والقيد الفريد في
+        // قاعدة البيانات يلتقط السباق الحقيقي (طلبان متزامنان) في catch أدناه.
+        $replay = $this->findReplay($data->idempotencyKey, $method);
+
+        if ($replay !== null) {
+            return $this->resultForReplay($replay);
+        }
+
+        // مفتاح موجود لكنه يخصّ طلبًا بطريقة دفع أخرى (تبويبان مفتوحان) ⇒ هذه نيّة
+        // مختلفة لا إعادة إرسال. نمضي بلا مفتاح كي لا يصطدم الفهرس الفريد، ولا
+        // نُرجع للعميلة طلبًا يطالبها بتحويل بنكي وهي اختارت الدفع عند الاستلام.
+        $data = $this->withoutConflictingKey($data, $method);
+
+        try {
+            [$order, $onlinePaymentId] = $this->persistOrder($data, $method);
+        } catch (QueryException $e) {
+            // تصادم الفهرس الفريد على idempotency_key يعني أن طلبًا متزامنًا سبقنا
+            // بالمللي ثانية. إن وُجد ذلك الطلب فهذه إعادة إرسال لا خطأ، فنُعيده
+            // للعميلة بدل شاشة فشل. أي خطأ قاعدة بيانات آخر يُعاد رميه كما هو.
+            $replay = $this->findReplay($data->idempotencyKey, $method);
+
+            if ($replay === null) {
+                throw $e;
+            }
+
+            return $this->resultForReplay($replay);
+        }
+
+        // لقطة إسناد التتبّع (M6) — بعد الـ commit وبأفضل-جهد: الإسناد ثانوي، فأي
+        // فشل فيه (مثلًا قيمة طويلة) يجب ألا يُسقِط البيع. purchase_event_id ثابت
+        // لمنع ازدواج عدّ الشراء لدى Meta/GA4.
+        rescue(fn () => $order->tracking()->create([
+            'fbp' => $data->fbp,
+            'fbc' => $data->fbc,
+            'ga_client_id' => $data->gaClientId,
+            'ga_session_id' => $data->gaSessionId,
+            'user_agent' => $data->userAgent,
+            'event_source_url' => $data->eventSourceUrl,
+            'ads_consent' => $data->adsConsent,
+            'purchase_event_id' => (string) Str::uuid(),
+        ]));
+
+        // إشعار تأكيد الطلب (للعميل) + تنبيه الأدمن — بعد الـ commit لكل المسارات
+        // كي لا يُرسَل بريد عن طلب مُرجَع (M4). ShouldQueue فلا يحجب الاستجابة.
+        $this->notifier->orderPlaced($order);
+
+        // Online gateway is initiated AFTER commit (keeps external I/O out of the
+        // transaction). Manual/COD need no gateway call.
+        if ($method->type === 'online_gateway') {
+            return $this->initiateOnline($order, $onlinePaymentId);
+        }
+
+        return new OrderPlacementResult($order);
+    }
+
+    /**
+     * طلب سابق بنفس المفتاح **وبنفس طريقة الدفع** = إعادة إرسال حقيقية.
+     *
+     * withTrashed مقصود: الفهرس الفريد في MySQL يشمل الصفوف المحذوفة ناعمًا، فلو
+     * بحثنا بالنطاق العام وحده لأعطى الطلبُ المحذوف null هنا ثم انفجر INSERT بخطأ
+     * 1062 فوصلت العميلة إلى صفحة 500 بدل صفحة طلبها.
+     *
+     * شرط طريقة الدفع يمنع أسوأ حالة في سيناريو التبويبين: أن تُردّ العميلة التي
+     * اختارت «الدفع عند الاستلام» إلى طلب إنستاباي يطالبها بتحويل مال — أو العكس.
+     */
+    private function findReplay(?string $idempotencyKey, PaymentMethod $method): ?Order
+    {
+        if ($idempotencyKey === null) {
+            return null;
+        }
+
+        return Order::withTrashed()
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('payment_method', $method->code)
+            ->first();
+    }
+
+    /**
+     * يُسقِط المفتاح حين يخصّ طلبًا قائمًا بطريقة دفع أخرى — وإلا اصطدم الفهرس
+     * الفريد وأسقط طلبًا مشروعًا. الثمن: هذا الطلب بلا حماية تكرار (مقبول: الحالة
+     * تتطلّب تبويبين بطريقتَي دفع مختلفتين).
+     */
+    private function withoutConflictingKey(PlaceOrderData $data, PaymentMethod $method): PlaceOrderData
+    {
+        if ($data->idempotencyKey === null) {
+            return $data;
+        }
+
+        $conflict = Order::withTrashed()
+            ->where('idempotency_key', $data->idempotencyKey)
+            ->where('payment_method', '!=', $method->code)
+            ->exists();
+
+        if (! $conflict) {
+            return $data;
+        }
+
+        return new PlaceOrderData(
+            items: $data->items,
+            customerName: $data->customerName,
+            customerPhone: $data->customerPhone,
+            customerPhoneAlt: $data->customerPhoneAlt,
+            customerEmail: $data->customerEmail,
+            countryCode: $data->countryCode,
+            governorate: $data->governorate,
+            stateProvince: $data->stateProvince,
+            city: $data->city,
+            addressLine: $data->addressLine,
+            addressNotes: $data->addressNotes,
+            paymentMethod: $data->paymentMethod,
+            couponCode: $data->couponCode,
+            customerNote: $data->customerNote,
+            userId: $data->userId,
+            ipAddress: $data->ipAddress,
+            idempotencyKey: null,
+            fbp: $data->fbp,
+            fbc: $data->fbc,
+            gaClientId: $data->gaClientId,
+            gaSessionId: $data->gaSessionId,
+            userAgent: $data->userAgent,
+            eventSourceUrl: $data->eventSourceUrl,
+            adsConsent: $data->adsConsent,
+        );
+    }
+
+    /**
+     * نتيجة إعادة الإرسال. الطلب الأونلاين غير المدفوع يُعاد إطلاق بوابته بدل
+     * إرجاعه بلا initiation — وإلا سقط في CheckoutController إلى صفحة الشكر،
+     * فتُطمأن العميلة كذبًا إلى طلب لم تدفعه ولا زرَّ دفعٍ فيه، ثم يُلغى تلقائيًا.
+     */
+    private function resultForReplay(Order $replay): OrderPlacementResult
+    {
+        $isUnpaidOnline = $replay->payment_method === 'online_gateway'
+            && $replay->payment_status === 'unpaid';
+
+        if (! $isUnpaidOnline) {
+            return new OrderPlacementResult($replay);
+        }
+
+        $pendingPaymentId = $replay->payments()
+            ->where('status', 'pending')
+            ->latest()
+            ->value('id');
+
+        return $this->initiateOnline($replay, $pendingPaymentId === null ? null : (int) $pendingPaymentId);
+    }
+
+    /**
+     * كتابة الطلب كاملًا في معاملة واحدة مع قفل صفوف الكتب.
+     *
+     * @return array{0: Order, 1: int|null}  [الطلب، معرّف صف الدفع للبوابة إن وُجد]
+     */
+    private function persistOrder(PlaceOrderData $data, PaymentMethod $method): array
+    {
+        return DB::transaction(function () use ($data, $method) {
             // Re-price the cart from the DB with the book rows locked.
             $cart = $this->cartService->fromItems($data->items, lock: true);
 
@@ -84,6 +241,7 @@ class PlaceOrderAction
 
             $order = Order::create([
                 'order_number' => $this->generateOrderNumber(),
+                'idempotency_key' => $data->idempotencyKey,
                 'user_id' => $data->userId,
                 'status' => $status,
                 'customer_name' => $data->customerName,
@@ -128,32 +286,6 @@ class PlaceOrderAction
 
             return [$order, $onlinePaymentId];
         });
-
-        // لقطة إسناد التتبّع (M6) — بعد الـ commit وبأفضل-جهد: الإسناد ثانوي، فأي
-        // فشل فيه (مثلًا قيمة طويلة) يجب ألا يُسقِط البيع. purchase_event_id ثابت
-        // لمنع ازدواج عدّ الشراء لدى Meta/GA4.
-        rescue(fn () => $order->tracking()->create([
-            'fbp' => $data->fbp,
-            'fbc' => $data->fbc,
-            'ga_client_id' => $data->gaClientId,
-            'ga_session_id' => $data->gaSessionId,
-            'user_agent' => $data->userAgent,
-            'event_source_url' => $data->eventSourceUrl,
-            'ads_consent' => $data->adsConsent,
-            'purchase_event_id' => (string) Str::uuid(),
-        ]));
-
-        // إشعار تأكيد الطلب (للعميل) + تنبيه الأدمن — بعد الـ commit لكل المسارات
-        // كي لا يُرسَل بريد عن طلب مُرجَع (M4). ShouldQueue فلا يحجب الاستجابة.
-        $this->notifier->orderPlaced($order);
-
-        // Online gateway is initiated AFTER commit (keeps external I/O out of the
-        // transaction). Manual/COD need no gateway call.
-        if ($method->type === 'online_gateway') {
-            return $this->initiateOnline($order, $onlinePaymentId);
-        }
-
-        return new OrderPlacementResult($order);
     }
 
     /**

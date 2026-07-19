@@ -26,6 +26,12 @@ class CustomerOrderNotification extends Notification implements ShouldQueue
 
     public const PLACED = 'placed';
 
+    /**
+     * استلام إثبات التحويل (M7 — رحلة العميل، المرحلة 7). أعلى نقطة قلق في المسار:
+     * العميلة حوّلت المال ورفعت الصورة، وكان الأدمن وحده يُنبَّه فتبقى هي بلا خبر.
+     */
+    public const PROOF_RECEIVED = 'proof_received';
+
     public const APPROVED = 'approved';
 
     public const REJECTED = 'rejected';
@@ -77,6 +83,19 @@ class CustomerOrderNotification extends Notification implements ShouldQueue
                     ? __('mail.placed.cta_pay')
                     : __('mail.placed.cta_view'),
                 'note' => $this->placedNote(),
+            ],
+            self::PROOF_RECEIVED => [
+                'order' => $order,
+                'heading' => __('mail.proof_received.heading'),
+                'intro' => __('mail.proof_received.intro', ['name' => $order->customer_name]),
+                'body' => __('mail.proof_received.body'),
+                'highlight' => null,
+                // بلا ملخّص بنود: الرسالة إيصال طمأنة قصير، والملخّص وصلها مع
+                // رسالة استلام الطلب.
+                'showSummary' => false,
+                'ctaUrl' => $link,
+                'ctaLabel' => __('mail.proof_received.cta'),
+                'note' => __('mail.proof_received.note'),
             ],
             self::APPROVED => [
                 'order' => $order,

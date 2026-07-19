@@ -4,6 +4,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.clear-local-cart')
 
     @php
         $money2 = fn ($v) => number_format((float) $v, 2);

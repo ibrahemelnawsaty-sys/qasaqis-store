@@ -31,6 +31,10 @@ final readonly class PlaceOrderData
         public ?string $customerNote,
         public ?int $userId,
         public ?string $ipAddress,
+        // مفتاح منع التكرار (M7): يُشتق من الجلسة في CheckoutRequest، لا من حقل
+        // يرسله العميل — كي لا يستطيع أحد إعادة تشغيل مفتاح طلب غيره. null يعني
+        // «بلا حماية» (مسار لا يمرّ بصفحة الدفع) ولا يُسقِط الطلب.
+        public ?string $idempotencyKey,
         // بيانات إسناد التتبّع (M6) — تُلتقط من كوكيز المتصفح لحدث الشراء الخادمي.
         public ?string $fbp = null,
         public ?string $fbc = null,

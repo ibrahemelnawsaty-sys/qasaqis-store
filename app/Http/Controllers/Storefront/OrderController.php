@@ -74,8 +74,12 @@ class OrderController extends Controller
             $order->update(['payment_status' => 'pending_review']);
         }
 
-        // تنبيه الأدمن أن إثباتًا ينتظر المراجعة (M4).
-        $notifier->paymentProofSubmitted($order);
+        // تنبيه الأدمن أن إثباتًا ينتظر المراجعة (M4) + إيصال للعميلة عن الإثبات
+        // الأول فقط (M7) — الرفع المتكرّر لا يُغرِق بريدها برسائل متطابقة.
+        $notifier->paymentProofSubmitted(
+            $order,
+            notifyCustomer: $order->paymentProofs()->count() === 1,
+        );
 
         return redirect()
             ->to(URL::signedRoute('orders.thankyou', ['order' => $order->id]))

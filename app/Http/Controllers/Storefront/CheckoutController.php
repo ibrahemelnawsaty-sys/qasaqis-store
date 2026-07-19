@@ -13,6 +13,7 @@ use App\Models\Country;
 use App\Models\Order;
 use App\Services\Cart\CartService;
 use App\Services\Payment\PaymentMethodResolver;
+use App\Support\Checkout\CheckoutSession;
 use App\Support\Payment\PaymentInitiation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -40,6 +41,10 @@ class CheckoutController extends Controller
                 ->with('error', __('payment.errors.empty_cart'));
         }
 
+        // بداية محاولة دفع جديدة بمفتاح منع تكرار جديد (M7). كل عرض للصفحة محاولة
+        // مستقلة؛ وكل إرسال من العرض نفسه (نقرة مزدوجة أو F5) هو المحاولة ذاتها.
+        CheckoutSession::beginAttempt($request->session());
+
         return view('checkout.show', [
             'cart' => $cart,
             'methods' => $resolver->available(),
@@ -63,25 +68,41 @@ class CheckoutController extends Controller
 
         $this->forgetSessionCart($request);
 
-        return $this->redirectAfterPlacement($result->order, $result->initiation);
+        // المفتاح لا يُنسى هنا عمدًا — انظر CheckoutSession: نسيانه يفتح ثغرة
+        // إعادة إرسال النموذج بعد اكتمال الطلب. يُستبدل عند العرض التالي للصفحة.
+
+        return $this->redirectAfterPlacement($request, $result->order, $result->initiation);
     }
 
     /**
      * Route the customer to the next step based on the payment path.
      */
-    private function redirectAfterPlacement(Order $order, ?PaymentInitiation $initiation): RedirectResponse
-    {
+    private function redirectAfterPlacement(
+        Request $request,
+        Order $order,
+        ?PaymentInitiation $initiation,
+    ): RedirectResponse {
         // Online gateway path.
         if ($initiation !== null) {
             if ($initiation->success && $initiation->redirectUrl !== null) {
+                // بلا إشارة تفريغ سلة: الوجهة موقع خارجي، فالإشارة (flash لطلب
+                // واحد) تُستهلَك في أول صفحة تعود إليها العميلة أيًّا كانت.
                 return redirect()->away($initiation->redirectUrl);
             }
 
             // Gateway could not start (e.g. not configured) — order stays pending.
+            // ولا نُفرِّغ سلتها هنا تحديدًا: خرجت بطلب غير مدفوع ولا سبيل لدفعه،
+            // فسلة المتصفح هي كل ما تملكه لإعادة المحاولة بطريقة دفع أخرى.
             return redirect()
                 ->to(URL::signedRoute('orders.thankyou', ['order' => $order->id]))
                 ->with('warning', __($initiation->messageKey ?? 'payment.gateway.unavailable'));
         }
+
+        // إشارة لمرة واحدة تُفرِّغ سلة localStorage في الوجهة (M7 — المرحلة 6):
+        // سلة الجلسة تُمسح في place()، لكن السلة التي تراها العميلة تعيش في
+        // المتصفح فكانت الشارة تُظهر ما اشترته للتوّ. تُضبط هنا فقط حيث الطلب
+        // مكتمل ووجهته صفحة داخلية مباشرة.
+        $request->session()->flash('cart_placed', true);
 
         // Manual transfer path -> instructions + proof upload.
         if ($order->payment_status === 'pending_review') {

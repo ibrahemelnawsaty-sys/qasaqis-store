@@ -82,7 +82,7 @@ final class OrderNotificationsTest extends TestCase
         Notification::assertSentTo($admin, AdminOrderNotification::class);
     }
 
-    public function test_proof_submitted_notifies_admin_only(): void
+    public function test_proof_submitted_notifies_customer_and_admin(): void
     {
         Notification::fake();
         $admin = $this->admin();
@@ -90,13 +90,51 @@ final class OrderNotificationsTest extends TestCase
 
         $this->notifier()->paymentProofSubmitted($order);
 
-        // إشعار واحد فقط (الأدمن) — لا إشعار عميل عند رفع الإثبات.
-        Notification::assertCount(1);
+        // تغيّر السلوك في M7: كان الأدمن وحده يُنبَّه، فتبقى العميلة التي حوّلت
+        // المال بلا خبر — أعلى نقطة قلق في المسار. صارت تستلم إيصالًا فوريًا.
+        Notification::assertSentOnDemand(
+            CustomerOrderNotification::class,
+            fn ($n, $channels, $notifiable) => $n->kind === CustomerOrderNotification::PROOF_RECEIVED
+                && $notifiable->routes['mail'] === 'mom@example.com'
+        );
         Notification::assertSentTo(
             $admin,
             AdminOrderNotification::class,
             fn ($n) => $n->kind === AdminOrderNotification::PROOF_SUBMITTED
         );
+    }
+
+    public function test_proof_submitted_without_customer_email_still_notifies_admin(): void
+    {
+        Notification::fake();
+        $admin = $this->admin();
+        $order = OrderFactory::new()->create(['customer_email' => null]);
+
+        $this->notifier()->paymentProofSubmitted($order);
+
+        // البريد اختياري في نموذج الدفع: غيابه يتخطّى العميلة بصمت ولا يُسقِط
+        // تنبيه الأدمن (وإلا ضاع الإثبات بلا مراجعة).
+        Notification::assertCount(1);
+        Notification::assertSentTo($admin, AdminOrderNotification::class);
+    }
+
+    public function test_proof_received_email_builds_with_subject_and_cta(): void
+    {
+        $order = OrderFactory::new()->create([
+            'customer_email' => 'mom@example.com',
+            'payment_method' => 'instapay',
+            'payment_status' => 'pending_review',
+            'status' => 'pending',
+        ]);
+
+        $mail = (new CustomerOrderNotification($order, CustomerOrderNotification::PROOF_RECEIVED))
+            ->toMail(new AnonymousNotifiable);
+
+        $this->assertSame('emails.customer-order', $mail->view);
+        $this->assertStringContainsString($order->order_number, $mail->subject);
+        $this->assertStringContainsString('signature=', $mail->viewData['ctaUrl']);
+        // إيصال طمأنة قصير — لا يُعيد سرد بنود الطلب (وصلت مع رسالة الاستلام).
+        $this->assertFalse($mail->viewData['showSummary']);
     }
 
     public function test_payment_approved_notifies_customer(): void
