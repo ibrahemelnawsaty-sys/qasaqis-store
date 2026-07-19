@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية مقال المدوّنة --}}
+@section('body_class', 'pat-calligraphic-curls')
+
 @php
     $metaTitle = filled($article->seo_title) ? $article->seo_title : $article->title . ' — ' . __('common.brand');
     $metaDesc = filled($article->seo_description)

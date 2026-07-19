@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية صفحة ثابتة من الـCMS --}}
+@section('body_class', 'pat-calligraphic-curls')
+
 @php
     // SEO يُدار من الـ CMS (SeoMeta) مع الرجوع لعنوان الصفحة وشعار العلامة عند غيابه.
     $metaTitle = $page->seo?->meta_title ?: $page->title . ' — ' . __('common.brand');

@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية تأكيد الطلب --}}
+@section('body_class', 'pat-scraps-confetti')
+
 @section('title', __('checkout.thankyou.badge') . ' — ' . __('common.brand'))
 
 @section('content')

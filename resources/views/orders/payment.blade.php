@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية دفع الطلب --}}
+@section('body_class', 'pat-dots-and-arcs')
+
 @section('title', __('checkout.payment.title') . ' — ' . __('common.brand'))
 
 @section('content')

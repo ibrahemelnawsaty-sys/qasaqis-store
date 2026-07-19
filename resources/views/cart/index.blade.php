@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية السلة --}}
+@section('body_class', 'pat-dots-and-arcs')
+
 @section('title', __('checkout.cart.title') . ' — ' . __('common.brand'))
 
 @section('content')

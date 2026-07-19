@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية كل الكتب والأقسام والبحث والسلاسل --}}
+@section('body_class', 'pat-book-fans')
+
 @section('title', $heading . ' — ' . __('common.brand'))
 
 @section('content')

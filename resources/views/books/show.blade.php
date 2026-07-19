@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية صفحة الكتاب --}}
+@section('body_class', 'pat-scissors-trails')
+
 @php
     $metaTitle = $book->seo?->meta_title ?: $book->title . ' — ' . __('common.brand');
     $metaDesc = $book->seo?->meta_description ?: ($book->short_description ?? __('common.tagline'));

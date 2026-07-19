@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+{{-- نقش خلفية فهرس المدوّنة --}}
+@section('body_class', 'pat-calligraphic-curls')
+
 @section('title', __('blog.index_title') . ' — ' . __('common.brand'))
 @section('meta_description', __('blog.index_meta'))
 
