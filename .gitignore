@@ -21,3 +21,9 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# ملفات تحقّق مؤقّتة — تحوي أسرارًا، لا تُتعقَّب أبدًا
+.env.verify
+.env.*
+!.env.example
+resources/views/__verify/
