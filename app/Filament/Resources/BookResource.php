@@ -9,6 +9,7 @@ use App\Filament\Resources\BookResource\Pages;
 use App\Filament\Resources\BookResource\RelationManagers\ImagesRelationManager;
 use App\Filament\Resources\BookResource\RelationManagers\ReviewsRelationManager;
 use App\Models\Book;
+use App\Models\Category;
 use App\Providers\Filament\AdminPanelProvider;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -538,6 +539,37 @@ class BookResource extends Resource
 
                             Notification::make()
                                 ->title('تم ضبط مخزون '.$records->count().' كتابًا على '.$qty)
+                                ->success()
+                                ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('setCategory')
+                        ->label('نقل إلى قسم')
+                        ->icon('heroicon-o-folder-arrow-down')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\Select::make('category_id')
+                                ->label('القسم')
+                                // استعلام صريح مؤجَّل: نموذج الإجراء الجماعي بلا سجلّ
+                                // مرجعي، فـ relationship() لا تجد موديلًا تشتقّ منه.
+                                ->options(fn (): array => Category::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required()
+                                ->helperText('يغيّر القسم الرئيسي للكتب المحدَّدة. الأقسام الإضافية تبقى كما هي.'),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $categoryId = (int) $data['category_id'];
+
+                            $records->each(fn (Book $book) => $book->update([
+                                'category_id' => $categoryId,
+                            ]));
+
+                            Notification::make()
+                                ->title('تم نقل '.$records->count().' كتابًا إلى القسم المحدَّد')
                                 ->success()
                                 ->send();
                         }),
