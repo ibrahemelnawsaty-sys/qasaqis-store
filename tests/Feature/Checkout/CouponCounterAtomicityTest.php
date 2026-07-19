@@ -8,6 +8,7 @@ use App\Models\Book;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use Database\Factories\CouponFactory;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,7 +32,14 @@ final class CouponCounterAtomicityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(PaymentMethodSeeder::class); // cod enabled, no online gateway.
+        $this->seed(PaymentMethodSeeder::class);
+
+        // COD صار مبذورًا **معطّلًا** في 3c40e04 («إلغاء COD/الشحن الدولي»)، فصار
+        // Rule::in($availableCodes) يرفض هذه الطلبات ويسقط الاختبار — وظلّ ساقطًا
+        // بلا أن يلاحظه أحد لأن الاختبارات لم تُشغَّل. نُفعّله صراحةً بدل الاعتماد
+        // على قيمة بذرة تتغيّر بقرار تجاري: موضوع هذا الملف ذرّية الكوبون لا توفّر
+        // طريقة الدفع.
+        PaymentMethod::query()->where('code', 'cod')->update(['is_enabled' => true]);
     }
 
     /** A published, in-stock, priced book. */

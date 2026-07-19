@@ -6,6 +6,7 @@ namespace Tests\Feature\Checkout;
 
 use App\Models\Book;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -32,6 +33,10 @@ final class DoubleSubmitProtectionTest extends TestCase
     {
         parent::setUp();
         $this->seed(PaymentMethodSeeder::class);
+
+        // COD مبذور معطّلًا (قرار تجاري في 3c40e04). اختبار «طريقة دفع مختلفة»
+        // يحتاجه مفعّلًا، فنُفعّله صراحةً بدل الاعتماد على قيمة بذرة متغيّرة.
+        PaymentMethod::query()->where('code', 'cod')->update(['is_enabled' => true]);
     }
 
     private function book(): Book
