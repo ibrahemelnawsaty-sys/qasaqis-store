@@ -38,7 +38,8 @@ class ImportBooksFromFeed extends Command
     protected $signature = 'books:import
         {file : مسار ملف منتجات المورّد (تصدير Shopify بصيغة CSV أو products.json)}
         {--category= : slug أو id القسم الذي تُسنَد إليه الكتب المستوردة (إلزامي)}
-        {--publisher= : اسم دار النشر (افتراضيًا يؤخذ Vendor من الملف)}
+        {--type= : استيراد نوع المنتج هذا فقط (product_type) — مثل «قصص أطفال» لاستبعاد الألعاب والملصقات}
+        {--publisher= : اسم دار النشر (افتراضيًا يؤخذ Vendor من الملف — اتركه فارغًا مع ملف متعدّد الناشرين)}
         {--stock=5 : كمية المخزون للكتب الجديدة فقط}
         {--update-stock : اسمح بإعادة ضبط مخزون الكتب الموجودة أيضًا (خطر: يدهس مخزونك الحيّ)}
         {--limit=0 : استيراد أول N منتجًا فقط (0 = الكل)}
@@ -90,6 +91,23 @@ class ImportBooksFromFeed extends Command
             $this->error('لم يُعثر على أي منتج في الملف.');
 
             return self::FAILURE;
+        }
+
+        // مرشِّح النوع قبل الحدّ، حتى يعمل --limit على المُرشَّح لا على الملف الخام.
+        if (filled($type = trim((string) $this->option('type')))) {
+            $before = count($products);
+            $products = array_values(array_filter(
+                $products,
+                static fn (array $p): bool => trim((string) $p['type']) === $type,
+            ));
+
+            if ($products === []) {
+                $this->error("لا يوجد منتج بنوع «{$type}» في الملف. تحقّق من الاسم كما هو مكتوب في المصدر.");
+
+                return self::FAILURE;
+            }
+
+            $this->line("مرشِّح النوع «{$type}»: استُبعد ".($before - count($products)).' منتجًا.');
         }
 
         $limit = (int) $this->option('limit');
@@ -210,6 +228,8 @@ class ImportBooksFromFeed extends Command
                 'title' => (string) $p['title'],
                 'body_html' => (string) ($p['body_html'] ?? ''),
                 'vendor' => (string) ($p['vendor'] ?? ''),
+                'type' => (string) ($p['product_type'] ?? ''),
+                'tags' => $this->normalizeTags($p['tags'] ?? []),
                 'sku' => (string) ($variant['sku'] ?? ''),
                 'price' => $this->toDecimal($variant['price'] ?? null),
                 'compare_at' => $this->toDecimal($variant['compare_at_price'] ?? null),
@@ -283,7 +303,7 @@ class ImportBooksFromFeed extends Command
 
             if (! isset($grouped[$key])) {
                 $grouped[$key] = [
-                    'handle' => $key, 'title' => '', 'body_html' => '', 'vendor' => '',
+                    'handle' => $key, 'title' => '', 'body_html' => '', 'vendor' => '', 'type' => '', 'tags' => [],
                     'sku' => '', 'price' => null, 'compare_at' => null, 'grams' => 0,
                     'images' => [], 'variantLocked' => false,
                 ];
@@ -294,6 +314,11 @@ class ImportBooksFromFeed extends Command
             $g['title'] = $g['title'] !== '' ? $g['title'] : trim((string) ($row['Title'] ?? ''));
             $g['body_html'] = $g['body_html'] !== '' ? $g['body_html'] : (string) ($row['Body (HTML)'] ?? '');
             $g['vendor'] = $g['vendor'] !== '' ? $g['vendor'] : trim((string) ($row['Vendor'] ?? ''));
+            $g['type'] = $g['type'] !== '' ? $g['type'] : trim((string) ($row['Type'] ?? ''));
+
+            if ($g['tags'] === [] && filled($row['Tags'] ?? null)) {
+                $g['tags'] = $this->normalizeTags($row['Tags']);
+            }
 
             // وحدة المتغيّر: تُلتقط مرة واحدة من أول صفّ يحمل SKU أو سعرًا.
             if (! $g['variantLocked']) {
@@ -413,6 +438,14 @@ class ImportBooksFromFeed extends Command
 
         if ((int) $product['grams'] > 0) {
             $content['weight_grams'] = min((int) $product['grams'], self::MAX_SMALLINT);
+        }
+
+        // الفئة العمرية مقروءة من وسوم المورّد (مثل «من ٤ إلى ٧ سنوات») — بيانات
+        // حقيقية لا تخمين؛ الوسم الذي لا يحمل رقمًا صريحًا (مثل «اليافعين») يُترك فارغًا.
+        foreach ($this->agesFromTags((array) $product['tags']) as $key => $value) {
+            if ($value !== null) {
+                $content[$key] = $value;
+            }
         }
 
         if ($publisher) {
@@ -611,6 +644,86 @@ class ImportBooksFromFeed extends Command
         }
 
         return $candidate;
+    }
+
+    /**
+     * يستخرج الفئة العمرية من وسوم المورّد. يدعم الأرقام العربية والهندية والفارسية،
+     * والصيغ: «من 4 إلى 7 سنوات»، «أقل من 4 سنوات»، «+8». الوسم بلا رقم صريح
+     * (مثل «اليافعين») يُترك فارغًا — لا نخمّن عمرًا (بند 0.4).
+     *
+     * @param  array<int, string>  $tags
+     * @return array{age_min: int|null, age_max: int|null}
+     */
+    private function agesFromTags(array $tags): array
+    {
+        $min = null;
+        $max = null;
+
+        foreach ($tags as $tag) {
+            $t = $this->normalizeDigits((string) $tag);
+
+            if (preg_match('/(\d{1,2})\s*(?:إلى|الى|-|–)\s*(\d{1,2})/u', $t, $m)) {
+                $lo = (int) $m[1];
+                $hi = (int) $m[2];
+                $min = $min === null ? $lo : min($min, $lo);
+                $max = $max === null ? $hi : max($max, $hi);
+
+                continue;
+            }
+
+            if (preg_match('/(?:أقل|اقل)\s*من\s*(\d{1,2})/u', $t, $m)) {
+                $hi = (int) $m[1];
+                $max = $max === null ? $hi : max($max, $hi);
+
+                continue;
+            }
+
+            if (preg_match('/\+\s*(\d{1,2})|(\d{1,2})\s*\+/u', $t, $m)) {
+                $lo = (int) ($m[1] !== '' ? $m[1] : ($m[2] ?? 0));
+
+                if ($lo > 0) {
+                    $min = $min === null ? $lo : min($min, $lo);
+                }
+            }
+        }
+
+        // نطاق متناقض => نُهمله بدل حفظ بيانات خاطئة. والعمود unsignedTinyInteger.
+        if ($min !== null && $max !== null && $min > $max) {
+            return ['age_min' => null, 'age_max' => null];
+        }
+
+        return [
+            'age_min' => $min !== null ? min($min, 255) : null,
+            'age_max' => $max !== null ? min($max, 255) : null,
+        ];
+    }
+
+    /**
+     * توحيد الأرقام الهندية/الفارسية إلى لاتينية ليعمل التعبير النمطي عليها.
+     */
+    private function normalizeDigits(string $value): string
+    {
+        return strtr($value, [
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+            '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizeTags(mixed $tags): array
+    {
+        if (is_string($tags)) {
+            $tags = explode(',', $tags);
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($t): string => trim((string) $t),
+            (array) $tags,
+        )));
     }
 
     private function plainSummary(string $html): ?string
