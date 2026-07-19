@@ -65,18 +65,70 @@ class WhyItemResource extends Resource
         return static::userCan('edit');
     }
 
+    /**
+     * مفاتيح مكتبة الأيقونات في resources/views/components/why-icon.blade.php.
+     * أي مفتاح هنا يجب أن يوجد هناك، وإلّا طُبع نصًّا في الواجهة.
+     *
+     * @return array<string, string>
+     */
+    public static function iconOptions(): array
+    {
+        return [
+            'target-curated' => 'انتقاء تربوي — كتاب مرفوع فوق الرفّ',
+            'harakat-letter' => 'لغة وتشكيل — حرف عربي بحركة',
+            'pigment-sweep' => 'رسوم وألوان — قلم وأثره',
+            'value-tag' => 'سعر وقيمة — بطاقة سعر',
+            'open-book' => 'كتاب مفتوح',
+            'heart-care' => 'رعاية وعناية — قلب بين كفّين',
+            'shield-trust' => 'ثقة وأمان — درع',
+            'delivery-truck' => 'توصيل — شاحنة',
+            'star-merit' => 'تميّز وجدارة — وسام',
+            'family-duo' => 'أمّ وطفل',
+            'mind-sprout' => 'عقل ونموّ — برعم',
+            'gift-wrap' => 'هدية وتغليف',
+            'clock-fast' => 'سرعة — صاعقة',
+            'chat-support' => 'دعم ومحادثة',
+        ];
+    }
+
+    /**
+     * خيارات قائمة الأيقونة لسجلّ بعينه.
+     *
+     * بطاقة أضافها الأدمن بإيموجي قبل هذه المكتبة قيمتها ليست ضمن المفاتيح الـ14.
+     * لو تركنا القائمة ساكنة لظهر الحقل فارغًا، ومع required() يمتنع حفظ أي تعديل
+     * — حتى تصحيح خطأ مطبعي في العنوان — حتى يستبدل الأدمن أيقونته، أي أن الواجهة
+     * تُجبره على إتلاف بياناته وهو نقيض بند أمانة المحتوى. فنُبقي قيمته خيارًا قائمًا.
+     *
+     * $record فارغ في صفحة الإنشاء، فالبطاقات الجديدة تبقى مقصورة على المكتبة.
+     *
+     * @return array<string, string>
+     */
+    public static function iconOptionsFor(?Model $record): array
+    {
+        $options = self::iconOptions();
+        $current = $record?->icon;
+
+        if (filled($current) && ! array_key_exists($current, $options)) {
+            return [$current => $current.' — أيقونتك الحالية'] + $options;
+        }
+
+        return $options;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\Section::make()
                 ->columns(2)
                 ->schema([
-                    Forms\Components\TextInput::make('icon')
-                        ->label('الرمز (إيموجي)')
+                    Forms\Components\Select::make('icon')
+                        ->label('الأيقونة')
                         ->required()
-                        ->maxLength(16)
-                        ->default('💛')
-                        ->helperText('أدخل إيموجي واحدًا يعبّر عن الميزة (مثل 🎯 أو 🎨).'),
+                        ->default('heart-care')
+                        ->native(false)
+                        ->searchable()
+                        ->options(fn (?Model $record): array => self::iconOptionsFor($record))
+                        ->helperText('أيقونة مرسومة تتلوّن تلقائيًا بلون البطاقة وتعمل في الوضعين الفاتح والداكن.'),
 
                     Forms\Components\Toggle::make('is_active')
                         ->label('مُفعّلة')
@@ -109,8 +161,10 @@ class WhyItemResource extends Resource
             ->reorderable('sort_order', static::userCan('edit'))
             ->defaultSort('sort_order')
             ->columns([
-                Tables\Columns\TextColumn::make('icon')
-                    ->label('الرمز'),
+                // نعرض الأيقونة نفسها لا مفتاحها — المفتاح وحده لا يقول شيئًا للأدمن.
+                Tables\Columns\ViewColumn::make('icon')
+                    ->label('الأيقونة')
+                    ->view('filament.tables.columns.why-icon'),
 
                 Tables\Columns\TextColumn::make('title')
                     ->label('العنوان')

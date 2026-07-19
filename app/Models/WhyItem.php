@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * بطاقة في قسم «ليه الأمهات بيحبونا» بالرئيسية. يحرّرها الأدمن.
- * icon = إيموجي؛ لون خلفية البطاقة يتناوب تلقائيًا حسب الترتيب في القالب.
+ * icon = مفتاح من مكتبة resources/views/components/why-icon.blade.php
+ * (قيمة قديمة بإيموجي تظلّ تعمل: المكوّن يطبعها نصًّا إن لم تطابق مفتاحًا).
+ * لون البطاقة يتناوب تلقائيًا حسب الترتيب عبر nth-child في app.css.
  */
 class WhyItem extends Model
 {

@@ -20,7 +20,11 @@ class WhyItemFactory extends Factory
     public function definition(): array
     {
         return [
-            'icon' => fake()->randomElement(['🎯', '🔤', '🎨', '💰', '📚', '💛']),
+            // مفاتيح من مكتبة resources/views/components/why-icon.blade.php
+            'icon' => fake()->randomElement([
+                'target-curated', 'harakat-letter', 'pigment-sweep',
+                'value-tag', 'open-book', 'heart-care',
+            ]),
             'title' => fake()->words(3, true),
             'description' => fake()->optional()->sentence(5),
             'is_active' => true,

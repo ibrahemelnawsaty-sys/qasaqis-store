@@ -10,20 +10,11 @@
     $heroSub = filled($storeSettings['hero_subtitle'] ?? null) ? $storeSettings['hero_subtitle'] : __('home.hero_sub');
 @endphp
 
-{{-- SEO الرئيسية: وصف غنيّ + وسوم OpenGraph/Twitter تُدفع عبر stack meta (يوفّره التخطيط).
-     النصوص من الإعدادات (CMS) أو ملفات الترجمة (الدستور 6.4) — لا نص مثبّت. --}}
+{{-- SEO الرئيسية: يكفي دفع الوصف — التخطيط يشتقّ منه og:description و twitter:description
+     ويُصدر og:type/og:site_name/og:title/og:locale وبطاقة تويتر بنفسه (app.blade.php:47-64).
+     كانت هذه الصفحة تعيد دفع الكتلة كاملة فتنبعث الوسوم مرّتين، وبقيمتَي og:locale
+     متعارضتين (ar_AR من التخطيط و ar من هنا). النصوص من CMS/الترجمة (الدستور 6.4). --}}
 @section('meta_description', $heroSub)
-
-@push('meta')
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="{{ __('common.brand') }}">
-    <meta property="og:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
-    <meta property="og:description" content="{{ $heroSub }}">
-    <meta property="og:locale" content="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ __('common.brand') }} — {{ __('common.tagline') }}">
-    <meta name="twitter:description" content="{{ $heroSub }}">
-@endpush
 
 @section('content')
     @php
@@ -34,6 +25,10 @@
 
     {{-- السلايدر الدعائي البارز (بلوكات CMS slider/banner). عند غيابها نعرض الهيرو الافتراضي المبهج. --}}
     @if ($slides->isNotEmpty())
+        {{-- عنوان رئيسي مخفيّ بصريًا: السلايدر لا يحمل <h1>، والهيرو (صاحب الـ <h1> الوحيد)
+             لا يُعرض حين توجد شرائح — فكانت الرئيسية تُصيَّر بلا <h1> إطلاقًا. هذا يكسر
+             تسلسل العناوين للوصولية، ويُفقد Google إحدى إشارات «اسم الموقع». --}}
+        <h1 class="sr-only">{{ __('common.brand') }} — {{ __('common.tagline') }}</h1>
         @include('partials.home.slider', ['slides' => $slides])
     @endif
 
@@ -298,7 +293,8 @@
                 <div class="why">
                     @foreach ($whyItems as $i => $card)
                         <div class="why-card">
-                            <div class="we" style="background:{{ $softBg[$i % count($softBg)] }}" aria-hidden="true">{{ $card['emoji'] }}</div>
+                            {{-- اللون يتناوب عبر nth-child في app.css، فلا حاجة لنمط سطري --}}
+                            <div class="we" aria-hidden="true"><x-why-icon :name="$card['emoji']" /></div>
                             <h4>{{ $card['title'] }}</h4>
                             <p>{{ $card['desc'] ?? '' }}</p>
                         </div>
