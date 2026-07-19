@@ -1,0 +1,7 @@
+Handle,Title,Body (HTML),Vendor,Type,Tags,Published,Option1 Name,Option1 Value,Variant SKU,Variant Grams,Variant Inventory Qty,Variant Price,Variant Compare At Price,Image Src,Image Position,Image Alt Text,Status
+sample-book-one,كتاب تجريبي أول,"<p>وصف تجريبي للكتاب الأول، يحتوي فاصلة واقتباس ""مزدوج"" لاختبار قراءة CSV.</p>",دار تجريبية,Book,"عمر 4-6, قصص",TRUE,Title,Default Title,SAMPLE-001,320,10,120.00,150.00,https://example.com/images/sample-1-a.jpg,1,غلاف,active
+sample-book-one,,,,,,,,,,,,,,https://example.com/images/sample-1-b.jpg,2,صفحة,
+sample-book-one,,,,,,,,,,,,,,https://example.com/images/sample-1-c.jpg,3,صفحة,
+sample-book-two,كتاب تجريبي ثانٍ بلا سعر مشطوب,<p>وصف مختصر بلا HTML معقّد.</p>,دار تجريبية,Book,علوم,TRUE,Title,Default Title,SAMPLE-002,410,5,95.00,,https://example.com/images/sample-2-a.jpg,1,غلاف,active
+كتاب-عربي-بالكامل,عنوان عربي بالكامل لاختبار توليد المُعرّف,<p>مقبض الرابط عربي بالكامل فيصير slug فارغًا — يجب أن يرجع الأمر إلى SKU ثم إلى بصمة.</p>,دار تجريبية,Book,"عمر 6-9",TRUE,Title,Default Title,SAMPLE-003,280,7,80.00,,https://example.com/images/sample-3-a.jpg,1,غلاف,active
+orphan-image-row,,,,,,,,,,,,,,https://example.com/images/orphan.jpg,1,,
