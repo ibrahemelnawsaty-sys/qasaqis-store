@@ -26,7 +26,7 @@ final class WhyItemIconMigrationTest extends TestCase
 
     private function migration(): object
     {
-        return require database_path('migrations/2026_07_19_000004_convert_why_item_icons_to_keys.php');
+        return require database_path('migrations/2026_07_19_000006_convert_why_item_icons_to_keys.php');
     }
 
     private function seedRow(string $icon, string $title): int
