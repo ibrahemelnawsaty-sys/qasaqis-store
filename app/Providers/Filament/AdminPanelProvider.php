@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\OpsDashboard;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use App\Filament\Pages\OpsDashboard;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -51,6 +51,8 @@ class AdminPanelProvider extends PanelProvider
 
     public const GROUP_ORDERS_PAYMENTS = 'الطلبات والدفع';
 
+    public const GROUP_FINANCE = 'الإدارة المالية';
+
     public const GROUP_SITE_CMS = 'إدارة الموقع/CMS';
 
     public const GROUP_USERS_PERMISSIONS = 'المستخدمون والصلاحيات';
@@ -86,6 +88,8 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-book-open'),
                 NavigationGroup::make(self::GROUP_ORDERS_PAYMENTS)
                     ->icon('heroicon-o-shopping-bag'),
+                NavigationGroup::make(self::GROUP_FINANCE)
+                    ->icon('heroicon-o-banknotes'),
                 NavigationGroup::make(self::GROUP_SITE_CMS)
                     ->icon('heroicon-o-globe-alt'),
                 NavigationGroup::make(self::GROUP_USERS_PERMISSIONS)

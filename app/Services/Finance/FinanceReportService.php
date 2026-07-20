@@ -95,7 +95,10 @@ class FinanceReportService
                 'aov' => $ordersCount > 0 ? $this->money(bcdiv($net, (string) $ordersCount, 2)) : null,
                 'pipeline' => $this->money($pipeline),
             ];
-        });
+        }, [
+            'gross_revenue' => '0.00', 'net_sales' => '0.00', 'discounts' => '0.00',
+            'shipping' => '0.00', 'orders' => 0, 'units' => 0, 'aov' => null, 'pipeline' => '0.00',
+        ]);
     }
 
     /**
@@ -163,7 +166,10 @@ class FinanceReportService
                 'orders_costed' => $orders,
                 'orders_unknown_cost' => $unknown,
             ];
-        });
+        }, [
+            'cogs' => '0.00', 'gross_profit' => null, 'margin_pct' => null,
+            'net_costed' => '0.00', 'orders_costed' => 0, 'orders_unknown_cost' => 0,
+        ]);
     }
 
     /**
@@ -223,7 +229,7 @@ class FinanceReportService
             }
 
             return $series;
-        });
+        }, collect());
     }
 
     /**
@@ -307,7 +313,11 @@ class FinanceReportService
                 'contribution' => $contribution,
                 'orders_contribution' => $contribCount,
             ];
-        });
+        }, [
+            'carrier_cost' => '0.00', 'shipping_charged' => '0.00', 'shipping_margin' => null,
+            'orders_carrier_known' => 0, 'orders_carrier_unknown' => 0,
+            'contribution' => null, 'orders_contribution' => 0,
+        ]);
     }
 
     /**
@@ -367,7 +377,10 @@ class FinanceReportService
                 'contribution' => $contribution,
                 'net_profit' => $netProfit,
             ];
-        });
+        }, [
+            'refunds' => '0.00', 'fees' => '0.00', 'expenses' => '0.00',
+            'contribution' => null, 'net_profit' => null,
+        ]);
     }
 
     /**
@@ -402,7 +415,7 @@ class FinanceReportService
                     'orders' => (int) $r->orders,
                     'net_sales' => $this->money($r->net),
                 ]);
-        });
+        }, collect());
     }
 
     /**
@@ -469,7 +482,14 @@ class FinanceReportService
      * @param  callable():T  $callback
      * @return T
      */
-    private function remember(string $metric, CarbonImmutable $from, CarbonImmutable $to, callable $callback)
+    /**
+     * @template T
+     *
+     * @param  callable():T  $callback
+     * @param  T  $default  قيمة آمنة تُعاد إن فشل الاستعلام (شكل المقياس فارغًا)
+     * @return T
+     */
+    private function remember(string $metric, CarbonImmutable $from, CarbonImmutable $to, callable $callback, mixed $default)
     {
         $key = sprintf(
             'finance.report.v%d.%s.%s.%s',
@@ -479,14 +499,13 @@ class FinanceReportService
             $to->timezone(self::TZ)->format('Ymd'),
         );
 
-        // rescue: التقرير يجب ألا يكسر لوحة الأدمن قبل تنفيذ الهجرات/البذور.
-        // نمرّر $callback إغلاقًا لا $callback() — الوسيط الثاني يُقيَّم فور
-        // استدعاء rescue، فتمرير النتيجة يُشغّل الاستعلام في كل طلب (يُبطل الكاش)
-        // ويرمي قبل try/catch عند غياب الجداول (يُسقط اللوحة بدل التدرّج). كإغلاق
-        // يُستدعى كسلًا داخل catch فقط، بلا كاش، عند الفشل الحقيقي.
+        // rescue بقيمة آمنة ثابتة (لا إعادة تشغيل الاستعلام): لو غاب جزء من المخطط
+        // قبل تنفيذ الهجرات على الإنتاج، تتدرّج اللوحة لأرقام فارغة بدل 500. تمرير
+        // $callback نفسه كبديل كان يُعيد الاستعلام داخل catch فيرمي ثانيةً بلا
+        // التقاط — وهو سبب انهيار اللوحة قبل الهجرات. القيمة الثابتة تُصلحه.
         return rescue(
             fn () => Cache::remember($key, self::TTL_SECONDS, $callback),
-            $callback,
+            $default,
             report: false,
         );
     }

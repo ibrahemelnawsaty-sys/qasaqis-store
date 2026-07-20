@@ -30,7 +30,7 @@ class ExpenseResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
 
-    protected static ?string $navigationGroup = AdminPanelProvider::GROUP_ORDERS_PAYMENTS;
+    protected static ?string $navigationGroup = AdminPanelProvider::GROUP_FINANCE;
 
     protected static ?int $navigationSort = 2;
 

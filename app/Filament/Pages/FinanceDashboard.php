@@ -33,13 +33,13 @@ class FinanceDashboard extends Page
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationGroup = AdminPanelProvider::GROUP_ORDERS_PAYMENTS;
+    protected static ?string $navigationGroup = AdminPanelProvider::GROUP_FINANCE;
 
     protected static ?int $navigationSort = 1;
 
-    protected static ?string $navigationLabel = 'القسم المالي';
+    protected static ?string $navigationLabel = 'لوحة المالية';
 
-    protected static ?string $title = 'القسم المالي';
+    protected static ?string $title = 'الإدارة المالية';
 
     protected static string $view = 'filament.pages.finance-dashboard';
 
