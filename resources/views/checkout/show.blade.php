@@ -79,9 +79,9 @@
                             </div>
 
                             <div class="co-field">
-                                <label class="co-label" for="f-email">{{ __('checkout.form.email') }} <span class="opt">{{ __('checkout.form.optional') }}</span></label>
+                                <label class="co-label" for="f-email">{{ __('checkout.form.email') }}</label>
                                 <input id="f-email" type="email" name="email" value="{{ old('email') }}" maxlength="191"
-                                    class="co-input @error('email') err @enderror" dir="ltr" autocomplete="email">
+                                    class="co-input @error('email') err @enderror" dir="ltr" autocomplete="email" required>
                                 @error('email') <p class="co-err">{{ $message }}</p> @enderror
                             </div>
                         </div>

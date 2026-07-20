@@ -8,6 +8,7 @@ use App\Http\Controllers\Customer\LoginController as CustomerLoginController;
 use App\Http\Controllers\Customer\LogoutController as CustomerLogoutController;
 use App\Http\Controllers\Customer\OrderHistoryController as CustomerOrderHistoryController;
 use App\Http\Controllers\Customer\OrderLinkController as CustomerOrderLinkController;
+use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
@@ -132,6 +133,11 @@ Route::get('/orders/{order}/thank-you', [OrderController::class, 'thankyou'])
 Route::post('/orders/{order}/claim', [CustomerOrderLinkController::class, 'claim'])
     ->middleware(['signed', 'throttle:10,1'])
     ->name('orders.claim');
+
+// إنشاء حساب من صفحة الشكر بعد الشراء (M10) — موقّع، بخطوة واحدة (كلمة مرور فقط).
+Route::post('/orders/{order}/create-account', [PostPurchaseAccountController::class, 'store'])
+    ->middleware(['signed', 'throttle:10,1'])
+    ->name('orders.create-account');
 
 /*
 | حساب العميلة (M8) — حارس customer منفصل تمامًا عن لوحة الأدمن. الشراء يبقى كضيف

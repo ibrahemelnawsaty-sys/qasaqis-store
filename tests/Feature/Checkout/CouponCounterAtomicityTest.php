@@ -57,6 +57,7 @@ final class CouponCounterAtomicityTest extends TestCase
         return [
             'name' => 'أم أحمد',
             'phone' => '01012345678',
+            'email' => 'buyer@example.com',
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',
             'payment_method' => 'cod',
