@@ -107,6 +107,24 @@
                         <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true">
                             🔽 {{ __('catalog.filters_open') }}
                         </button>
+                        {{-- الفئة العمرية بجانب الترتيب: قائمة ملاحة مستقلّة (بلا name فلا
+                             تُرسَل مع النموذج ولا تتعارض مع age[] في لوحة الفلاتر). كل خيار
+                             رابطٌ يحفظ باقي الفلاتر ويضبط age لقيمة واحدة ويعيد الترقيم للأول. --}}
+                        @php $ageSel = array_values((array) request('age', [])); @endphp
+                        <label style="display:flex;align-items:center;gap:6px">
+                            <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.facet_age') }}</span>
+                            {{-- age يُمرَّر مصفوفةً (age[]=…) مطابقةً لقاعدة التحقّق ولفلتر
+                                 age[] في اللوحة الجانبية؛ القائمة أحادية فتضبط عنصرًا واحدًا. --}}
+                            <select class="sort-select" aria-label="{{ __('catalog.facet_age') }}"
+                                onchange="if (this.value) window.location.href = this.value">
+                                <option value="{{ request()->fullUrlWithQuery(['age' => null, 'page' => null]) }}" @selected($ageSel === [])>{{ __('catalog.age_all') }}</option>
+                                @foreach ($ageOptions as $opt)
+                                    <option value="{{ request()->fullUrlWithQuery(['age' => [$opt['value']], 'page' => null]) }}"
+                                        @selected(count($ageSel) === 1 && $ageSel[0] === $opt['value'])>{{ $opt['label'] }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
                         <label style="display:flex;align-items:center;gap:6px">
                             <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.sort_label') }}</span>
                             <select name="sort" class="sort-select" onchange="this.form.requestSubmit()"

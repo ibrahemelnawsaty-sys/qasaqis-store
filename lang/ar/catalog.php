@@ -30,6 +30,7 @@ return [
     'facet_category' => 'القسم',
     'facet_publisher' => 'دار النشر',
     'facet_age' => 'الفئة العمرية',
+    'age_all' => 'كل الأعمار',
     'facet_price' => 'السعر (ج.م)',
     'price_min' => 'من',
     'price_max' => 'إلى',
