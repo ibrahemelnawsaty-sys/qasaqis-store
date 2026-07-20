@@ -11,6 +11,7 @@ use App\Http\Controllers\Customer\OrderLinkController as CustomerOrderLinkContro
 use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Auth\UnifiedLoginController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -34,6 +35,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', HomeController::class)->name('home');
+
+// تسجيل دخول موحّد لكل المنصة (عميل بالجوال / أدمن بالبريد). نقطة دخول واحدة يوجّهها
+// UnifiedLoginController للحارس الصحيح. الاسم `login` كي يصلح كوجهة إعادة توجيه Laravel
+// الافتراضية للزوار. throttle على الإرسال (حدّ معدّل باعتدال؛ الرسالة موحّدة).
+Route::get('/login', [UnifiedLoginController::class, 'show'])->name('login');
+Route::post('/login', [UnifiedLoginController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('login.store');
 
 // SEO تقني: خريطة موقع ديناميكية (مخزّنة مؤقتًا ساعة) + روبوتس احتياطي.
 // في الإنتاج يخدم public/robots.txt الساكن أولًا؛ يبقى المسار عاملًا حين يغيب.

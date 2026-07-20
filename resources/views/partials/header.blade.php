@@ -242,6 +242,9 @@
                     <x-ui-icon name="cart" />
                     <span class="cart-badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
                 </button>
+
+                {{-- قائمة الحساب: زرّ دخول (زائر) / صورة+قائمة (عميل) / لوحة+خروج (أدمن). --}}
+                @include('partials.account-menu')
             </div>
         </div>
     </div>
