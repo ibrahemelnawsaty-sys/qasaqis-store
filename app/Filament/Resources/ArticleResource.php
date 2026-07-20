@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\ArticleResource\Pages;
+use App\Filament\Support\SeoPlaceholder;
 use App\Models\Article;
 use App\Providers\Filament\AdminPanelProvider;
 use Filament\Forms;
@@ -145,17 +146,21 @@ class ArticleResource extends Resource
                 ])
                 ->columns(2),
 
-            Forms\Components\Section::make('تحسين محركات البحث (SEO)')
-                ->description('بيانات SEO خاصة بهذا المقال. تُترك فارغة لاستخدام العنوان والمقتطف افتراضيًا.')
+            Forms\Components\Section::make(__('seo.admin.section'))
+                ->description(__('seo.admin.section_hint'))
                 ->collapsible()
                 ->schema([
+                    // ما يُترك فارغًا يُشتقّ تلقائيًا من عنوان المقال/مقتطفه عبر
+                    // SeoDefaults (نفس مصدر الـplaceholder هنا وقيمة الإصدار في الواجهة).
                     Forms\Components\TextInput::make('seo_title')
                         ->label('عنوان الميتا')
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::title($livewire)),
                     Forms\Components\Textarea::make('seo_description')
                         ->label('وصف الميتا')
                         ->rows(2)
-                        ->maxLength(320),
+                        ->maxLength(320)
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::description($livewire)),
                 ])
                 ->columns(2),
         ]);

@@ -8,6 +8,7 @@ use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\BookResource\Pages;
 use App\Filament\Resources\BookResource\RelationManagers\ImagesRelationManager;
 use App\Filament\Resources\BookResource\RelationManagers\ReviewsRelationManager;
+use App\Filament\Support\SeoPlaceholder;
 use App\Models\Book;
 use App\Models\Category;
 use App\Providers\Filament\AdminPanelProvider;
@@ -268,13 +269,17 @@ class BookResource extends Resource
                 ]),
 
             // SEO stored via the polymorphic seo() morphOne relation (seo_meta).
-            Forms\Components\Section::make('تحسين محركات البحث (SEO)')
+            // الحقول اختيارية: ما يُترك فارغًا يُشتقّ تلقائيًا من محتوى الكتاب عبر
+            // SeoDefaults (نفس مصدر الـplaceholder هنا وقيمة الإصدار في الواجهة).
+            Forms\Components\Section::make(__('seo.admin.section'))
+                ->description(__('seo.admin.section_hint'))
                 ->relationship('seo')
                 ->columns(2)
                 ->schema([
                     Forms\Components\TextInput::make('meta_title')
                         ->label('عنوان الميتا')
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::title($livewire)),
 
                     Forms\Components\Select::make('robots')
                         ->label('توجيه الروبوتات')
@@ -290,7 +295,8 @@ class BookResource extends Resource
                         ->label('وصف الميتا')
                         ->maxLength(320)
                         ->rows(2)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::description($livewire)),
 
                     Forms\Components\TextInput::make('meta_keywords')
                         ->label('الكلمات المفتاحية')
@@ -303,13 +309,15 @@ class BookResource extends Resource
 
                     Forms\Components\TextInput::make('og_title')
                         ->label('عنوان OpenGraph')
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::title($livewire)),
 
                     Forms\Components\Textarea::make('og_description')
                         ->label('وصف OpenGraph')
                         ->maxLength(320)
                         ->rows(2)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->placeholder(fn ($livewire): string => SeoPlaceholder::description($livewire)),
 
                     Forms\Components\FileUpload::make('og_image_path')
                         ->label('صورة المشاركة (OG)')

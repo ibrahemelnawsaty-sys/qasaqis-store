@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -48,6 +49,16 @@ class Series extends Model
             ->orderByRaw('series_position IS NULL')
             ->orderBy('series_position')
             ->orderBy('sort_order');
+    }
+
+    /**
+     * بيانات SEO الاختيارية (تجاوز الأدمن). polymorphic على جدول seo_meta المشترك
+     * فلا يلزم عمود ولا هجرة. تُملأ من لوحة الأدمن، وتُترك فارغة ليشتقّ الموقع
+     * الميتا تلقائيًا من اسم السلسلة ووصفها (App\Support\Seo\SeoDefaults).
+     */
+    public function seo(): MorphOne
+    {
+        return $this->morphOne(SeoMeta::class, 'seoable');
     }
 
     public function scopeActive(Builder $query): Builder

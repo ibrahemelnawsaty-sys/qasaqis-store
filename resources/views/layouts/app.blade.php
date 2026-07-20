@@ -48,23 +48,35 @@
     {{-- لون واجهة المتصفح (بنفسجي العلامة — بند 0.1). --}}
     <meta name="theme-color" content="{{ config('seo.theme_color', '#5B2A86') }}">
 
+    {{-- og_title/og_description: منفذان اختياريان تغلب بهما الصفحة عنوان/وصف المشاركة
+         دون تغيير <title> ووصف الميتا. الصفحات التي لا تعرّفهما ترث القسمين العاديين.
+         (صفحات CMS كانت تدفع og:title ثانيًا عبر stack فيأتي بعد وسم التخطيط،
+         ومعظم المحلّلات تأخذ الأول — أي أن og_title الذي يضبطه الأدمن كان مُهمَلًا.)
+
+         تُحسب هنا في PHP لا بـ @hasSection داخل السمة: Blade يطابق التوجيهات بـ \B@
+         فلا يتعرّف على توجيه يلاصق حرف كلمة — و«@else@yield» كان يُبقي الـ yield نصًّا
+         خامًا يُطبع حرفيًا في الوسم. كما أن {{ }} تُهرِّب المحتوى، بخلاف @yield. --}}
+    @php
+        $seoDefaultTitle = __('common.brand') . ' — ' . __('common.tagline');
+        $seoTitle = trim($__env->yieldContent('title')) ?: $seoDefaultTitle;
+        $seoDescription = trim($__env->yieldContent('meta_description')) ?: __('common.tagline');
+        $seoOgTitle = trim($__env->yieldContent('og_title')) ?: $seoTitle;
+        $seoOgDescription = trim($__env->yieldContent('og_description')) ?: $seoDescription;
+    @endphp
+
     {{-- Open Graph افتراضي: العنوان/الوصف من قسمَي الصفحة (title/meta_description) تلقائيًا. --}}
     <meta property="og:type" content="@yield('og_type', 'website')">
     <meta property="og:site_name" content="{{ __('common.brand') }}">
     <meta property="og:locale" content="{{ config('seo.og_locale', 'ar_AR') }}">
     <meta property="og:url" content="@yield('og_url', url()->current())">
-    {{-- og_title/og_description: منفذان اختياريان تغلب بهما الصفحة عنوان/وصف المشاركة
-         دون تغيير <title> ووصف الميتا. الصفحات التي لا تعرّفهما ترث القسمين العاديين.
-         (صفحات CMS كانت تدفع og:title ثانيًا عبر @push فيأتي بعد وسم التخطيط،
-         ومعظم المحلّلات تأخذ الأول — أي أن og_title الذي يضبطه الأدمن كان مُهمَلًا.) --}}
-    <meta property="og:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title', __('common.brand') . ' — ' . __('common.tagline'))@endif">
-    <meta property="og:description" content="@hasSection('og_description')@yield('og_description')@else@yield('meta_description', __('common.tagline'))@endif">
+    <meta property="og:title" content="{{ $seoOgTitle }}">
+    <meta property="og:description" content="{{ $seoOgDescription }}">
     <meta property="og:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
 
     {{-- Twitter Card افتراضي. --}}
     <meta name="twitter:card" content="{{ config('seo.twitter_card', 'summary_large_image') }}">
-    <meta name="twitter:title" content="@hasSection('og_title')@yield('og_title')@else@yield('title', __('common.brand') . ' — ' . __('common.tagline'))@endif">
-    <meta name="twitter:description" content="@hasSection('og_description')@yield('og_description')@else@yield('meta_description', __('common.tagline'))@endif">
+    <meta name="twitter:title" content="{{ $seoOgTitle }}">
+    <meta name="twitter:description" content="{{ $seoOgDescription }}">
     <meta name="twitter:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
 
     {{-- JSON-LD ثابت للموقع: Organization + WebSite (بحث داخلي). أعلام HEX تمنع كسر </script>. --}}

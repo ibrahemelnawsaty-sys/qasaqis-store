@@ -4,9 +4,10 @@
 @section('body_class', $page->patternClass())
 
 @php
-    // SEO يُدار من الـ CMS (SeoMeta) مع الرجوع لعنوان الصفحة وشعار العلامة عند غيابه.
-    $metaTitle = $page->seo?->meta_title ?: $page->title . ' — ' . __('common.brand');
-    $metaDesc = $page->seo?->meta_description ?: __('common.tagline');
+    // SEO يُدار من الـ CMS (SeoMeta) مع الرجوع للقيمة المشتقّة من محتوى الصفحة عبر
+    // المصدر الموحّد SeoDefaults (نفسه يغذّي placeholder لوحة الإدارة) عند غياب التجاوز.
+    $metaTitle = $page->seo?->meta_title ?: \App\Support\Seo\SeoDefaults::title($page);
+    $metaDesc = $page->seo?->meta_description ?: \App\Support\Seo\SeoDefaults::description($page);
     $robots = $page->seo?->robots ?: 'index,follow';
     $canonical = filled($page->seo?->canonical_url) ? $page->seo->canonical_url : null;
 

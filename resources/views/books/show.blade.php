@@ -2,8 +2,10 @@
 
 
 @php
-    $metaTitle = $book->seo?->meta_title ?: $book->title . ' — ' . __('common.brand');
-    $metaDesc = $book->seo?->meta_description ?: ($book->short_description ?? __('common.tagline'));
+    // تجاوز الأدمن (seo_meta) إن وُجد، وإلا القيمة المشتقّة تلقائيًا من محتوى الكتاب
+    // عبر المصدر الموحّد SeoDefaults (نفسه يغذّي placeholder لوحة الإدارة).
+    $metaTitle = $book->seo?->meta_title ?: \App\Support\Seo\SeoDefaults::title($book);
+    $metaDesc = $book->seo?->meta_description ?: \App\Support\Seo\SeoDefaults::description($book);
 
     $hasPrice = $book->price !== null;
     $inStock = $book->stock_status === 'in_stock';

@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\SeriesResource\Pages;
+use App\Filament\Support\SeoFieldset;
 use App\Models\Series;
 use App\Providers\Filament\AdminPanelProvider;
 use Filament\Forms;
@@ -87,8 +88,12 @@ class SeriesResource extends Resource
                         ->label('الوصف')
                         ->rows(3)
                         ->maxLength(1000)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->helperText('يُستخدم أيضًا كوصف الميتا الافتراضي للسلسلة إن تُرك حقل SEO فارغًا.'),
                 ]),
+
+            // قسم SEO: أُضيفت علاقة seo() للسلسلة (على seo_meta المشترك، بلا هجرة).
+            SeoFieldset::make(),
         ]);
     }
 
