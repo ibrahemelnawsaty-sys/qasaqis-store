@@ -19,11 +19,16 @@ final class FinanceRange
     private const MAX_DAYS = 366;
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>|null  $filters
      * @return array{0:CarbonImmutable, 1:CarbonImmutable}
      */
-    public static function fromFilters(array $filters): array
+    public static function fromFilters(?array $filters): array
     {
+        // InteractsWithPageFilters يُهيّئ $filters = null، ويبقى null عند تصيير
+        // الويدجت مستقلًّا في دورة Livewire (لا تُمرَّر الفلاتر) — فكان يرمي
+        // TypeError ويُسقط اللوحة بـ500. نُعامل null كغياب فلتر (الافتراضي 30 يومًا).
+        $filters ??= [];
+
         $preset = is_string($filters['preset'] ?? null) ? $filters['preset'] : '30d';
         $now = CarbonImmutable::now(self::TZ);
 
