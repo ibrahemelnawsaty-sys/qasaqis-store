@@ -41,8 +41,8 @@ final class CostSnapshotTest extends TestCase
     private function placeOrder(Book $book, int $qty): void
     {
         $this->post(route('checkout.place'), [
-            'name' => 'أم أحمد', 'phone' => '01012345678', 'governorate' => 'القاهرة',
-            'address' => 'شارع التجربة رقم 5', 'payment_method' => 'cod',
+            'name' => 'أم أحمد', 'phone' => '01012345678', 'email' => 'buyer@example.com',
+            'governorate' => 'القاهرة', 'address' => 'شارع التجربة رقم 5', 'payment_method' => 'cod',
             'items' => [['book_id' => $book->id, 'qty' => $qty]],
         ])->assertStatus(302);
     }
