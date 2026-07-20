@@ -75,9 +75,8 @@
     // JSON-LD للكتاب. يُبنى هنا (بعد المعرض) لأنه يحتاج $galleryImages للحقل image.
     // النوع مزدوج [Product, Book]: أهلية «نتائج المنتجات الغنية» عند Google تقوم على
     // Product، بينما Book يحفظ الدلالة الحقيقية — وschema.org يسمح بتعدّد الأنواع.
-    // متروك عمدًا: aggregateRating. المراجعات تُجلب بـ ->take(6) في BookController،
-    // فحسابها منها يُنتج reviewCount مقصوصًا ومتوسطًا مغلوطًا — وهو تعارض يستدعي
-    // إجراءً يدويًا من Google. تُضاف لاحقًا من $book->avg_rating و reviews_count.
+    // aggregateRating يُصدَر أدناه من عمودَي $book المجمّعَين (يحدّثهما ReviewObserver
+    // من كل المراجعات المنشورة) لا من مجموعة ->take(6) المعروضة.
     $ld = array_filter([
         '@context' => 'https://schema.org',
         // Product يُضاف فقط حين يوجد سعر. مواصفة Google تشترط على Product أحد ثلاثة:
@@ -102,6 +101,18 @@
             'priceCurrency' => 'EGP',
             'availability' => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             'url' => route('books.show', $book),
+        ] : null,
+        // تقييم مُجمّع → نجوم في نتائج البحث. المصدر عمودا الكتاب (يحدّثهما ReviewObserver
+        // من المراجعات المنشورة) لا مجموعة ->take(6). يُصدَر فقط حين توجد مراجعة منشورة
+        // واحدة على الأقل، وإلا حذفه array_filter (لا نُصدر aggregateRating فارغًا = خطأ
+        // في Search Console). الملخّص يظهر مرئيًا في قسم المراجعات أيضًا (شرط Google:
+        // البيانات المنظّمة تطابق المحتوى الظاهر).
+        'aggregateRating' => $book->reviews_count > 0 ? [
+            '@type' => 'AggregateRating',
+            'ratingValue' => (string) $book->avg_rating,
+            'reviewCount' => (int) $book->reviews_count,
+            'bestRating' => '5',
+            'worstRating' => '1',
         ] : null,
     ]);
 @endphp
@@ -432,6 +443,17 @@
         {{-- التقييمات (حقيقية فقط) --}}
         <section class="sec" aria-labelledby="pdp-reviews">
             <h2 class="sec-title" id="pdp-reviews" style="font-size:24px">{{ __('book.reviews_title') }}</h2>
+
+            {{-- ملخّص التقييم المرئي: يطابق aggregateRating في JSON-LD (شرط Google:
+                 البيانات المنظّمة يجب أن تعكس محتوى ظاهرًا للمستخدم). --}}
+            @if ($book->reviews_count > 0)
+                <div class="rating-summary" style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+                    <span class="stars" aria-hidden="true" style="font-size:22px">{{ str_repeat('★', (int) round((float) $book->avg_rating)) }}{{ str_repeat('☆', max(0, 5 - (int) round((float) $book->avg_rating))) }}</span>
+                    <strong style="font-size:20px">{{ number_format((float) $book->avg_rating, 1) }}</strong>
+                    <span class="sec-desc" style="margin:0">{{ __('book.rating_of_5') }} · {{ trans_choice('book.review_count', $book->reviews_count, ['count' => $book->reviews_count]) }}</span>
+                </div>
+            @endif
+
             @if ($reviews->isNotEmpty())
                 <div class="reviews" style="margin-top:18px">
                     @foreach ($reviews as $review)

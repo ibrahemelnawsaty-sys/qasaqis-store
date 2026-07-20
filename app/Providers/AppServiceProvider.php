@@ -7,11 +7,13 @@ namespace App\Providers;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\Review;
 use App\Models\Setting;
 use App\Models\User;
 use App\Enums\PatternSurface;
 use App\Observers\BookObserver;
 use App\Observers\OrderObserver;
+use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
 use Illuminate\Console\Events\CommandStarting;
@@ -78,6 +80,11 @@ class AppServiceProvider extends ServiceProvider
 
         // يعيد مخزون الطلب عند الانتقال إلى حالة نهائية غير منفّذة (M2).
         Order::observe(OrderObserver::class);
+
+        // يحدّث books.avg_rating و reviews_count عند حفظ/حذف مراجعة أو تغيّر اعتمادها.
+        // كان ReviewObserver غير مسجّل (كودًا ميتًا) فبقي العمودان صفرًا — وهما مصدر
+        // aggregateRating (نجوم البحث) في صفحة الكتاب. هذا السطر يُفعّلهما.
+        Review::observe(ReviewObserver::class);
 
         // Shared data for every storefront view (layout, partials, and the page
         // content section alike). Computed once per request. Wrapped in rescue()
