@@ -7,15 +7,19 @@ namespace App\Observers;
 use App\Actions\Order\RestoreOrderStockAction;
 use App\Jobs\SendPurchaseServerEvent;
 use App\Models\Order;
+use App\Models\OrderStatusHistory;
+use Illuminate\Support\Facades\Auth;
 
 /**
- * مُراقب الطلب — نقطة واحدة، حارسان مستقلان:
+ * مُراقب الطلب — نقطة واحدة، ثلاثة حُرّاس مستقلة:
  *  (M2) استرجاع المخزون عند تغيّر status إلى حالة نهائية غير منفّذة.
  *  (M6) إطلاق حدث الشراء الخادمي عند تغيّر payment_status إلى paid.
- * الحارسان لا يعيد أيّهما إطلاق الآخر (كل يفحص عموده).
+ *  (M8) تسجيل تاريخ الحالة عند تغيّر status — يغطّي كل المسارات (لوحة، نظام،
+ *       الإلغاء التلقائي المجدول) لا صفحة Filament وحدها.
+ * الحُرّاس لا يعيد أيّها إطلاق الآخر (كل يفحص عموده).
  *
  * قيد معروف (mass-update): يعتمد على حدث updated، فأي Order::where(...)->update
- * مستقبلي لن يُطلقهما. كل المسارات الحالية تمرّ بـ save()، ولا bulkActions.
+ * مستقبلي لن يُطلقها. كل المسارات الحالية تمرّ بـ save()، ولا bulkActions.
  */
 class OrderObserver
 {
@@ -27,8 +31,30 @@ class OrderObserver
 
     public function updated(Order $order): void
     {
+        $this->maybeRecordStatusHistory($order);
         $this->maybeRestoreStock($order);
         $this->maybeDispatchPurchaseEvent($order);
+    }
+
+    /**
+     * سجل انتقال الحالة (M8). الفاعل من حارس web الإداري إن وُجد (مستخدم لوحة)،
+     * وإلا فالمصدر «نظام» (الإلغاء المجدول). لا يُسجَّل شيء إن لم تتغيّر الحالة.
+     */
+    private function maybeRecordStatusHistory(Order $order): void
+    {
+        if (! $order->wasChanged('status')) {
+            return;
+        }
+
+        $actor = Auth::guard('web')->user();
+
+        OrderStatusHistory::create([
+            'order_id' => $order->id,
+            'from_status' => $order->getOriginal('status'),
+            'to_status' => $order->status,
+            'actor_id' => $actor?->getKey(),
+            'source' => $actor !== null ? 'admin' : 'system',
+        ]);
     }
 
     private function maybeRestoreStock(Order $order): void

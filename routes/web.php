@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Customer\DashboardController as CustomerDashboardController;
+use App\Http\Controllers\Customer\LoginController as CustomerLoginController;
+use App\Http\Controllers\Customer\LogoutController as CustomerLogoutController;
+use App\Http\Controllers\Customer\OrderHistoryController as CustomerOrderHistoryController;
+use App\Http\Controllers\Customer\OrderLinkController as CustomerOrderLinkController;
+use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
+use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
+use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
 use App\Http\Controllers\Storefront\CartController;
@@ -13,6 +21,7 @@ use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
+use App\Http\Controllers\Storefront\ReviewController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\SeriesController;
 use Illuminate\Support\Facades\Route;
@@ -117,3 +126,55 @@ Route::post('/orders/{order}/proof', [OrderController::class, 'proofStore'])
 Route::get('/orders/{order}/thank-you', [OrderController::class, 'thankyou'])
     ->middleware('signed')
     ->name('orders.thankyou');
+
+// تبنّي الطلب من صفحة الشكر بعد التسجيل/الدخول (M8) — موقّع + مطابقة الجوال داخليًا.
+Route::post('/orders/{order}/claim', [CustomerOrderLinkController::class, 'claim'])
+    ->middleware(['signed', 'throttle:10,1'])
+    ->name('orders.claim');
+
+/*
+| حساب العميلة (M8) — حارس customer منفصل تمامًا عن لوحة الأدمن. الشراء يبقى كضيف
+| بلا تسجيل إجباري؛ الحساب اختياري ولا يُطلب قبل الدفع.
+*/
+
+// إرسال مراجعة كتاب — عام، محدود المعدّل. تُحفظ بانتظار الاعتماد (لا تُنشر مباشرة).
+Route::post('/books/{book:slug}/reviews', [ReviewController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('books.reviews.store');
+
+Route::prefix('account')->name('customer.')->group(function (): void {
+    // صفحات الزوّار — كل متحكم يوجّه العميلة المسجّلة دخولًا إلى لوحتها بنفسه
+    // (لا نستعمل وسيط guest:customer لأن وجهة توجيهه الافتراضية «/» لا «/account»).
+    Route::get('/register', [CustomerRegisterController::class, 'show'])->name('register.show');
+    Route::post('/register', [CustomerRegisterController::class, 'store'])
+        ->middleware('throttle:10,1')->name('register.store');
+
+    Route::get('/login', [CustomerLoginController::class, 'show'])->name('login.show');
+    Route::post('/login', [CustomerLoginController::class, 'store'])
+        ->middleware('throttle:10,1')->name('login.store');
+
+    // استعادة كلمة المرور — throttle على الإرسال لمنع الإساءة (بند 4.6).
+    Route::get('/forgot-password', [CustomerPasswordResetController::class, 'request'])->name('password.request');
+    Route::post('/forgot-password', [CustomerPasswordResetController::class, 'email'])
+        ->middleware('throttle:6,1')->name('password.email');
+    Route::get('/reset-password/{token}', [CustomerPasswordResetController::class, 'reset'])->name('password.reset');
+    Route::post('/reset-password', [CustomerPasswordResetController::class, 'update'])
+        ->middleware('throttle:6,1')->name('password.update');
+
+    // مسجّلات الدخول فقط.
+    Route::middleware('auth:customer')->group(function (): void {
+        Route::post('/logout', CustomerLogoutController::class)->name('logout');
+
+        Route::get('/', [CustomerDashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('/orders', [CustomerOrderHistoryController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [CustomerOrderHistoryController::class, 'show'])->name('orders.show');
+        // ربط/فكّ طلب سابق — رقم الطلب + الجوال (لا مطابقة جوال وحده).
+        Route::post('/orders/attach', [CustomerOrderLinkController::class, 'attach'])
+            ->middleware('throttle:10,1')->name('orders.attach');
+        Route::delete('/orders/{order}', [CustomerOrderLinkController::class, 'detach'])->name('orders.detach');
+
+        Route::get('/profile', [CustomerProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+    });
+});

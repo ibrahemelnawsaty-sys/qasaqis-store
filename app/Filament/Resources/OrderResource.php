@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Pages\PickList;
 use App\Filament\Resources\OrderResource\Pages;
+use App\Filament\Resources\OrderResource\RelationManagers;
 use App\Models\Order;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Support\Export\OrderCsvExporter;
@@ -424,6 +425,14 @@ class OrderResource extends Resource
                 ])
                 ->visible(fn (Order $record): bool => $record->paymentProofs()->exists()),
         ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            // خط زمني لتاريخ حالات الطلب (M8) — للقراءة داخل صفحة الطلب.
+            RelationManagers\StatusHistoryRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -106,6 +106,8 @@ class RolePermissionSeeder extends Seeder
                     'payments.methods.toggle', 'payments.manual_accounts.manage',
                     'users.view', 'users.manage',
                     'settings.view', 'settings.general.edit',
+                    // سجل التدقيق «من غيّر ماذا ومتى» (M8) — المالك/الأدمن يراه.
+                    'system.logs.view',
                 ],
             ),
 

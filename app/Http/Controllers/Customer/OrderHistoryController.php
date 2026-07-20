@@ -64,7 +64,9 @@ final class OrderHistoryController extends Controller
         $customer = $this->customer($request);
 
         // ‏الفحص الخادمي الوحيد الحاكم. لا يسبقه أي إخفاء واجهي ولا يليه.
-        abort_unless($this->policy->view($customer, $order), 403);
+        // ‏404 لا 403: الرمز 403 يؤكّد وجود الطلب لمن يخمّن معرّفات الطلبات، وطلب
+        // ‏ضيف بمطابقة جوال العميلة يجب أن يبقى غير مرئي تمامًا (customer_id فقط).
+        abort_unless($this->policy->view($customer, $order), 404);
 
         $order->load('items');
 

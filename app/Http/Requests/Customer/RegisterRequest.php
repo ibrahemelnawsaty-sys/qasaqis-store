@@ -54,6 +54,12 @@ final class RegisterRequest extends FormRequest
             }
         }
 
+        // المسافات داخل الجوال شائعة في الإدخال الحقيقي (‏+20 101 234 5678). نزيلها
+        // قبل تحقّق الصيغة كي لا يُرفض رقم صحيح لمجرّد تنسيقه؛ المطبِّع يزيلها لاحقًا.
+        if (isset($trimmed['phone'])) {
+            $trimmed['phone'] = preg_replace('/\s+/', '', $trimmed['phone']);
+        }
+
         $email = $this->input('email');
 
         if (is_string($email)) {

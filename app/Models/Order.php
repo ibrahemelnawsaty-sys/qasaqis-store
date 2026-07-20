@@ -14,12 +14,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Order extends Model
 {
     use SoftDeletes;
+    // سجل تدقيق «من غيّر ماذا ومتى» (M8) — يُسجّل تغييرات الحالة والدفع للأدمن.
+    use \App\Support\Audit\RecordsAdminActivity;
 
     protected $fillable = [
         'order_number',
         // مفتاح منع التكرار (M7). يُشتق من الجلسة خادميًا لا من مدخلات العميل.
         'idempotency_key',
         'user_id',
+        // حساب العميلة المالكة (M8). يُكتب خادميًا فقط: عند الإنشاء إن كانت مسجّلة
+        // دخولًا، أو عبر ربط/تبنٍّ بمطابقة الجوال — لا يُقبل من مدخلات العميل.
+        'customer_id',
         'status',
         'customer_name',
         'customer_phone',
@@ -69,6 +74,16 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(OrderStatusHistory::class);
     }
 
     public function coupon(): BelongsTo

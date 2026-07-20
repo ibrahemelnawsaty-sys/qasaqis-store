@@ -109,7 +109,9 @@ final class AccountAreaTest extends TestCase
 
         $this->actingAs($intruder, 'customer')
             ->get(route('customer.orders.show', ['order' => $order->id]))
-            ->assertForbidden();
+            // 404 لا 403: قاعدة الانكشاف الصفري — لا نؤكّد حتى وجود الطلب (يطابق
+            // القرار المعماري و AuthFlowTest؛ المتحكم يستعمل abort_unless(..., 404)).
+            ->assertNotFound();
     }
 
     public function test_a_customer_can_view_her_own_order(): void
@@ -135,7 +137,9 @@ final class AccountAreaTest extends TestCase
 
         $this->actingAs($customer, 'customer')
             ->get(route('customer.orders.show', ['order' => $order->id]))
-            ->assertForbidden();
+            // 404 لا 403: قاعدة الانكشاف الصفري — لا نؤكّد حتى وجود الطلب (يطابق
+            // القرار المعماري و AuthFlowTest؛ المتحكم يستعمل abort_unless(..., 404)).
+            ->assertNotFound();
     }
 
     public function test_a_soft_deleted_order_is_not_reachable(): void
