@@ -1,7 +1,10 @@
-{{-- قائمة الحساب في الهيدر (تُدرَج في .nav-tools).
-     ثلاث حالات: زائر → زرّ دخول موحّد؛ عميل → صورة + قائمة؛ أدمن → لوحة + خروج.
-     تعيد استخدام مسارات customer.* ولوحة Filament القائمة — بلا منطق مصادقة هنا.
-     الأنماط مكتفية بذاتها (@once) بدل تلويث app.css المشترك. --}}
+{{-- قائمة الحساب في الهيدر (تُدرَج في .nav-tools) بثلاث حالات:
+     زائر → أيقونة دخول (مثل أيقونتَي الوضع/السلة تمامًا) · عميل → صورة + قائمة ·
+     أدمن → درع + لوحة + خروج. تعيد استخدام مسارات customer.* ولوحة Filament.
+
+     الأنماط inline (لا @push('head')): الهيدر يُصيَّر بعد إغلاق @stack('head') فلا
+     يصل الدفع إليه. الأيقونات مقاسها في وسم <svg> نفسه (width/height) لا في CSS،
+     تمامًا كأيقونات x-ui-icon — فتظهر بحجمها الصحيح دون اعتماد على تحميل نمط. --}}
 @php
     $acctCustomer = auth('customer')->user();
     $acctAdmin = auth('web')->user();
@@ -9,43 +12,38 @@
 @endphp
 
 @once
-    @push('head')
-        <style>
-            .acct{ position:relative; }
-            .acct-login{ padding:9px 16px; min-height:40px; gap:7px; font-size:14px; }
-            .acct-login svg{ width:18px; height:18px; }
-            .acct-btn{ display:grid; place-items:center; width:40px; height:40px; padding:0; border:0; background:transparent; cursor:pointer; border-radius:50%; }
-            .acct-avatar{ display:grid; place-items:center; width:38px; height:38px; border-radius:50%; font-weight:900; font-size:16px; color:#fff;
-                background:linear-gradient(135deg,var(--purple),var(--pink)); box-shadow:0 6px 14px -6px rgba(236,78,150,.6); border:2px solid var(--surface); }
-            .acct-avatar--admin{ background:linear-gradient(135deg,var(--teal),var(--purple)); }
-            .acct-btn:focus-visible{ outline:3px solid var(--purple); outline-offset:2px; }
-            .acct-menu{ position:absolute; inset-inline-end:0; top:calc(100% + 10px); z-index:60; min-width:230px;
-                background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md);
-                box-shadow:0 18px 40px -12px rgba(55,42,70,.35); padding:8px; }
-            .acct-head{ display:flex; align-items:center; gap:10px; padding:8px 8px 12px; border-bottom:1px solid var(--line); margin-bottom:6px; }
-            .acct-avatar--lg{ width:44px; height:44px; font-size:18px; border:0; }
-            .acct-name{ font-weight:800; font-size:14.5px; color:var(--ink); line-height:1.2; }
-            .acct-sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
-            .acct-item{ display:flex; align-items:center; gap:10px; width:100%; text-align:start; padding:10px 10px; border-radius:var(--r-sm);
-                font-weight:700; font-size:14px; color:var(--ink); text-decoration:none; background:transparent; border:0; cursor:pointer; font-family:inherit; }
-            .acct-item:hover{ background:var(--surface-soft); color:var(--purple); }
-            .acct-item--danger{ color:#e23c3c; }
-            .acct-item--danger:hover{ background:color-mix(in srgb,#e23c3c 10%,var(--surface)); color:#e23c3c; }
-            .acct-sep{ height:1px; background:var(--line); margin:6px 2px; }
-        </style>
-    @endpush
+    <style>
+        .acct{ position:relative; display:inline-flex; }
+        .acct-avatar{ display:grid; place-items:center; width:27px; height:27px; border-radius:50%;
+            font-weight:900; font-size:13.5px; color:#fff; background:linear-gradient(135deg,var(--purple),var(--pink)); }
+        .acct-avatar--admin{ background:linear-gradient(135deg,var(--teal),var(--purple)); }
+        .acct-menu{ position:absolute; inset-inline-end:0; top:calc(100% + 12px); z-index:70; min-width:226px;
+            background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md);
+            box-shadow:0 20px 44px -14px rgba(55,42,70,.4); padding:8px; }
+        .acct-head{ display:flex; align-items:center; gap:10px; padding:6px 8px 12px; border-bottom:1px solid var(--line); margin-bottom:6px; }
+        .acct-head .acct-avatar{ width:42px; height:42px; font-size:18px; }
+        .acct-name{ font-weight:800; font-size:14.5px; color:var(--ink); line-height:1.2; }
+        .acct-sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+        .acct-item{ display:flex; align-items:center; gap:10px; width:100%; text-align:start; padding:10px;
+            border-radius:var(--r-sm); font-weight:700; font-size:14px; color:var(--ink); text-decoration:none;
+            background:transparent; border:0; cursor:pointer; font-family:inherit; }
+        .acct-item:hover{ background:var(--surface-soft); color:var(--purple); }
+        .acct-item--danger{ color:#e23c3c; }
+        .acct-item--danger:hover{ background:color-mix(in srgb,#e23c3c 12%,var(--surface)); color:#e23c3c; }
+        .acct-sep{ height:1px; background:var(--line); margin:6px 2px; }
+    </style>
 @endonce
 
 @if ($acctCustomer)
-    {{-- عميل مسجَّل الدخول --}}
+    {{-- عميل: أيقونة الصورة (مثل زرّ الأيقونات) تفتح القائمة --}}
     <div class="acct" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
-        <button type="button" class="acct-btn" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
+        <button type="button" class="icon-btn" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
             aria-haspopup="true" aria-label="{{ __('account_menu.aria') }}">
             <span class="acct-avatar">{{ $acctInitial($acctCustomer->name) }}</span>
         </button>
         <div class="acct-menu" x-show="open" x-transition.origin.top x-cloak role="menu">
             <div class="acct-head">
-                <span class="acct-avatar acct-avatar--lg">{{ $acctInitial($acctCustomer->name) }}</span>
+                <span class="acct-avatar">{{ $acctInitial($acctCustomer->name) }}</span>
                 <div>
                     <div class="acct-name">{{ $acctCustomer->name }}</div>
                     <div class="acct-sub">{{ __('account_menu.customer') }}</div>
@@ -62,15 +60,15 @@
         </div>
     </div>
 @elseif ($acctAdmin)
-    {{-- أدمن مسجَّل الدخول (حارس web / جلسة Filament) --}}
+    {{-- أدمن (حارس web / جلسة Filament) --}}
     <div class="acct" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
-        <button type="button" class="acct-btn" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
+        <button type="button" class="icon-btn" @click="open = !open" :aria-expanded="open ? 'true' : 'false'"
             aria-haspopup="true" aria-label="{{ __('account_menu.aria') }}">
-            <span class="acct-avatar acct-avatar--admin"><x-ui-icon name="shield-check" :size="18" /></span>
+            <span class="acct-avatar acct-avatar--admin"><x-ui-icon name="shield-check" :size="17" /></span>
         </button>
         <div class="acct-menu" x-show="open" x-transition.origin.top x-cloak role="menu">
             <div class="acct-head">
-                <span class="acct-avatar acct-avatar--admin acct-avatar--lg"><x-ui-icon name="shield-check" :size="20" /></span>
+                <span class="acct-avatar acct-avatar--admin"><x-ui-icon name="shield-check" :size="22" /></span>
                 <div>
                     <div class="acct-name">{{ $acctAdmin->name }}</div>
                     <div class="acct-sub">{{ __('account_menu.admin') }}</div>
@@ -85,11 +83,11 @@
         </div>
     </div>
 @else
-    {{-- زائر: زرّ دخول موحّد جميل بهوية الموقع --}}
-    <a class="btn btn-primary acct-login" href="{{ route('login') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    {{-- زائر: أيقونة دخول بسيطة فاخرة — نفس شكل أيقونتَي الوضع/السلة (icon-btn + SVG بمقاس مباشر) --}}
+    <a class="icon-btn" href="{{ route('login') }}" aria-label="{{ __('account_menu.login') }}" title="{{ __('account_menu.login') }}">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block">
+            <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0" />
         </svg>
-        <span>{{ __('account_menu.login') }}</span>
     </a>
 @endif
