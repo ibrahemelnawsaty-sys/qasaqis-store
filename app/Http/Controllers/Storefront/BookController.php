@@ -54,6 +54,15 @@ class BookController extends Controller
     {
         abort_unless($book->is_published, 404);
 
+        // عدّاد مشاهدات: مرّة واحدة لكل زائر لكل كتاب في الجلسة (لا يتضخّم بالتحديث/
+        // إعادة التحميل). incrementQuietly لا يلمس updated_at ولا يُطلق أحداثًا. يُغذّي
+        // تحليلات «الاهتمام دون بيع» في لوحة العمليات (العمود كان موجودًا وغير مأهول).
+        $seen = (array) session()->get('viewed_book_ids', []);
+        if (! in_array($book->id, $seen, true)) {
+            $book->incrementQuietly('views_count');
+            session()->put('viewed_book_ids', array_slice([...$seen, $book->id], -300));
+        }
+
         $book->load([
             'category:id,name,slug,color_hex,icon',
             'categories:id,name,slug',
