@@ -14,6 +14,8 @@ class Payment extends Model
         'order_id',
         'payment_method_code',
         'amount',
+        // رسوم معالجة الدفع (م٤ب) — ما تقتطعه البوابة/COD.
+        'fee_amount',
         'status',
         'transaction_ref',
         'gateway_response',
@@ -27,6 +29,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'fee_amount' => 'decimal:2',
             'gateway_response' => 'array',
             'paid_at' => 'datetime',
         ];

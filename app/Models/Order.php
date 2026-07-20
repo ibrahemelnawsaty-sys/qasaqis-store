@@ -38,6 +38,9 @@ class Order extends Model
         // تكلفة الشحن المدفوعة للشركة (م٣) — تُدخل وقت الشحن، محميّة ماليًا.
         'carrier_cost',
         'grand_total',
+        // مرتجع جزئي (م٤أ) — يُخصم من الإيراد المحقّق.
+        'refunded_amount',
+        'refunded_at',
         'coupon_id',
         'coupon_code',
         'payment_method',
@@ -62,6 +65,8 @@ class Order extends Model
             'shipping_total' => 'decimal:2',
             'carrier_cost' => 'decimal:2',
             'grand_total' => 'decimal:2',
+            'refunded_amount' => 'decimal:2',
+            'refunded_at' => 'datetime',
             'whatsapp_confirmed_at' => 'datetime',
             // ختم استرجاع المخزون (M2). ليس في $fillable عمدًا — يُضبط خادميًا
             // عبر forceFill فقط، فلا يُقبل من مدخلات المستخدم.

@@ -7,6 +7,7 @@ namespace Tests\Feature\Finance;
 use App\Filament\Pages\FinanceDashboard;
 use App\Filament\Resources\BookResource;
 use App\Filament\Resources\BookResource\Pages\EditBook;
+use App\Filament\Resources\ExpenseResource;
 use App\Filament\Resources\OrderResource\Pages\ViewOrder;
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceStatsWidget;
@@ -94,6 +95,30 @@ final class FinanceSecurityTest extends TestCase
     {
         // يضمن أن userCan('cost.view') يُترجم إلى products.cost.view.
         $this->assertSame('products', BookResource::permissionPrefix());
+    }
+
+    public function test_expenses_resource_is_gated_to_financial_admins_only(): void
+    {
+        // دفتر المصروفات (م٤ج): بيانات مالية، ممنوح لـ admin لا للأدوار التشغيلية.
+        $editor = User::factory()->create();
+        $editor->assignRole('content_editor');
+        $this->actingAs($editor);
+        $this->assertFalse(ExpenseResource::canViewAny(), 'محرّر المحتوى لا يرى المصروفات');
+
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $this->actingAs($admin);
+        $this->assertTrue(ExpenseResource::canViewAny());
+        $this->assertTrue($admin->can('expenses.create'));
+    }
+
+    public function test_orders_manager_cannot_see_expenses(): void
+    {
+        $manager = User::factory()->create();
+        $manager->assignRole('orders_manager'); // مالي للطلبات لكن ليس للمصروفات.
+        $this->actingAs($manager);
+
+        $this->assertFalse($manager->can('expenses.view'), 'المصروفات صلاحية مستقلة عن الطلبات');
     }
 
     public function test_carrier_cost_is_not_seeded_into_form_state_for_non_financial_users(): void

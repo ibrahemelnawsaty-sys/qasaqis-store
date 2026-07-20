@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Enums\PatternSurface;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Expense;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
-use App\Enums\PatternSurface;
 use App\Observers\BookObserver;
+use App\Observers\ExpenseObserver;
 use App\Observers\OrderObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
@@ -71,6 +73,9 @@ class AppServiceProvider extends ServiceProvider
 
         // يعيد مخزون الطلب عند الانتقال إلى حالة نهائية غير منفّذة (M2).
         Order::observe(OrderObserver::class);
+
+        // إبطال كاش القسم المالي عند تغيّر المصروفات (م٤ج) — مصدر مستقل عن الطلبات.
+        Expense::observe(ExpenseObserver::class);
 
         // Shared data for every storefront view (layout, partials, and the page
         // content section alike). Computed once per request. Wrapped in rescue()

@@ -49,6 +49,8 @@ class RolePermissionSeeder extends Seeder
         // products.price.update لأن المسعّر ليس بالضرورة من يرى هامش الربح
         // (الدستور 0.7 «التكلفة مخفية عن دور الدعم» + مبدأ الامتياز الأدنى).
         'products.cost.view', 'products.cost.update',
+        // دفتر المصروفات التشغيلية (م٤ج) — بيانات مالية حسّاسة، صلاحية مستقلة.
+        'expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete',
         // 3.4 Orders & payment.
         'orders.view', 'orders.view_financials', 'orders.update_status',
         'orders.ship', 'orders.cancel', 'orders.refund', 'orders.export',
@@ -103,7 +105,7 @@ class RolePermissionSeeder extends Seeder
                     'homepage', 'pages', 'menus', 'banners', 'media',
                     'coupons', 'popups', 'surveys', 'referrals',
                     'orders', 'payment_proof', 'reviews', 'comments', 'inquiries',
-                    'shipping',
+                    'shipping', 'expenses',
                 ]),
                 [
                     'seo.view', 'seo.edit',

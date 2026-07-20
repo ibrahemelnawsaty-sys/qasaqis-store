@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\FinanceDailyWidget;
+use App\Filament\Widgets\FinanceRange;
 use App\Filament\Widgets\FinanceStatsWidget;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Services\Finance\FinanceReportService;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
 use Filament\Widgets\Widget;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * لوحة القسم المالي (المرحلة ١ — الإيراد فقط). صفحة تجمع ويدجت المؤشرات
@@ -47,6 +51,47 @@ class FinanceDashboard extends Page
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
+    }
+
+    /**
+     * إجراءات الترويسة: تصدير السلسلة اليومية CSV (م٤د)، محمي بـ orders.export.
+     *
+     * @return array<int, Action>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('exportCsv')
+                ->label('تصدير CSV')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->visible(fn (): bool => auth()->user()?->can('orders.export') === true)
+                ->action(fn (): StreamedResponse => $this->exportDailyCsv()),
+        ];
+    }
+
+    /**
+     * يبثّ السلسلة اليومية للنطاق الحالي كـ CSV (UTF-8 مع BOM ليقرأه Excel عربيًا).
+     */
+    private function exportDailyCsv(): StreamedResponse
+    {
+        // تحقّق خادميّ عند الفعل، لا الاكتفاء بإخفاء الزر (4.4 / ممنوع 13).
+        abort_unless(auth()->user()?->can('orders.export') === true, 403);
+
+        [$from, $to] = FinanceRange::fromFilters($this->filters ?? []);
+        $rows = app(FinanceReportService::class)->dailySeries($from, $to);
+
+        $filename = 'finance-daily-'.$from->format('Ymd').'-'.$to->format('Ymd').'.csv';
+
+        return response()->streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'wb');
+            fwrite($out, "\xEF\xBB\xBF"); // BOM لعرض العربية في Excel.
+            fputcsv($out, ['التاريخ', 'عدد الطلبات', 'صافي المبيعات']);
+            foreach ($rows as $row) {
+                fputcsv($out, [$row['date'], $row['orders'], $row['net_sales']]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function filtersForm(Form $form): Form

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Finance;
 
+use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Payment;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -270,15 +273,8 @@ class FinanceReportService
 
             $shippingMargin = $knownCount > 0 ? $this->money(bcsub($charged, $carrier, 2)) : null;
 
-            // التقاطع: معروفة التكلفة بالكامل + معروفة تكلفة الشركة.
-            $contribOrders = fn () => Order::query()
-                ->realisedRevenue()
-                ->whereBetween('created_at', [$start, $end])
-                ->whereNotNull('carrier_cost')
-                ->whereHas('items')
-                ->whereDoesntHave('items', fn ($q) => $q->whereNull('unit_cost'));
-
-            $contribAgg = $contribOrders()
+            // التقاطع «مكتمل البيانات»: معروفة التكلفة بالكامل + معروفة تكلفة الشركة.
+            $contribAgg = $this->completeOrders($start, $end)
                 ->selectRaw('COALESCE(SUM(subtotal - discount_total),0) AS net')
                 ->selectRaw('COALESCE(SUM(shipping_total),0) AS shipping')
                 ->selectRaw('COALESCE(SUM(carrier_cost),0) AS carrier')
@@ -290,13 +286,7 @@ class FinanceReportService
 
             if ($contribCount > 0) {
                 $contribCogs = (string) OrderItem::query()
-                    ->whereHas('order', function ($q) use ($start, $end): void {
-                        $q->realisedRevenue()
-                            ->whereBetween('created_at', [$start, $end])
-                            ->whereNotNull('carrier_cost')
-                            ->whereHas('items')
-                            ->whereDoesntHave('items', fn ($i) => $i->whereNull('unit_cost'));
-                    })
+                    ->whereHas('order', fn (Builder $q) => $this->applyComplete($q, $start, $end))
                     ->sum('line_cost');
 
                 // (صافي + شحن محصَّل) − COGS − تكلفة الشركة، على مجموعة التقاطع.
@@ -316,6 +306,66 @@ class FinanceReportService
                 'orders_carrier_unknown' => $unknownCarrier,
                 'contribution' => $contribution,
                 'orders_contribution' => $contribCount,
+            ];
+        });
+    }
+
+    /**
+     * صافي ربح النشاط (المرحلة ٤): يبني على ربح المساهمة (م٢-٣) بخصم ما يستنزفه
+     * النشاط فعليًا في النطاق: المرتجعات الجزئية + رسوم المعالجة + المصروفات.
+     *
+     * سلامة السكان (إصلاح المراجعة العدائية): المرتجعات والرسوم تُجمَّعان على **نفس**
+     * مجموعة التقاطع «مكتملة البيانات» التي أنتجت المساهمة — لا على كل الطلبات
+     * المحقّقة. وإلا خُصمت مرتجعات/رسوم طلبٍ استُبعد ربحه (تكلفة شحن لم تصل بعد)،
+     * فينقص صافي الربح دون مقابله من المساهمة. المصروفات وحدها على مستوى الفترة
+     * لأنها غير مرتبطة بطلب. القيم المجهولة (NULL) تُعامَل صفرًا (غياب خصمٍ = لا خصم).
+     *
+     * @return array{
+     *   refunds:string, fees:string, expenses:string,
+     *   net_profit:?string, contribution:?string
+     * }
+     */
+    public function netProfit(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        return $this->remember('net_profit', $from, $to, function () use ($from, $to): array {
+            [$start, $end] = $this->utcBounds($from, $to);
+
+            // المرتجعات الجزئية على مجموعة التقاطع نفسها (المرتجع الكلّي = status
+            // refunded مستبعد أصلًا من التقاطع). نفس سكان المساهمة → اتساق تام.
+            $refunds = (string) $this->completeOrders($start, $end)
+                ->whereNotNull('refunded_amount')
+                ->sum('refunded_amount');
+
+            // رسوم المعالجة على مدفوعات طلبات التقاطع نفسها.
+            $fees = (string) Payment::query()
+                ->whereNotNull('fee_amount')
+                ->whereHas('order', fn (Builder $q) => $this->applyComplete($q, $start, $end))
+                ->sum('fee_amount');
+
+            // المصروفات بتاريخ صرفها (بيوم القاهرة) داخل النطاق.
+            $expenses = (string) Expense::query()
+                ->whereBetween('incurred_on', [
+                    $from->timezone(self::TZ)->toDateString(),
+                    $to->timezone(self::TZ)->toDateString(),
+                ])
+                ->sum('amount');
+
+            // نبني على ربح المساهمة (م٣). قد يكون null حين لا طلب مكتمل البيانات؛
+            // عندها صافي الربح null أيضًا (لا نعرض رقمًا مبنيًّا على مجهول).
+            $contribution = $this->shipping($from, $to)['contribution'];
+
+            $netProfit = $contribution === null ? null : $this->money(bcsub(bcsub(bcsub(
+                $contribution,
+                $this->money($refunds), 2),
+                $this->money($fees), 2),
+                $this->money($expenses), 2));
+
+            return [
+                'refunds' => $this->money($refunds),
+                'fees' => $this->money($fees),
+                'expenses' => $this->money($expenses),
+                'contribution' => $contribution,
+                'net_profit' => $netProfit,
             ];
         });
     }
@@ -368,6 +418,31 @@ class FinanceReportService
     }
 
     // ----- داخليّات -------------------------------------------------------
+
+    /**
+     * يطبّق قيود مجموعة «مكتملة البيانات» على استعلام طلبات: محقّقة، وتكلفة شحنها
+     * معروفة، ولها سطور، ولا سطر بلا تكلفة. مصدر واحد يضمن أن المساهمة والمرتجعات
+     * والرسوم تُحسب على نفس السكان (سلامة السكان، الدستور 2.3).
+     */
+    private function applyComplete(Builder $query, CarbonImmutable $start, CarbonImmutable $end): void
+    {
+        $query->realisedRevenue()
+            ->whereBetween('created_at', [$start, $end])
+            ->whereNotNull('carrier_cost')
+            ->whereHas('items')
+            ->whereDoesntHave('items', fn (Builder $q) => $q->whereNull('unit_cost'));
+    }
+
+    /**
+     * استعلام جديد لمجموعة «مكتملة البيانات».
+     */
+    private function completeOrders(CarbonImmutable $start, CarbonImmutable $end): Builder
+    {
+        $query = Order::query();
+        $this->applyComplete($query, $start, $end);
+
+        return $query;
+    }
 
     /**
      * حدود UTC ليوم القاهرة: بداية اليوم المحلي ونهايته محوّلتان إلى UTC، حتى

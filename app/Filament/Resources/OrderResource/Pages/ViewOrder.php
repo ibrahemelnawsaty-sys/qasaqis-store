@@ -8,6 +8,7 @@ use App\Filament\Resources\OrderResource;
 use App\Models\Payment;
 use App\Models\PaymentProof;
 use App\Services\Notifications\OrderNotifier;
+use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -39,7 +40,77 @@ class ViewOrder extends ViewRecord
             $this->reviewProofAction(),
             $this->updateStatusAction(),
             $this->updateShippingAction(),
+            $this->refundAction(),
         ];
+    }
+
+    /**
+     * تسجيل مرتجع (جزئي أو كلّي) على الطلب (م٤أ). صلاحية: orders.refund.
+     * يُخزَّن المبلغ وتاريخه فيُخصم من الإيراد المحقّق في القسم المالي. المرتجع
+     * الكلّي يُنقل الحالة إلى refunded (تُستبعد كليًّا)؛ الجزئي يُبقيها محقّقة.
+     */
+    private function refundAction(): Action
+    {
+        return Action::make('refund')
+            ->label('تسجيل مرتجع')
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('danger')
+            ->visible(fn (): bool => auth()->user()?->can('orders.refund') === true)
+            ->fillForm(fn (): array => [
+                'refunded_amount' => $this->record->refunded_amount,
+            ])
+            ->form([
+                TextInput::make('refunded_amount')
+                    ->label('المبلغ المُرتجَع (ج.م)')
+                    ->helperText('لا يتجاوز إجمالي الطلب. المساوي للإجمالي يُعدّ مرتجعًا كلّيًا.')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0.01)
+                    // سقف خادميّ لا واجهيّ فقط: لا يتجاوز المرتجع إجمالي الطلب (4.1).
+                    ->maxValue(fn (): string => (string) $this->record->grand_total),
+                Textarea::make('refund_note')
+                    ->label('سبب المرتجع')
+                    ->maxLength(300),
+            ])
+            ->requiresConfirmation()
+            ->action(function (array $data): void {
+                abort_unless(auth()->user()?->can('orders.refund') === true, 403);
+
+                $amount = (string) ($data['refunded_amount'] ?? '0');
+
+                // تحقّق خادميّ من السقف بحساب Money — لا نثق بواجهة العميل (4.1).
+                if (Money::gte($amount, '0.01') === false
+                    || Money::gte((string) $this->record->grand_total, $amount) === false) {
+                    Notification::make()->title('مبلغ المرتجع غير صالح')->danger()->send();
+
+                    return;
+                }
+
+                $isFull = Money::gte($amount, (string) $this->record->grand_total);
+
+                $fields = [
+                    'refunded_amount' => $amount,
+                    'refunded_at' => now(),
+                    'admin_note' => trim((string) ($this->record->admin_note.' | مرتجع: '.($data['refund_note'] ?? ''))),
+                ];
+                // مرتجع كلّي ⇒ الحالة refunded (تُستبعد من الإيراد كليًّا). الجزئي
+                // يُبقي الحالة كما هي فيظل محقّقًا ويُخصم منه المبلغ في التقارير.
+                if ($isFull) {
+                    $fields['status'] = 'refunded';
+                }
+
+                $this->record->forceFill($fields)->save();
+
+                // تسجيل عملية حسّاسة للمراجعة (4.7).
+                Log::info('orders.refunded', [
+                    'order_id' => $this->record->id,
+                    'amount' => $amount,
+                    'full' => $isFull,
+                    'actor_id' => auth()->id(),
+                ]);
+
+                Notification::make()->title('تم تسجيل المرتجع')->success()->send();
+            });
     }
 
     /**
@@ -72,6 +143,15 @@ class ViewOrder extends ViewRecord
                     ->helperText('عند الرفض يُرسَل هذا النص للعميل عبر البريد — اكتب سببًا مناسبًا له.')
                     ->maxLength(300)
                     ->required(fn (callable $get): bool => $get('decision') === 'reject'),
+                // رسوم المعالجة (م٤ب): اختيارية، تظهر عند القبول ولمن يملك الصلاحية
+                // المالية فقط (حقل مالي سرّي). فارغ = لا رسوم مُدخلة (NULL لا صفر).
+                TextInput::make('fee_amount')
+                    ->label('رسوم المعالجة (ج.م)')
+                    ->helperText('ما تقتطعه البوابة/التحصيل — لحساب صافي الربح بعد الرسوم.')
+                    ->numeric()
+                    ->minValue(0)
+                    ->visible(fn (callable $get): bool => $get('decision') === 'approve'
+                        && auth()->user()?->can('orders.view_financials') === true),
             ])
             ->action(function (array $data): void {
                 // Server-side re-check — the ->visible() gate is UI only.
@@ -103,10 +183,18 @@ class ViewOrder extends ViewRecord
 
                     // Update the linked payment row when present (payment_id nullable).
                     if ($proof->payment_id !== null && $proof->payment instanceof Payment) {
-                        $proof->payment->forceFill([
+                        $paymentFields = [
                             'status' => $approved ? 'completed' : 'failed',
                             'paid_at' => $approved ? now() : null,
-                        ])->save();
+                        ];
+                        // رسوم المعالجة تُكتب فقط عند القبول ولمن يملك الصلاحية
+                        // المالية (تحقّق خادميّ لا واجهيّ فقط، 4.1/4.4). فارغ ⇒ NULL.
+                        if ($approved && auth()->user()?->can('orders.view_financials') === true) {
+                            $fee = $data['fee_amount'] ?? null;
+                            $paymentFields['fee_amount'] = ($fee === null || $fee === '') ? null : (string) $fee;
+                        }
+
+                        $proof->payment->forceFill($paymentFields)->save();
                     }
 
                     // Approve → paid + processing + confirmed_by (docs/04 §5.4/§6.2).

@@ -38,6 +38,7 @@ class FinanceStatsWidget extends StatsOverviewWidget
         $s = $service->summary($from, $to);
         $p = $service->profit($from, $to);       // المرحلة ٢
         $sh = $service->shipping($from, $to);     // المرحلة ٣
+        $np = $service->netProfit($from, $to);    // المرحلة ٤
 
         $egp = static fn (?string $v): string => $v === null ? 'غير متاح'
             : number_format((float) $v, 2).' ج.م';
@@ -90,6 +91,24 @@ class FinanceStatsWidget extends StatsOverviewWidget
             Stat::make('ربح المساهمة', $egp($sh['contribution']))
                 ->description('صافي − تكلفة − شحن، على '.number_format($sh['orders_contribution']).' طلب مكتمل البيانات')
                 ->color($sh['contribution'] === null ? 'gray' : 'success'),
+
+            // ===== المرحلة ٤: المرتجعات والرسوم والمصروفات وصافي ربح النشاط =====
+            Stat::make('المرتجعات', $egp($np['refunds']))
+                ->description('مبالغ مُرتجَعة جزئيًا — تُخصم من الربح')
+                ->color((float) $np['refunds'] > 0 ? 'warning' : 'gray'),
+
+            Stat::make('رسوم المعالجة', $egp($np['fees']))
+                ->description('ما تقتطعه البوابة/التحصيل')
+                ->color((float) $np['fees'] > 0 ? 'warning' : 'gray'),
+
+            Stat::make('المصروفات', $egp($np['expenses']))
+                ->description('إعلانات ورواتب… بتاريخ الصرف في المدى')
+                ->color((float) $np['expenses'] > 0 ? 'warning' : 'gray'),
+
+            Stat::make('صافي ربح النشاط', $egp($np['net_profit']))
+                ->description('المساهمة − مرتجعات − رسوم − مصروفات')
+                ->color($np['net_profit'] === null ? 'gray'
+                    : ((float) $np['net_profit'] < 0 ? 'danger' : 'success')),
 
             Stat::make('قيد التحصيل', $egp($s['pipeline']))
                 ->description('طلبات مؤكّدة لم تُحقَّق بعد — خارج الإيراد')
