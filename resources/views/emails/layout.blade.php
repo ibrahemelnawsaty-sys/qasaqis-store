@@ -13,11 +13,26 @@
     $domain  = __('common.domain');
     $siteUrl = 'https://' . $domain;
     $fromEmail = config('mail.from.address', 'hello@' . $domain);
-    $waDigits  = preg_replace('/\D+/', '', (string) config('services.store.whatsapp', ''));
-    $waLink    = $waDigits ? 'https://wa.me/' . $waDigits : null;
-    $facebook  = config('services.store.facebook');
-    $instagram = config('services.store.instagram');
-    $tiktok    = config('services.store.tiktok');
+
+    // المصدر نفسه الذي تستعمله الواجهة والفوتر: المصفوفة المشتركة $storeSettings
+    // (يبنيها AppServiceProvider من جدول الإعدادات وتُشارَك لكل العروض عبر View::share،
+    // فتشمل عروض البريد). هكذا يظهر رقم الواتساب والسوشيال الحقيقيان لا قيَم config
+    // الافتراضية. حارس ?? [] للتصيير خارج طلب (يتراجع لـ config للواتساب فقط).
+    $storeSettings = $storeSettings ?? [];
+    $waDigits = preg_replace('/\D+/', '', (string) ($storeSettings['whatsapp_number'] ?? config('services.store.whatsapp', '')));
+    $waLink   = $waDigits ? 'https://wa.me/' . $waDigits : null;
+
+    // روابط السوشيال بترتيب العرض؛ لا يظهر إلا ما ضُبط فعلًا في الإعدادات.
+    $socials = array_filter([
+        'instagram' => (string) ($storeSettings['social_instagram'] ?? ''),
+        'facebook'  => (string) ($storeSettings['social_facebook'] ?? ''),
+        'tiktok'    => (string) ($storeSettings['social_tiktok'] ?? ''),
+        'youtube'   => (string) ($storeSettings['social_youtube'] ?? ''),
+        'twitter'   => (string) ($storeSettings['social_twitter'] ?? ''),
+        'snapchat'  => (string) ($storeSettings['social_snapchat'] ?? ''),
+        'telegram'  => (string) ($storeSettings['social_telegram'] ?? ''),
+    ], static fn (string $v): bool => trim($v) !== '');
+
     $reasonLine = $reasonLine ?? 'تصلك هذه الرسالة لأنك تعاملت مع متجر «' . $brand . '» أو سجّلت بريدك لدينا.';
 @endphp
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -36,6 +51,12 @@
     <style>table,td,div,p,a{font-family:Tahoma,Arial,sans-serif !important;}</style>
     <![endif]-->
     <style>
+        /* خطوط الموقع نفسها (مستضافة محليًا) — تُحمَّل في العملاء الداعمين (Apple Mail/iOS)
+           وإلا يتراجع للنظام. تُضفي فخامة الهوية على البريد كما في الواجهة. */
+        @font-face{font-family:'Tajawal';font-style:normal;font-weight:400;font-display:swap;src:url('{{ $siteUrl }}/fonts/tajawal-400-ar.woff2') format('woff2');}
+        @font-face{font-family:'Tajawal';font-style:normal;font-weight:500;font-display:swap;src:url('{{ $siteUrl }}/fonts/tajawal-500-ar.woff2') format('woff2');}
+        @font-face{font-family:'Tajawal';font-style:normal;font-weight:700;font-display:swap;src:url('{{ $siteUrl }}/fonts/tajawal-700-ar.woff2') format('woff2');}
+        @font-face{font-family:'Baloo Bhaijaan 2';font-style:normal;font-weight:800;font-display:swap;src:url('{{ $siteUrl }}/fonts/baloo-800-ar.woff2') format('woff2');}
         body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
         table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
         img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;}
@@ -57,8 +78,8 @@
         }
         [data-ogsc] .qa-bg{background:#171021 !important;}
         /* محتوى الحملات (RichEditor + معقَّم بلا أنماط سطرية): يأخذ شكله من هنا */
-        .qa-rich h2{font-size:20px;font-weight:800;color:#54228A;line-height:1.5;margin:0 0 12px;}
-        .qa-rich h3{font-size:16px;font-weight:800;color:#6E2FB0;line-height:1.6;margin:18px 0 8px;}
+        .qa-rich h2{font-family:'Baloo Bhaijaan 2','Tajawal',Tahoma,sans-serif;font-size:20px;font-weight:800;color:#54228A;line-height:1.5;margin:0 0 12px;}
+        .qa-rich h3{font-family:'Baloo Bhaijaan 2','Tajawal',Tahoma,sans-serif;font-size:16px;font-weight:800;color:#6E2FB0;line-height:1.6;margin:18px 0 8px;}
         .qa-rich p{margin:0 0 14px;}
         .qa-rich a{color:#6E2FB0 !important;font-weight:700;text-decoration:underline;}
         .qa-rich ul,.qa-rich ol{margin:0 0 14px;padding-inline-start:22px;}
@@ -67,7 +88,7 @@
         .qa-rich strong{color:#372a46;}
     </style>
 </head>
-<body class="qa-bg" style="margin:0;padding:0;background:#F5F1EA;font-family:'Segoe UI',Tahoma,Arial,'Helvetica Neue',Helvetica,sans-serif;color:#372A46;">
+<body class="qa-bg" style="margin:0;padding:0;background:#F5F1EA;font-family:'Tajawal','Segoe UI',Tahoma,Arial,'Helvetica Neue',Helvetica,sans-serif;color:#372A46;">
 
     {{-- preheader: نص المعاينة في صندوق الوارد. الفاصل ثابت موثوق ⇒ {!! !!} كي تبقى الرموز غير مرئية --}}
     <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#F5F1EA;opacity:0;">
@@ -86,13 +107,13 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl"><tr>
                 <td width="52" valign="middle" style="width:52px;padding-inline-end:14px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                    <td width="52" height="52" align="center" valign="middle" bgcolor="#FFC23C" style="width:52px;height:52px;background:#FFC23C;border-radius:14px;">
+                    <td width="52" height="52" align="center" valign="middle" bgcolor="#fff6ea" style="width:52px;height:52px;background:#fff6ea;border-radius:14px;">
                       <img src="{{ $siteUrl }}/images/logo.png" width="52" height="52" alt="{{ $brand }}" style="display:block;width:52px;height:52px;border-radius:14px;border:0;">
                     </td>
                   </tr></table>
                 </td>
                 <td valign="middle" align="right" style="text-align:right;">
-                  <div class="qa-wordmark" style="color:#FFFFFF;font-size:23px;font-weight:800;line-height:1.2;">{{ $brand }}</div>
+                  <div class="qa-wordmark" style="font-family:'Baloo Bhaijaan 2','Tajawal',Tahoma,sans-serif;color:#FFFFFF;font-size:23px;font-weight:800;line-height:1.2;">{{ $brand }}</div>
                   <div class="qa-hide-sm" style="color:#FFFFFF;opacity:.88;font-size:12.5px;line-height:1.4;margin-top:3px;">{{ $tagline }}</div>
                 </td>
               </tr></table>
@@ -113,7 +134,7 @@
             <td class="qa-footer qa-pad" bgcolor="#FBF6EE" style="background:#FBF6EE;padding:26px 32px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl"><tr>
                 <td align="center" style="text-align:center;">
-                  <div style="font-size:15px;font-weight:800;color:#54228A;">{{ $brand }}</div>
+                  <div style="font-family:'Baloo Bhaijaan 2','Tajawal',Tahoma,sans-serif;font-size:16px;font-weight:800;color:#54228A;">{{ $brand }}</div>
                   <div style="font-size:12.5px;color:#8B7FA0;margin-top:3px;">{{ $tagline }}</div>
                 </td>
               </tr></table>
@@ -125,11 +146,15 @@
                 </td>
               </tr></table>
 
-              @if ($facebook || $instagram || $tiktok)
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" dir="rtl" class="qa-social" style="margin:16px auto 0;"><tr>
-                  @if ($instagram)<td style="padding:0 10px;"><a href="{{ $instagram }}" style="color:#EC4E96;text-decoration:none;font-size:12.5px;font-weight:700;">{{ __('footer.social_instagram') }}</a></td>@endif
-                  @if ($facebook)<td style="padding:0 10px;"><a href="{{ $facebook }}" style="color:#6E2FB0;text-decoration:none;font-size:12.5px;font-weight:700;">{{ __('footer.social_facebook') }}</a></td>@endif
-                  @if ($tiktok)<td style="padding:0 10px;"><a href="{{ $tiktok }}" style="color:#372A46;text-decoration:none;font-size:12.5px;font-weight:700;">{{ __('footer.social_tiktok') }}</a></td>@endif
+              {{-- حسابات السوشيال من إعدادات الموقع (نفس مصدر الفوتر) — يظهر ما ضُبط فقط.
+                   شارات تلتفّ تلقائيًا؛ نصّ لا SVG لأقصى توافق (Gmail يزيل SVG). --}}
+              @if (! empty($socials))
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="margin:16px 0 0;"><tr>
+                  <td align="center" style="text-align:center;">
+                    @foreach ($socials as $qaKey => $qaUrl)
+                      <a href="{{ $qaUrl }}" style="display:inline-block;background:#F0E6FA;color:#6E2FB0;text-decoration:none;font-size:12px;font-weight:700;padding:6px 13px;border-radius:999px;margin:3px;">{{ __('footer.social_' . $qaKey) }}</a>
+                    @endforeach
+                  </td>
                 </tr></table>
               @endif
 
