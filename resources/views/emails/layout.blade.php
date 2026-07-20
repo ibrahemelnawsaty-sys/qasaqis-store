@@ -142,17 +142,19 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="margin-top:14px;"><tr>
                 <td align="center" style="text-align:center;font-size:13px;color:#6E6280;line-height:1.9;">
                   <a href="mailto:{{ $fromEmail }}" style="color:#6E2FB0;text-decoration:none;font-weight:700;direction:ltr;display:inline-block;">{{ $fromEmail }}</a>
-                  @if ($waLink)<span style="color:#C9BFD6;">&nbsp;&nbsp;·&nbsp;&nbsp;</span><a href="{{ $waLink }}" style="color:#12A594;text-decoration:none;font-weight:700;">واتساب: تواصل مباشر</a>@endif
                 </td>
               </tr></table>
 
-              {{-- حسابات السوشيال من إعدادات الموقع (نفس مصدر الفوتر) — يظهر ما ضُبط فقط.
-                   شارات تلتفّ تلقائيًا؛ نصّ لا SVG لأقصى توافق (Gmail يزيل SVG). --}}
-              @if (! empty($socials))
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="margin:16px 0 0;"><tr>
+              {{-- أيقونات السوشيال الحقيقية (شعارات العلامات) من إعدادات الموقع — يظهر ما ضُبط
+                   فقط. صور PNG مستضافة (لا SVG) لأن Gmail يزيل SVG؛ واتساب أوّلًا ثم المنصّات. --}}
+              @if ($waLink || ! empty($socials))
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl" style="margin:18px 0 0;"><tr>
                   <td align="center" style="text-align:center;">
+                    @if ($waLink)
+                      <a href="{{ $waLink }}" style="display:inline-block;margin:0 5px;text-decoration:none;"><img src="{{ $siteUrl }}/images/email/social/whatsapp.png" width="30" height="30" alt="واتساب" style="display:block;width:30px;height:30px;border:0;"></a>
+                    @endif
                     @foreach ($socials as $qaKey => $qaUrl)
-                      <a href="{{ $qaUrl }}" style="display:inline-block;background:#F0E6FA;color:#6E2FB0;text-decoration:none;font-size:12px;font-weight:700;padding:6px 13px;border-radius:999px;margin:3px;">{{ __('footer.social_' . $qaKey) }}</a>
+                      <a href="{{ $qaUrl }}" style="display:inline-block;margin:0 5px;text-decoration:none;"><img src="{{ $siteUrl }}/images/email/social/{{ $qaKey }}.png" width="30" height="30" alt="{{ __('footer.social_' . $qaKey) }}" style="display:block;width:30px;height:30px;border:0;"></a>
                     @endforeach
                   </td>
                 </tr></table>
