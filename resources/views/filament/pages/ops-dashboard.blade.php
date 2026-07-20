@@ -55,16 +55,14 @@
         @media (prefers-reduced-motion:reduce){ .opsd-dot{ animation:none; } }
     </style>
 
-    <div class="opsd" wire:poll.30s>
+    {{-- لا wire:poll على الحاوية: كان يعيد تنفيذ getViewData كلّه (‏~16 استعلامًا) كلّ 30
+         ثانية. التحديث اللحظي محصور الآن في مكوّن «المتصفّحون الآن» المعزول أدناه. --}}
+    <div class="opsd">
 
         {{-- ══ 1 · نظرة عامة ══ --}}
         <section class="opsd-sec">
             <div class="opsd-grid g5">
-                <div class="opsd-card opsd-stat">
-                    <div class="opsd-live"><span class="opsd-dot"></span> المتصفّحون الآن</div>
-                    <div class="v" style="color:var(--success)">{{ $live['total'] }}</div>
-                    <div class="s">{{ $live['guests'] }} زائر · {{ $live['members'] }} مسجَّل · آخر 5 دقائق</div>
-                </div>
+                @livewire('ops-live-browsers')
                 <div class="opsd-card opsd-stat"><div class="l">طلبات اليوم</div><div class="v">{{ $overview['today'] ?? 0 }}</div><div class="s">هذا الأسبوع: {{ $overview['week'] ?? 0 }}</div></div>
                 <div class="opsd-card opsd-stat"><div class="l">طلبات آخر 30 يومًا</div><div class="v">{{ $overview['month'] ?? 0 }}</div></div>
                 @if ($canFin)

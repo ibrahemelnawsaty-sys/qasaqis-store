@@ -11,7 +11,6 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentProof;
 use Filament\Pages\Dashboard;
-use Illuminate\Support\Facades\DB;
 
 /**
  * لوحة العمليات وذكاء المنتجات — لوحة الأدمن الافتراضية (تحلّ محلّ لوحة الودجت).
@@ -20,8 +19,12 @@ use Illuminate\Support\Facades\DB;
  *
  * كل رقم مُشتقّ من عمود حقيقي. اللقطات اللحظية تعمل من أوّل طلب؛ المتوسّطات تُعرَض
  * مع عدد العيّنة n بشفافية. الماليات (إيراد/هامش) محجوبة خلف orders.view_financials.
- * التخزين المؤقّت والطلب-الصالح من حُقن اللوحة المشتركة اتّساقًا. المتصفّحون الآن لا
- * يُخزَّن (يجب أن يكون طازجًا)؛ الصفحة تحدّث نفسها عبر wire:poll في القالب.
+ * التخزين المؤقّت والطلب-الصالح من حُقن اللوحة المشتركة اتّساقًا.
+ *
+ * الأداء: getViewData يُحسب مرّة لكل تحميل صفحة، والحسابات المشتركة (queues/coverage/
+ * governorates/funnel) تُمرَّر إلى timing()/recommendations() بدل إعادة استعلامها.
+ * «المتصفّحون الآن» عُزل في مكوّن Livewire مستقلّ يستطلع نفسه، فلا تُعاد الصفحة كلّها
+ * دوريًّا (أُزيل wire:poll عن الحاوية).
  */
 class OpsDashboard extends Dashboard
 {
@@ -61,32 +64,29 @@ class OpsDashboard extends Dashboard
         $canFin = (bool) auth()->user()?->can('orders.view_financials');
         $since = static::trendWindowStart();
 
+        // نحسب هذه مرّة واحدة ونمرّرها، فلا تعيد recommendations()/timing() استدعاءها
+        // (كان تكرارًا يضرب كاش قاعدة البيانات عدّة مرّات في نفس الطلب).
+        $queues = $this->queues();
+        $coverage = $this->coverage();
+        $governorates = $this->governorates($since);
+        $funnel = $this->funnel($since);
+
+        // «المتصفّحون الآن» لم يعد هنا — عُزل في مكوّن Livewire صغير يستطلع نفسه،
+        // فلا تُعاد الصفحة كلها كل 30 ثانية (المكسب الأكبر).
         return [
             'canFin' => $canFin,
-            'live' => $this->live(),
             'overview' => $this->overview($canFin, $since),
-            'queues' => $this->queues(),
-            'funnel' => $this->funnel($since),
+            'queues' => $queues,
+            'funnel' => $funnel,
             'payments' => $this->payments($since),
-            'governorates' => $this->governorates($since),
-            'timing' => $this->timing(),
+            'governorates' => $governorates,
+            'timing' => $this->timing($funnel),
             'topBooks' => $this->topBooks($since),
-            'coverage' => $this->coverage(),
+            'coverage' => $coverage,
             'categories' => $this->categories($since, $canFin),
             'monthly' => $this->monthly(),
-            'recommendations' => $this->recommendations(),
+            'recommendations' => $this->recommendations($queues, $coverage, $governorates),
         ];
-    }
-
-    /** المتصفّحون الآن — طازج (بلا تخزين): جلسات نشِطة آخر 5 دقائق. */
-    private function live(): array
-    {
-        $since = now()->subMinutes(5)->getTimestamp();
-        $base = DB::table('sessions')->where('last_activity', '>=', $since);
-        $total = (clone $base)->count();
-        $guests = (clone $base)->whereNull('user_id')->count();
-
-        return ['total' => $total, 'guests' => $guests, 'members' => $total - $guests];
     }
 
     private function overview(bool $canFin, $since): array
@@ -101,9 +101,14 @@ class OpsDashboard extends Dashboard
             ];
 
             if ($canFin) {
-                $realized = Order::query()->whereIn('status', ['delivered', 'completed'])->where('created_at', '>=', $since);
-                $n = (clone $realized)->count();
-                $rev = (float) (clone $realized)->sum('grand_total');
+                // عدّ ومجموع في استعلام واحد بدل clone×2 على نفس المرشِّح.
+                $r = Order::query()
+                    ->whereIn('status', ['delivered', 'completed'])
+                    ->where('created_at', '>=', $since)
+                    ->selectRaw('COUNT(*) as n, COALESCE(SUM(grand_total), 0) as rev')
+                    ->first();
+                $n = (int) ($r->n ?? 0);
+                $rev = (float) ($r->rev ?? 0);
                 $data['revenue'] = $rev;
                 $data['aov'] = $n > 0 ? $rev / $n : 0.0;
                 $data['realized_n'] = $n;
@@ -115,16 +120,24 @@ class OpsDashboard extends Dashboard
 
     private function queues(): array
     {
-        return static::rememberDashboard('page.queues', fn (): array => [
-            'confirm' => Order::where('status', 'pending')->whereNull('whatsapp_confirmed_at')->count(),
-            'proofs' => PaymentProof::where('review_status', 'pending_review')->count(),
-            'no_tracking' => Order::whereIn('status', ['confirmed', 'processing'])->whereNull('tracking_number')->count(),
-            'shipped' => Order::where('status', 'shipped')->count(),
-            'manual_n' => Order::where('payment_method', '!=', 'cod')->whereIn('payment_status', ['unpaid', 'pending_review'])->count(),
-            'manual_sum' => (float) Order::where('payment_method', '!=', 'cod')->whereIn('payment_status', ['unpaid', 'pending_review'])->sum('grand_total'),
-            'low_stock' => Book::where('is_published', true)->where('manage_stock', true)
-                ->where(fn ($q) => $q->where('stock_status', 'out_of_stock')->orWhere('stock_quantity', '<=', 5))->count(),
-        ], []);
+        return static::rememberDashboard('page.queues', function (): array {
+            // التحويل اليدوي: عدّ ومجموع في استعلام واحد (نفس المرشِّح كان يُنفَّذ مرّتين).
+            $manual = Order::where('payment_method', '!=', 'cod')
+                ->whereIn('payment_status', ['unpaid', 'pending_review'])
+                ->selectRaw('COUNT(*) as n, COALESCE(SUM(grand_total), 0) as s')
+                ->first();
+
+            return [
+                'confirm' => Order::where('status', 'pending')->whereNull('whatsapp_confirmed_at')->count(),
+                'proofs' => PaymentProof::where('review_status', 'pending_review')->count(),
+                'no_tracking' => Order::whereIn('status', ['confirmed', 'processing'])->whereNull('tracking_number')->count(),
+                'shipped' => Order::where('status', 'shipped')->count(),
+                'manual_n' => (int) ($manual->n ?? 0),
+                'manual_sum' => (float) ($manual->s ?? 0),
+                'low_stock' => Book::where('is_published', true)->where('manage_stock', true)
+                    ->where(fn ($q) => $q->where('stock_status', 'out_of_stock')->orWhere('stock_quantity', '<=', 5))->count(),
+            ];
+        }, []);
     }
 
     private function funnel($since): array
@@ -170,19 +183,26 @@ class OpsDashboard extends Dashboard
         }, []);
     }
 
-    private function timing(): array
+    /**
+     * @param  array  $funnel  مخرجات funnel() — نشتقّ منها الإلغاء بدل استعلامَي COUNT إضافيَّين.
+     */
+    private function timing(array $funnel): array
     {
-        return static::rememberDashboard('page.timing', function (): array {
-            // زمن التأكيد الدقيق من عمود حقيقي.
+        $since = static::trendWindowStart();
+
+        return static::rememberDashboard('page.timing', function () use ($funnel, $since): array {
+            // زمن التأكيد الدقيق من عمود حقيقي (مقيَّد بنافذة الاتجاه ليستفيد من الفهرس).
             $confirm = Order::whereNotNull('whatsapp_confirmed_at')
+                ->where('created_at', '>=', $since)
                 ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, created_at, whatsapp_confirmed_at)) as m, COUNT(*) as n')->first();
-            // زمن مراجعة الإثبات.
+            // زمن مراجعة الإثبات (نفس النافذة).
             $proof = PaymentProof::whereNotNull('reviewed_at')
+                ->where('created_at', '>=', $since)
                 ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, created_at, reviewed_at)) as m, COUNT(*) as n')->first();
-            // معدّل الإلغاء/الرفض (آخر 30 يومًا).
-            $total = Order::where('created_at', '>=', static::trendWindowStart())->count();
-            $lost = Order::where('created_at', '>=', static::trendWindowStart())
-                ->whereIn('status', ['cancelled', 'refused'])->count();
+
+            // معدّل الإلغاء/الرفض — مشتقّ من funnel() المحسوب مسبقًا (نفس النافذة)، بلا استعلام جديد.
+            $total = (int) ($funnel['total'] ?? 0);
+            $lost = (int) ($funnel['lost'] ?? 0);
 
             return [
                 'confirm_min' => $confirm?->m, 'confirm_n' => (int) ($confirm?->n ?? 0),
@@ -263,12 +283,12 @@ class OpsDashboard extends Dashboard
             ->map(fn ($r): array => ['ym' => $r->ym, 'orders' => (int) $r->orders])->all(), []);
     }
 
-    /** توصيات قائمة على قواعد من الأرقام المحسوبة (عمود حقيقي لكل شرط). */
-    private function recommendations(): array
+    /**
+     * توصيات قائمة على قواعد من الأرقام المحسوبة (عمود حقيقي لكل شرط).
+     * تُمرَّر القيم المحسوبة مسبقًا من getViewData()، فلا تُعاد الاستعلامات نفسها.
+     */
+    private function recommendations(array $q, array $cov, array $gov): array
     {
-        $q = $this->queues();
-        $cov = $this->coverage();
-        $gov = $this->governorates(static::trendWindowStart());
         $recs = [];
 
         foreach ($cov as $c) {
