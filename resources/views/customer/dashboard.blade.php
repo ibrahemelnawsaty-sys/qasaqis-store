@@ -35,6 +35,14 @@
                 </div>
             @endif
 
+            {{-- تذكير غير حاجب: بريدك غير مؤكّد بعد (M9). زر يعيد لصفحة إدخال الكود. --}}
+            @if ($customer->email_verified_at === null)
+                <div class="co-alert notice" role="status" style="align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+                    <span><span class="ai" aria-hidden="true">📧</span>{{ __('account.verify.unverified_banner') }}</span>
+                    <a class="btn btn-ghost" href="{{ route('customer.verify.show') }}" style="font-size:13.5px">{{ __('account.verify.title') }}</a>
+                </div>
+            @endif
+
             <div class="co-head">
                 <h1>{{ __('account.dashboard.greeting', ['name' => $customer->name]) }}</h1>
                 <p>{{ __('account.dashboard.lead') }}</p>

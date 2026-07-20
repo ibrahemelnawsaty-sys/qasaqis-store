@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\RegisterRequest;
 use App\Models\Customer;
+use App\Support\Verification\VerificationCodeService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +39,7 @@ final class RegisterController extends Controller
         return view('account.register');
     }
 
-    public function store(RegisterRequest $request): RedirectResponse
+    public function store(RegisterRequest $request, VerificationCodeService $codes): RedirectResponse
     {
         // النمط الذي يفرضه الموديل نفسه: phone_normalized وphone_e164 خارج
         // $fillable عمدًا (الجوال هوية غير قابلة للتعديل الذاتي) فيُكتبان بـ
@@ -57,8 +58,12 @@ final class RegisterController extends Controller
             'ip' => $request->ip(),
         ]);
 
+        // كود تأكيد البريد (M9). فشل الإرسال لا يُسقِط التسجيل — الحساب أُنشئ
+        // والعميلة تُعيد الإرسال من صفحة التأكيد.
+        $codes->issueAndSend((string) $customer->email, 'email_verification');
+
         return redirect()
-            ->route('customer.dashboard')
-            ->with('status', __('account.register.created'));
+            ->route('customer.verify.show')
+            ->with('status', __('account.verify.sent'));
     }
 }

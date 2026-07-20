@@ -29,7 +29,14 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // قناة كود التحقق (M9) تُحلّ من config/verification.php — الانتقال إلى OTP
+        // الجوال لاحقًا تبديلُ مفتاح + صنف قناة جديد، بلا تعديل الخدمة.
+        $this->app->bind(
+            \App\Support\Verification\VerificationChannel::class,
+            static fn (): \App\Support\Verification\VerificationChannel => match (config('verification.channel', 'email')) {
+                default => new \App\Support\Verification\EmailVerificationChannel,
+            },
+        );
     }
 
     public function boot(): void

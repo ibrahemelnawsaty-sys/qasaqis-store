@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Customer\DashboardController as CustomerDashboardController;
+use App\Http\Controllers\Customer\EmailVerificationController as CustomerEmailVerificationController;
 use App\Http\Controllers\Customer\LoginController as CustomerLoginController;
 use App\Http\Controllers\Customer\LogoutController as CustomerLogoutController;
 use App\Http\Controllers\Customer\OrderHistoryController as CustomerOrderHistoryController;
@@ -176,5 +177,12 @@ Route::prefix('account')->name('customer.')->group(function (): void {
 
         Route::get('/profile', [CustomerProfileController::class, 'edit'])->name('profile.edit');
         Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+
+        // تأكيد البريد بكود (M9). القناة بريد اليوم، وتتبدّل إلى OTP جوال لاحقًا.
+        Route::get('/verify-email', [CustomerEmailVerificationController::class, 'show'])->name('verify.show');
+        Route::post('/verify-email', [CustomerEmailVerificationController::class, 'verify'])
+            ->middleware('throttle:10,1')->name('verify.store');
+        Route::post('/verify-email/resend', [CustomerEmailVerificationController::class, 'resend'])
+            ->middleware('throttle:4,10')->name('verify.resend');
     });
 });
