@@ -50,8 +50,7 @@ class PlaceOrderAction
         private readonly PaymentMethodResolver $methodResolver,
         private readonly PaymentGatewayFactory $gatewayFactory,
         private readonly OrderNotifier $notifier,
-    ) {
-    }
+    ) {}
 
     public function execute(PlaceOrderData $data): OrderPlacementResult
     {
@@ -215,7 +214,7 @@ class PlaceOrderAction
     /**
      * كتابة الطلب كاملًا في معاملة واحدة مع قفل صفوف الكتب.
      *
-     * @return array{0: Order, 1: int|null}  [الطلب، معرّف صف الدفع للبوابة إن وُجد]
+     * @return array{0: Order, 1: int|null} [الطلب، معرّف صف الدفع للبوابة إن وُجد]
      */
     private function persistOrder(PlaceOrderData $data, PaymentMethod $method): array
     {
@@ -269,12 +268,24 @@ class PlaceOrderAction
 
             // Snapshot each line (price taken from the DB, not the client).
             foreach ($cart->items as $item) {
+                // لقطة التكلفة وقت البيع (المرحلة ٢): من books.cost_price المُحمّل في
+                // السلة. تبقى NULL حين لا تكلفة مُدخلة (BOOK1) فلا نخترع صفرًا، وسطرها
+                // يُستبعد لاحقًا من COGS. line_cost = التكلفة × الكمية بحساب Money (bcmath).
+                $unitCost = $item->book->cost_price !== null
+                    ? Money::normalize($item->book->cost_price)
+                    : null;
+                $lineCost = $unitCost !== null
+                    ? Money::multiplyByQty($unitCost, $item->quantity)
+                    : null;
+
                 $order->items()->create([
                     'book_id' => $item->book->id,
                     'book_title' => $item->book->title,
                     'unit_price' => $item->unitPrice,
+                    'unit_cost' => $unitCost,
                     'quantity' => $item->quantity,
                     'line_total' => $item->lineTotal,
+                    'line_cost' => $lineCost,
                 ]);
             }
 
@@ -367,7 +378,7 @@ class PlaceOrderAction
     }
 
     /**
-     * @return int|null  the payments row id when one is created for online.
+     * @return int|null the payments row id when one is created for online.
      */
     private function createPaymentRow(Order $order, PaymentMethod $method, string $grandTotal): ?int
     {
@@ -403,7 +414,7 @@ class PlaceOrderAction
     }
 
     /**
-     * @return array{0: string, 1: string}  [order.status, order.payment_status]
+     * @return array{0: string, 1: string} [order.status, order.payment_status]
      */
     private function statusFor(PaymentMethod $method): array
     {
@@ -420,7 +431,7 @@ class PlaceOrderAction
      * أو الثابت) — تسعير مصر يبقى حرفيًا. دولي: flat_cost لمنطقة الدولة (بالجنيه،
      * التحصيل EGP). كوبون free_shipping يصفّر أيّهما. لا تُخترع أسعار (بند 1.1).
      *
-     * @return array{0: string, 1: string|null}  [cost, shipping_zone_code]
+     * @return array{0: string, 1: string|null} [cost, shipping_zone_code]
      */
     private function resolveShipping(PlaceOrderData $data, bool $freeShipping): array
     {

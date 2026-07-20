@@ -7,10 +7,12 @@ namespace Tests\Feature\Finance;
 use App\Filament\Pages\FinanceDashboard;
 use App\Filament\Resources\BookResource;
 use App\Filament\Resources\BookResource\Pages\EditBook;
+use App\Filament\Resources\OrderResource\Pages\ViewOrder;
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceStatsWidget;
 use App\Models\Book;
 use App\Models\User;
+use Database\Factories\OrderFactory;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -92,6 +94,33 @@ final class FinanceSecurityTest extends TestCase
     {
         // يضمن أن userCan('cost.view') يُترجم إلى products.cost.view.
         $this->assertSame('products', BookResource::permissionPrefix());
+    }
+
+    public function test_carrier_cost_is_not_seeded_into_form_state_for_non_financial_users(): void
+    {
+        // عيب أمسكته المراجعة العدائية: fillForm كان يبثّ carrier_cost في حالة
+        // Livewire (تُرسَل للمتصفح) حتى لمن لا يملك الصلاحية المالية — رغم إخفاء
+        // الحقل. البوابة على المصدر تمنع البثّ. مسؤول الطلبات يملك orders.ship.
+        // صلاحيات محدّدة بلا دور: يرى الطلبات ويشحن، لكن لا يرى المال — عزل
+        // نظيف لحالة «يشحن لكن لا يملك orders.view_financials».
+        $shipper = User::factory()->create();
+        $shipper->givePermissionTo(['orders.view', 'orders.ship']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->assertTrue($shipper->can('orders.ship'));
+        $this->assertFalse($shipper->can('orders.view_financials'));
+
+        $order = OrderFactory::new()->create([
+            'status' => 'confirmed', 'payment_method' => 'cod', 'payment_status' => 'unpaid',
+            'carrier_cost' => '45.00',
+        ]);
+
+        $this->actingAs($shipper);
+
+        Livewire::test(ViewOrder::class, ['record' => $order->getKey()])
+            ->mountAction('updateShipping')
+            // القيمة السرّية يجب ألا تدخل حالة النموذج المُرسَلة للمتصفح
+            // (mountedActionsData خاصية Livewire عامة).
+            ->assertSet('mountedActionsData.0.carrier_cost', null);
     }
 
     public function test_editing_a_book_without_touching_cost_preserves_it(): void

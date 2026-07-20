@@ -96,6 +96,74 @@ class FinanceReportService
     }
 
     /**
+     * الربح (المرحلة ٢): تكلفة البضاعة المباعة ومجمل الربح والهامش.
+     *
+     * قاعدة السلامة (إصلاح المراجعة العدائية): الربح والهامش يُحسبان حصريًا على
+     * الطلبات المحقّقة التي **كل** سطورها معروفة التكلفة — فلا نطرح تكلفة جزئية
+     * من إيراد كامل فينتفخ الربح. الطلبات ذات سطر بلا تكلفة (تاريخية أو كتاب بلا
+     * تكلفة مُدخلة) تُعدّ منفصلة في «orders_unknown_cost» وتُستبعد كليًّا من الحساب.
+     * حين لا طلب معروف التكلفة، الربح/الهامش = null (يُعرض «غير متاح» لا صفرًا).
+     *
+     * @return array{
+     *   cogs:string, gross_profit:?string, margin_pct:?string, net_costed:string,
+     *   orders_costed:int, orders_unknown_cost:int
+     * }
+     */
+    public function profit(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        return $this->remember('profit', $from, $to, function () use ($from, $to): array {
+            [$start, $end] = $this->utcBounds($from, $to);
+
+            // مجموعة «معروفة التكلفة بالكامل»: محقّقة، لها سطور، ولا سطر بلا تكلفة.
+            $costedOrders = fn () => Order::query()
+                ->realisedRevenue()
+                ->whereBetween('created_at', [$start, $end])
+                ->whereHas('items')
+                ->whereDoesntHave('items', fn ($q) => $q->whereNull('unit_cost'));
+
+            $agg = $costedOrders()
+                ->selectRaw('COALESCE(SUM(subtotal - discount_total),0) AS net')
+                ->selectRaw('COUNT(*) AS orders')
+                ->first();
+
+            // COGS على سطور تلك المجموعة فقط (استعلام فرعي واحد، بلا N+1).
+            $cogs = (string) OrderItem::query()
+                ->whereHas('order', function ($q) use ($start, $end): void {
+                    $q->realisedRevenue()
+                        ->whereBetween('created_at', [$start, $end])
+                        ->whereHas('items')
+                        ->whereDoesntHave('items', fn ($i) => $i->whereNull('unit_cost'));
+                })
+                ->sum('line_cost');
+
+            // طلبات محقّقة فيها سطر واحد على الأقل بلا تكلفة — تُعرض كتنبيه صدق.
+            $unknown = Order::query()
+                ->realisedRevenue()
+                ->whereBetween('created_at', [$start, $end])
+                ->whereHas('items', fn ($q) => $q->whereNull('unit_cost'))
+                ->count();
+
+            $net = (string) ($agg->net ?? '0');
+            $orders = (int) ($agg->orders ?? 0);
+            $cogs = $this->money($cogs);
+
+            $grossProfit = $orders > 0 ? $this->money(bcsub($net, $cogs, 2)) : null;
+            $marginPct = ($orders > 0 && bccomp($net, '0', 2) === 1)
+                ? bcmul(bcdiv($grossProfit, $net, 6), '100', 2)
+                : null;
+
+            return [
+                'cogs' => $cogs,
+                'gross_profit' => $grossProfit,
+                'margin_pct' => $marginPct,
+                'net_costed' => $this->money($net),
+                'orders_costed' => $orders,
+                'orders_unknown_cost' => $unknown,
+            ];
+        });
+    }
+
+    /**
      * السلسلة اليومية: صف لكل يوم في النطاق (أيام بلا طلبات تظهر بصفر لا بفجوة).
      * كل صف: {date:Y-m-d, orders:int, net_sales:string} بتوقيت القاهرة.
      *
@@ -152,6 +220,103 @@ class FinanceReportService
             }
 
             return $series;
+        });
+    }
+
+    /**
+     * الشحن وربح المساهمة (المرحلة ٣).
+     *
+     * هامش الشحن يُحسب فقط على الطلبات المحقّقة معروفة تكلفة الشركة (carrier_cost
+     * غير NULL): المحصَّل من العميل ناقص المدفوع للشركة. الطلبات بلا تكلفة شركة
+     * (تاريخية أو لم تصل فاتورتها) تُعدّ في orders_carrier_unknown وتُستبعد.
+     *
+     * ربح المساهمة يُحسب على التقاطع الصارم: طلبات معروفة تكلفة بضاعتها بالكامل
+     * **و** تكلفة شركتها = (صافي المبيعات + الشحن المحصَّل) − COGS − تكلفة الشركة.
+     * نُدرج الشحن المحصَّل عمدًا: هو إيراد يقابل تكلفة الشركة، فطرح التكلفة دون
+     * إيرادها يُنقص الرقم بمقدار الشحن (يجعل المساهمة = مجمل الربح + هامش الشحن).
+     * لا نجمع سكانًا مختلفة (سلامة السكان التي أوجبتها المراجعة العدائية).
+     *
+     * @return array{
+     *   carrier_cost:string, shipping_charged:string, shipping_margin:?string,
+     *   orders_carrier_known:int, orders_carrier_unknown:int,
+     *   contribution:?string, orders_contribution:int
+     * }
+     */
+    public function shipping(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        return $this->remember('shipping', $from, $to, function () use ($from, $to): array {
+            [$start, $end] = $this->utcBounds($from, $to);
+
+            $carrierKnown = fn () => Order::query()
+                ->realisedRevenue()
+                ->whereBetween('created_at', [$start, $end])
+                ->whereNotNull('carrier_cost');
+
+            $ship = $carrierKnown()
+                ->selectRaw('COALESCE(SUM(shipping_total),0) AS charged')
+                ->selectRaw('COALESCE(SUM(carrier_cost),0) AS carrier')
+                ->selectRaw('COUNT(*) AS orders')
+                ->first();
+
+            $charged = $this->money($ship->charged ?? 0);
+            $carrier = $this->money($ship->carrier ?? 0);
+            $knownCount = (int) ($ship->orders ?? 0);
+
+            $unknownCarrier = Order::query()
+                ->realisedRevenue()
+                ->whereBetween('created_at', [$start, $end])
+                ->whereNull('carrier_cost')
+                ->count();
+
+            $shippingMargin = $knownCount > 0 ? $this->money(bcsub($charged, $carrier, 2)) : null;
+
+            // التقاطع: معروفة التكلفة بالكامل + معروفة تكلفة الشركة.
+            $contribOrders = fn () => Order::query()
+                ->realisedRevenue()
+                ->whereBetween('created_at', [$start, $end])
+                ->whereNotNull('carrier_cost')
+                ->whereHas('items')
+                ->whereDoesntHave('items', fn ($q) => $q->whereNull('unit_cost'));
+
+            $contribAgg = $contribOrders()
+                ->selectRaw('COALESCE(SUM(subtotal - discount_total),0) AS net')
+                ->selectRaw('COALESCE(SUM(shipping_total),0) AS shipping')
+                ->selectRaw('COALESCE(SUM(carrier_cost),0) AS carrier')
+                ->selectRaw('COUNT(*) AS orders')
+                ->first();
+
+            $contribCount = (int) ($contribAgg->orders ?? 0);
+            $contribution = null;
+
+            if ($contribCount > 0) {
+                $contribCogs = (string) OrderItem::query()
+                    ->whereHas('order', function ($q) use ($start, $end): void {
+                        $q->realisedRevenue()
+                            ->whereBetween('created_at', [$start, $end])
+                            ->whereNotNull('carrier_cost')
+                            ->whereHas('items')
+                            ->whereDoesntHave('items', fn ($i) => $i->whereNull('unit_cost'));
+                    })
+                    ->sum('line_cost');
+
+                // (صافي + شحن محصَّل) − COGS − تكلفة الشركة، على مجموعة التقاطع.
+                $revenue = bcadd((string) ($contribAgg->net ?? '0'), (string) ($contribAgg->shipping ?? '0'), 2);
+                $contribution = $this->money(bcsub(
+                    bcsub($revenue, $this->money($contribCogs), 2),
+                    $this->money($contribAgg->carrier ?? 0),
+                    2,
+                ));
+            }
+
+            return [
+                'carrier_cost' => $carrier,
+                'shipping_charged' => $charged,
+                'shipping_margin' => $shippingMargin,
+                'orders_carrier_known' => $knownCount,
+                'orders_carrier_unknown' => $unknownCarrier,
+                'contribution' => $contribution,
+                'orders_contribution' => $contribCount,
+            ];
         });
     }
 

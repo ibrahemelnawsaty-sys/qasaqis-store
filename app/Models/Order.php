@@ -35,6 +35,8 @@ class Order extends Model
         'subtotal',
         'discount_total',
         'shipping_total',
+        // تكلفة الشحن المدفوعة للشركة (م٣) — تُدخل وقت الشحن، محميّة ماليًا.
+        'carrier_cost',
         'grand_total',
         'coupon_id',
         'coupon_code',
@@ -58,6 +60,7 @@ class Order extends Model
             'subtotal' => 'decimal:2',
             'discount_total' => 'decimal:2',
             'shipping_total' => 'decimal:2',
+            'carrier_cost' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'whatsapp_confirmed_at' => 'datetime',
             // ختم استرجاع المخزون (M2). ليس في $fillable عمدًا — يُضبط خادميًا

@@ -14,8 +14,10 @@ class OrderItem extends Model
         'book_id',
         'book_title',
         'unit_price',
+        'unit_cost',
         'quantity',
         'line_total',
+        'line_cost',
     ];
 
     /**
@@ -25,7 +27,10 @@ class OrderItem extends Model
     {
         return [
             'unit_price' => 'decimal:2',
+            // التكلفة تبقى nullable-safe: الصبّ لا يحوّل null إلى 0 (الدستور 0.4).
+            'unit_cost' => 'decimal:2',
             'line_total' => 'decimal:2',
+            'line_cost' => 'decimal:2',
         ];
     }
 

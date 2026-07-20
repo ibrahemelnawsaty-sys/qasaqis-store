@@ -207,23 +207,49 @@ class ViewOrder extends ViewRecord
             ->icon('heroicon-o-truck')
             ->color('primary')
             ->visible(fn (): bool => auth()->user()?->can('orders.ship') === true)
+            // لا نُغذّي carrier_cost في حالة النموذج إلا لمن يملك الصلاحية المالية:
+            // ->visible يُخفي الحقل من العرض فقط، بينما fillForm يبثّ القيمة في
+            // mountedActionsData (خاصية Livewire عامة تُرسَل للمتصفح)، فيتسرّب رغم
+            // إخفاء الحقل. البوابة على المصدر تمنع البثّ من أصله (الدستور 4.4).
             ->fillForm(fn (): array => [
                 'shipping_company' => $this->record->shipping_company,
                 'tracking_number' => $this->record->tracking_number,
-            ])
+            ] + (auth()->user()?->can('orders.view_financials') === true
+                ? ['carrier_cost' => $this->record->carrier_cost]
+                : []))
             ->form([
                 TextInput::make('shipping_company')->label('شركة الشحن')->maxLength(50),
                 TextInput::make('tracking_number')->label('رقم التتبّع')->maxLength(80),
+                // تكلفة الشحن للشركة (م٣): حقل ماليّ سرّي، مرئي فقط لمن يملك
+                // orders.view_financials (لا orders.ship وحدها). فارغ = لم تُدخَل بعد.
+                TextInput::make('carrier_cost')
+                    ->label('تكلفة الشحن المدفوعة للشركة (ج.م)')
+                    ->helperText('ما يُدفع لشركة الشحن — لحساب هامش الشحن. اتركيه فارغًا حتى تصل الفاتورة.')
+                    ->numeric()
+                    ->minValue(0)
+                    ->visible(fn (): bool => auth()->user()?->can('orders.view_financials') === true),
             ])
             ->action(function (array $data): void {
                 abort_unless(auth()->user()?->can('orders.ship') === true, 403);
 
                 $previousTracking = $this->record->tracking_number;
 
-                $this->record->forceFill([
+                $fields = [
                     'shipping_company' => $data['shipping_company'] ?? null,
                     'tracking_number' => $data['tracking_number'] ?? null,
-                ])->save();
+                ];
+
+                // تحقّق خادميّ: التكلفة تُكتب فقط إن كان الفاعل يملك الصلاحية المالية،
+                // فلا يحقنها من لا يراها عبر طلب مُلفَّق (الدستور 4.1/4.4). القيمة
+                // الفارغة تبقى NULL (لم تُدخَل) لا صفرًا.
+                if (auth()->user()?->can('orders.view_financials') === true) {
+                    $carrier = $data['carrier_cost'] ?? null;
+                    $fields['carrier_cost'] = ($carrier === null || $carrier === '')
+                        ? null
+                        : (string) $carrier;
+                }
+
+                $this->record->forceFill($fields)->save();
 
                 // إشعار العميل بالشحن عند تعيين/تغيير رقم تتبّع فعلي فقط (M4) —
                 // كي لا يتكرّر الإشعار عند أي حفظ لبيانات الشحن.
