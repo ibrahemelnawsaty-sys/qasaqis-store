@@ -8,6 +8,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     @php
         $money = fn ($v) => number_format((float) $v, 0);
@@ -23,6 +24,29 @@
             'failed', 'refunded' => 'bad',
             default => 'wait',
         };
+
+        // ── الخط الزمني: رحلة الطلب ──────────────────────────────────────────
+        // أوقات حقيقية فقط: خريطة to_status → آخر created_at من سجل التاريخ
+        // (append-only). لا نُختلق وقتًا لخطوة لم تُسجَّل — نعرض الوقت حين نملكه.
+        $stamp = $order->statusHistories
+            ->sortBy('created_at')
+            ->groupBy('to_status')
+            ->map(fn ($rows) => $rows->last()->created_at);
+
+        $isNegative = in_array($order->status, ['cancelled', 'refused', 'refunded'], true);
+
+        // رُتبة الحالة على المسار السعيد؛ completed يُعامَل كـ delivered (وصل).
+        $rank = ['pending' => 0, 'confirmed' => 1, 'processing' => 2, 'shipped' => 3, 'delivered' => 4, 'completed' => 4];
+        $currentRank = $rank[$order->status] ?? 0;
+
+        // المعالم الخمسة المرئية للعميلة (المسار السعيد).
+        $milestones = [
+            ['key' => 'pending',    'emoji' => '📥', 'label' => __('account.order.timeline.received')],
+            ['key' => 'confirmed',  'emoji' => '✅', 'label' => __('account.order.timeline.confirmed')],
+            ['key' => 'processing', 'emoji' => '📦', 'label' => __('account.order.timeline.processing')],
+            ['key' => 'shipped',    'emoji' => '🚚', 'label' => __('account.order.timeline.shipped')],
+            ['key' => 'delivered',  'emoji' => '🎉', 'label' => __('account.order.timeline.delivered')],
+        ];
 
         // زرّ رفع الإثبات يظهر فقط حين تستدعيه الحالة ويكون الرابط الموقّع مولَّدًا
         // خادميًا — لا يُبنى رابط موقّع من داخل القالب.
@@ -59,6 +83,50 @@
             <div class="co-head">
                 <h1>{{ __('account.order.heading') }}</h1>
                 <p class="co-mono">{{ $order->order_number }}</p>
+            </div>
+
+            {{-- رحلة الطلب: قلب الصفحة — أين وصل طلبكِ الآن وما الخطوة التالية.
+                 أوقاتٌ حقيقية من سجل التاريخ فقط؛ الخطوات القادمة بلا وقت. --}}
+            <div class="co-card">
+                <h2><span class="n" aria-hidden="true">🗺️</span>{{ __('account.order.timeline.title') }}</h2>
+
+                <ol class="acc-tl">
+                    @if ($isNegative)
+                        {{-- مسار متوقّف: استلام ثم حالة نهائية سلبية، بلا خطوات لاحقة وهمية --}}
+                        <li class="done">
+                            <span class="nd" aria-hidden="true">✓</span>
+                            <div class="tl-lbl">{{ __('account.order.timeline.received') }}</div>
+                            @if ($order->created_at)
+                                <div class="tl-time">{{ $order->created_at->translatedFormat('Y/m/d — H:i') }}</div>
+                            @endif
+                        </li>
+                        <li class="bad active">
+                            <span class="nd" aria-hidden="true">⚠️</span>
+                            <div class="tl-lbl">{{ __('payment.status.' . $order->status) }}</div>
+                            @if ($stamp[$order->status] ?? null)
+                                <div class="tl-time">{{ $stamp[$order->status]->translatedFormat('Y/m/d — H:i') }}</div>
+                            @endif
+                        </li>
+                    @else
+                        @foreach ($milestones as $i => $m)
+                            @php
+                                $state = $i < $currentRank ? 'done' : ($i === $currentRank ? 'active' : 'upcoming');
+                                // وقت حقيقي فقط: الاستلام من created_at، وبقية المعالم من سجل
+                                // التاريخ (delivered يقبل ختم completed). القادم بلا وقت.
+                                $t = $m['key'] === 'pending'
+                                    ? $order->created_at
+                                    : ($stamp[$m['key']] ?? ($m['key'] === 'delivered' ? ($stamp['completed'] ?? null) : null));
+                            @endphp
+                            <li class="{{ $state }}">
+                                <span class="nd" aria-hidden="true">{{ $state === 'done' ? '✓' : $m['emoji'] }}</span>
+                                <div class="tl-lbl">{{ $m['label'] }}</div>
+                                @if ($state !== 'upcoming' && $t)
+                                    <div class="tl-time">{{ $t->translatedFormat('Y/m/d — H:i') }}</div>
+                                @endif
+                            </li>
+                        @endforeach
+                    @endif
+                </ol>
             </div>
 
             {{-- حالة الطلب --}}
