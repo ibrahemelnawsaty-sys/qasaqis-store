@@ -135,6 +135,7 @@ class PaymentMethodResource extends Resource
                         ->inline(false),
                     Textarea::make('instructions')
                         ->label('تعليمات للعميل')
+                        ->helperText('شرح مختصر لطريقة الدفع. ضع الرابط ورقم المحفظة والعنوان في «بيانات الحساب» أدناه — تظهر للعميل كزرّ دفع وحقول نسخ لا نصًّا عاديًا.')
                         ->maxLength(1000)
                         ->columnSpanFull(),
                 ])
@@ -148,8 +149,10 @@ class PaymentMethodResource extends Resource
                     // Filament does not dehydrate it, so existing values are preserved.
                     KeyValue::make('account_details')
                         ->label('بيانات الحساب')
-                        ->keyLabel('المفتاح')
+                        ->keyLabel('العنصر (مثل: رابط الدفع، رقم المحفظة، عنوان الحساب)')
                         ->valueLabel('القيمة')
+                        ->helperText('كل قيمة تبدأ بـ http تظهر للعميل كزرّ «ادفع الآن»، وغيرها كحقل يُنسخ بضغطة. مثال: «رابط الدفع» ← https://ipn.eg/... و«رقم المحفظة» ← 01xxxxxxxxx.')
+                        ->addActionLabel('إضافة عنصر')
                         ->disabled(! $canManageAccounts),
                 ]),
 

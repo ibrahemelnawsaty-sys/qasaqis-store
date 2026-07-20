@@ -55,19 +55,9 @@
                     <div class="val">{{ $money2($order->grand_total) }} <span style="font-size:.5em">{{ __('common.currency') }}</span></div>
                 </div>
 
-                @if ($method && filled($method->instructions))
-                    <p style="font-size:14.5px;line-height:1.8;color:var(--ink-soft)">{{ $method->instructions }}</p>
-                @endif
-
-                @if ($method && filled($method->account_details))
-                    <h3 style="font-weight:900;font-size:14.5px;margin:16px 0 4px">{{ __('checkout.payment.account_details') }}</h3>
-                    <dl class="co-dl">
-                        @foreach ($method->account_details as $label => $value)
-                            <dt>{{ is_string($label) ? $label : '' }}</dt>
-                            <dd>{{ is_array($value) ? implode(' — ', $value) : $value }}</dd>
-                        @endforeach
-                    </dl>
-                @endif
+                {{-- تعليمات الدفع الاحترافية: زرّ الرابط + نسخ العنوان/الرقم بضغطة.
+                     يقرأ account_details المنظّم، ويستخرج من نصّ التعليمات احتياطيًّا. --}}
+                @include('partials.payment-details', ['method' => $method])
 
                 <p class="co-hint" style="margin-top:14px">💡 {{ __('checkout.payment.reference_hint') }}</p>
             </div>
