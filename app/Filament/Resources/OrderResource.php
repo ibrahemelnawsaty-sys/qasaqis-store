@@ -5,21 +5,28 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
+use App\Filament\Pages\PickList;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\Order;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Support\Export\OrderCsvExporter;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\LazyCollection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Orders & manual-payment review for «قصاقيص أطفال» (group: الطلبات والدفع).
@@ -121,6 +128,16 @@ class OrderResource extends Resource
         return false;
     }
 
+    /**
+     * صلاحية تصدير الطلبات — orders.export، المعرَّفة فعلًا في RolePermissionSeeder
+     * ويملكها super_admin و admin و orders_manager. تمرّ عبر الـ Gate كبقية فحوص
+     * HasResourcePermissions، فيسري تجاوز super_admin تلقائيًا.
+     */
+    public static function canExport(): bool
+    {
+        return static::userCan('export');
+    }
+
     public static function getNavigationBadge(): ?string
     {
         // Manual-payment review queue size (docs/04 §6.2). Cheap: payment_status
@@ -195,7 +212,117 @@ class OrderResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make()->label('عرض'),
             ])
-            ->bulkActions([]);
+            // إجراءان قرائيان فقط: تصدير CSV وقائمة تجهيز للطباعة. لا إجراء جماعي
+            // يعدّل أو يحذف طلبًا — الطفرات تبقى حصرًا في صفحة العرض المحمية.
+            ->bulkActions([
+                self::exportCsvBulkAction(),
+                self::pickListBulkAction(),
+            ]);
+    }
+
+    /**
+     * تصدير الطلبات المحدَّدة إلى CSV بترميز UTF-8 مع BOM (يفتحه إكسل العربي مباشرة).
+     *
+     * الصلاحية orders.export مفروضة طبقتين، وكلتاهما خادمية (بند 4.4 / ممنوع 13):
+     *   ١) ->visible() ليست إخفاءً واجهيًا فحسب: Filament\Actions\Concerns\
+     *      CanBeDisabled::isDisabled() يعيد true لكل إجراء مخفي، و
+     *      HasBulkActions::mountTableBulkAction() يخرج عنده — فالاستدعاء المباشر
+     *      من عميل مُعدَّل لا يُنفّذ الإجراء أصلًا (متحقَّق منه بقراءة الحزمة).
+     *   ٢) abort_unless داخل ->action() — الفحص عند نقطة الفعل نفسها، يبقى صحيحًا
+     *      لو تغيّر شرط ->visible() لاحقًا أو استُدعي الإجراء من مسار آخر.
+     */
+    protected static function exportCsvBulkAction(): Tables\Actions\BulkAction
+    {
+        return Tables\Actions\BulkAction::make('exportCsv')
+            ->label('تصدير CSV')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('gray')
+            ->visible(fn (): bool => self::canExport())
+            ->action(function (EloquentCollection $records): ?StreamedResponse {
+                abort_unless(self::canExport(), 403);
+
+                $ids = $records->modelKeys();
+
+                if ($ids === []) {
+                    Notification::make()->title('لم تُحدَّد طلبات للتصدير')->warning()->send();
+
+                    return null;
+                }
+
+                if (count($ids) > OrderCsvExporter::MAX_ORDERS) {
+                    Notification::make()
+                        ->title('عدد الطلبات المحدَّدة أكبر من حدّ التصدير')
+                        ->body('الحد الأقصى '.OrderCsvExporter::MAX_ORDERS.' طلب في المرة الواحدة. ضيّقي النطاق بالفلاتر ثم أعيدي المحاولة.')
+                        ->danger()
+                        ->send();
+
+                    return null;
+                }
+
+                // تصدير بيانات عملاء (اسم/هاتف/عنوان) — عملية حسّاسة تُسجَّل (بند 4.7).
+                Log::info('orders.exported', [
+                    'count' => count($ids),
+                    'actor_id' => auth()->id(),
+                ]);
+
+                $exporter = new OrderCsvExporter;
+
+                return response()->streamDownload(
+                    function () use ($ids, $exporter): void {
+                        $handle = fopen('php://output', 'wb');
+                        $exporter->write($handle, self::exportQuery($ids));
+                        fclose($handle);
+                    },
+                    $exporter->filename(),
+                    ['Content-Type' => 'text/csv; charset=UTF-8'],
+                );
+            });
+    }
+
+    /**
+     * فتح «قائمة التجهيز» للطلبات المحدَّدة. الإجراء لا يقرأ ولا يكتب بيانات، بل
+     * يوجّه إلى الصفحة حاملًا المعرّفات؛ الصفحة نفسها تتحقّق من orders.view وتعيد
+     * التحقّق من كل معرّف عبر استعلام المورد.
+     */
+    protected static function pickListBulkAction(): Tables\Actions\BulkAction
+    {
+        return Tables\Actions\BulkAction::make('pickList')
+            ->label('قائمة التجهيز')
+            ->icon('heroicon-o-clipboard-document-list')
+            ->color('primary')
+            ->visible(fn (): bool => PickList::canAccess())
+            ->action(function (EloquentCollection $records): void {
+                abort_unless(PickList::canAccess(), 403);
+
+                $ids = array_slice($records->modelKeys(), 0, PickList::MAX_ORDERS);
+
+                if ($ids === []) {
+                    Notification::make()->title('لم تُحدَّد طلبات')->warning()->send();
+
+                    return;
+                }
+
+                // داخل Livewire يُستبدَل مُوجِّه Laravel بمُوجِّه Livewire الذي يسجّل
+                // التوجيه على المكوّن (Livewire\Features\SupportRedirects\Redirector).
+                redirect()->to(PickList::getUrl(['orders' => implode(',', $ids)]));
+            });
+    }
+
+    /**
+     * استعلام التصدير: كسول ومقطّع بـ lazyById فلا تُحمَّل كل الطلبات في الذاكرة
+     * دفعة واحدة، ومع تحميل مسبق للبنود منعًا لـ N+1 (بند 2.5). يمرّ بـ
+     * getEloquentQuery() فيرث حذف السجلات المؤرشفة (SoftDeletes) وأي تضييق نطاق
+     * يُضاف للمورد لاحقًا.
+     *
+     * @param  list<int>  $ids
+     * @return LazyCollection<int, Order>
+     */
+    protected static function exportQuery(array $ids): LazyCollection
+    {
+        return static::getEloquentQuery()
+            ->whereKey($ids)
+            ->with(['items' => fn ($query) => $query->orderBy('id')])
+            ->lazyById(200);
     }
 
     public static function infolist(Infolist $infolist): Infolist
