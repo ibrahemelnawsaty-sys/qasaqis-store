@@ -62,6 +62,18 @@ class UnifiedLoginTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_customer_logs_in_by_email_and_lands_on_dashboard(): void
+    {
+        $customer = $this->customer();
+        $customer->update(['email' => 'ummyousef@example.com']);
+
+        $this->post(route('login.store'), ['identifier' => 'ummyousef@example.com', 'password' => self::PW])
+            ->assertRedirect(route('customer.dashboard'));
+
+        $this->assertAuthenticatedAs($customer, 'customer');
+        $this->assertGuest('web');
+    }
+
     public function test_admin_logs_in_by_email_and_lands_on_admin_panel(): void
     {
         $admin = $this->admin();

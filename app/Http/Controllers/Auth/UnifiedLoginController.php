@@ -74,6 +74,7 @@ final class UnifiedLoginController extends Controller
         $this->ensureNotRateLimited($request, $key);
 
         if ($isEmail) {
+            // 1) الأدمن (web) بالبريد.
             if (Auth::guard('web')->attempt(['email' => $identifier, 'password' => $password], $remember)) {
                 $user = Auth::guard('web')->user();
 
@@ -86,6 +87,15 @@ final class UnifiedLoginController extends Controller
 
                 // مصادقة صحيحة لكن بلا صلاحية لوحة — نُسقط الجلسة ونعامله كفشل موحّد.
                 Auth::guard('web')->logout();
+            }
+
+            // 2) العميل بالبريد: عمود email فريد على customers، والاستعادة تتم بالبريد،
+            //    فمن الطبيعي أن تدخل العميلة ببريدها أو بجوالها.
+            if (Auth::guard('customer')->attempt(['email' => $identifier, 'password' => $password], $remember)) {
+                RateLimiter::clear($key);
+                $request->session()->regenerate();
+
+                return redirect()->intended(route('customer.dashboard'));
             }
         } elseif ($normalizedPhone !== ''
             && Auth::guard('customer')->attempt(['phone_normalized' => $normalizedPhone, 'password' => $password], $remember)) {
