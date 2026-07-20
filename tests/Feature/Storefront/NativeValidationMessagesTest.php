@@ -23,9 +23,11 @@ final class NativeValidationMessagesTest extends TestCase
         $response = $this->get(route('home'));
 
         $response->assertOk();
-        // الرسالة العربية لخانة فارغة موجودة في مصدر الصفحة (تُحقَن عبر setCustomValidity).
+        // الرسالة العربية لخانة فارغة موجودة في مصدر الصفحة (سمة data).
         $response->assertSee('لا يمكن تركها فارغة', false);
-        $response->assertSee('setCustomValidity', false);
+        // تُعرض كعنصر داخل الصفحة (field-err) لا كفقاعة متصفح — تظهر على الجوال.
+        $response->assertSee('field-err', false);
+        $response->assertSee('preventDefault', false);
     }
 
     public function test_the_messages_reach_the_checkout_form_page(): void
