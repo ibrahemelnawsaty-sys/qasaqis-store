@@ -23,10 +23,15 @@
         return null;
     };
 
+    // العميلة المسجّلة ترى قائمة حسابها (location=header_customer)، والزائرة ترى قائمة
+    // الترويسة العامة (location=header). كلاهما يحرّره الأدمن من «القوائم» بلا كود.
+    $isCustomerNav = auth('customer')->check();
+    $navMenuLocation = $isCustomerNav ? 'header_customer' : 'header';
+
     $headerMenu = rescue(
         fn () => \App\Models\Menu::query()
             ->where('is_active', true)
-            ->where('location', 'header')
+            ->where('location', $navMenuLocation)
             ->with([
                 'items' => fn ($q) => $q->where('is_active', true),
                 'items.linkable',
@@ -38,9 +43,10 @@
 
     $headerMenuItems = $headerMenu?->items ?? collect();
 
-    // خيار من إعدادات قائمة الترويسة: إظهار روابط الأقسام تلقائيًا أم لا.
-    // الافتراضي true (وكذلك قبل تشغيل الهجرة، إذ يعود العمود غير موجود بقيمة null).
-    $showNavCategories = $headerMenu?->show_categories ?? true;
+    // خيار من إعدادات القائمة: إظهار روابط الأقسام تلقائيًا. الافتراضي في نمط الزائرة
+    // true (وكذلك قبل تشغيل الهجرة، إذ يعود العمود غير موجود بقيمة null)، أما شريط
+    // العميلة فيبقى مركّزًا على حسابها ما لم يُفعّل الأدمن الأقسام في قائمتها.
+    $showNavCategories = $headerMenu?->show_categories ?? ! $isCustomerNav;
 
     // روابط شريط التنقّل: تُبنى من قائمة الهيدر في الأدمن (بعد استبعاد ما لا يُحلّ رابطه).
     // إن لم تُنشأ قائمة header أصلًا نرجع للروابط الافتراضية أدناه، فلا تختفي الملاحة.
@@ -53,6 +59,13 @@
         ])
         ->filter(fn (array $l): bool => filled($l['url']))
         ->values();
+
+    // شريط العميلة الافتراضي (قائمة أدمن غائبة أو فارغة الروابط) يبقى مركّزًا على
+    // حسابها: لا تُلحق الأقسام حتى لو كانت show_categories على افتراضها true في قائمة
+    // header_customer فارغة أنشأها الأدمن سهوًا.
+    if ($isCustomerNav && $stripLinks->isEmpty()) {
+        $showNavCategories = false;
+    }
 @endphp
 
 @once
@@ -260,8 +273,31 @@
                         {{ $link['label'] }}
                     </a>
                 @endforeach
+            @elseif ($isCustomerNav)
+                {{-- افتراضي شريط العميلة (حين لا توجد قائمة header_customer في الأدمن):
+                     تنقّل حسابها — يحرّره الأدمن لاحقًا من «القوائم». --}}
+                <a class="catlink" href="{{ route('books.index') }}"
+                    @if (request()->routeIs('books.index')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">🏪</span> {{ __('nav.shop') }}
+                </a>
+                <a class="catlink" href="{{ route('customer.orders.index') }}"
+                    @if (request()->routeIs('customer.orders.*')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">📦</span> {{ __('nav.orders') }}
+                </a>
+                <a class="catlink" href="{{ route('cart.show') }}"
+                    @if (request()->routeIs('cart.*')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">🛒</span> {{ __('nav.my_cart') }}
+                </a>
+                <a class="catlink" href="{{ route('customer.profile.edit') }}"
+                    @if (request()->routeIs('customer.profile.*')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">📝</span> {{ __('nav.profile') }}
+                </a>
+                <a class="catlink" href="{{ route('customer.dashboard') }}"
+                    @if (request()->routeIs('customer.dashboard')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">👤</span> {{ __('nav.account') }}
+                </a>
             @else
-                {{-- افتراضي: تظهر فقط حين لا توجد قائمة header في الأدمن --}}
+                {{-- افتراضي الزائرة: تظهر فقط حين لا توجد قائمة header في الأدمن --}}
                 <a class="catlink" href="{{ route('books.index') }}"
                     @if (request()->routeIs('books.index')) aria-current="page" @endif>
                     <span class="e" aria-hidden="true">🧸</span> {{ __('nav.all_books') }}
@@ -340,6 +376,12 @@
                         @if (filled($link['icon'])){{ $link['icon'] }} @else 🔗 @endif{{ $link['label'] }}
                     </a>
                 @endforeach
+            @elseif ($isCustomerNav)
+                <a href="{{ route('books.index') }}">🏪 {{ __('nav.shop') }}</a>
+                <a href="{{ route('customer.orders.index') }}">📦 {{ __('nav.orders') }}</a>
+                <a href="{{ route('cart.show') }}">🛒 {{ __('nav.my_cart') }}</a>
+                <a href="{{ route('customer.profile.edit') }}">📝 {{ __('nav.profile') }}</a>
+                <a href="{{ route('customer.dashboard') }}">👤 {{ __('nav.account') }}</a>
             @else
                 <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
                 <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>

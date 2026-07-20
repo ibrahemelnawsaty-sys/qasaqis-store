@@ -42,11 +42,11 @@
 
             @include('partials.account-header')
 
-            <p style="margin-bottom:10px">
-                <a href="{{ route('customer.dashboard') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">
-                    <span aria-hidden="true">←</span> {{ __('account.nav.dashboard') }}
+            <div class="acc-backwrap">
+                <a class="acc-back" href="{{ route('customer.dashboard') }}">
+                    <span class="ar" aria-hidden="true">←</span> {{ __('account.nav.dashboard') }}
                 </a>
-            </p>
+            </div>
 
             @if (session('status'))
                 <div class="co-alert ok" role="status">
