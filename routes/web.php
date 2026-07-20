@@ -12,6 +12,7 @@ use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Auth\UnifiedLoginController;
+use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -43,6 +44,13 @@ Route::get('/login', [UnifiedLoginController::class, 'show'])->name('login');
 Route::post('/login', [UnifiedLoginController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('login.store');
+
+// إلغاء الاشتراك من الحملات (التوكن السرّي هو المفتاح — لا جلسة). عامّ خارج أي حارس.
+// مسار store مُعفى من CSRF في bootstrap/app.php ليخدم نقرة One-Click من Gmail/Yahoo.
+Route::get('/email/unsubscribe/{token}', [EmailUnsubscribeController::class, 'show'])
+    ->name('email.unsubscribe.show');
+Route::post('/email/unsubscribe/{token}', [EmailUnsubscribeController::class, 'store'])
+    ->name('email.unsubscribe.store');
 
 // SEO تقني: خريطة موقع ديناميكية (مخزّنة مؤقتًا ساعة) + روبوتس احتياطي.
 // في الإنتاج يخدم public/robots.txt الساكن أولًا؛ يبقى المسار عاملًا حين يغيب.

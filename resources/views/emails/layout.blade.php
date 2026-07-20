@@ -56,6 +56,15 @@
             .qa-outer-foot{color:#9C90B4 !important;}
         }
         [data-ogsc] .qa-bg{background:#171021 !important;}
+        /* محتوى الحملات (RichEditor + معقَّم بلا أنماط سطرية): يأخذ شكله من هنا */
+        .qa-rich h2{font-size:20px;font-weight:800;color:#54228A;line-height:1.5;margin:0 0 12px;}
+        .qa-rich h3{font-size:16px;font-weight:800;color:#6E2FB0;line-height:1.6;margin:18px 0 8px;}
+        .qa-rich p{margin:0 0 14px;}
+        .qa-rich a{color:#6E2FB0 !important;font-weight:700;text-decoration:underline;}
+        .qa-rich ul,.qa-rich ol{margin:0 0 14px;padding-inline-start:22px;}
+        .qa-rich li{margin:0 0 6px;}
+        .qa-rich blockquote{margin:0 0 16px;padding:12px 16px;background:#f0e6fa;border-inline-start:4px solid #6E2FB0;border-radius:8px;color:#4a3d5c;}
+        .qa-rich strong{color:#372a46;}
     </style>
 </head>
 <body class="qa-bg" style="margin:0;padding:0;background:#F5F1EA;font-family:'Segoe UI',Tahoma,Arial,'Helvetica Neue',Helvetica,sans-serif;color:#372A46;">

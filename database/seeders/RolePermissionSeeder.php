@@ -45,6 +45,8 @@ class RolePermissionSeeder extends Seeder
         'popups.view', 'popups.manage', 'surveys.manage',
         'referrals.manage',
         'seo.view', 'seo.edit', 'seo.technical.manage',
+        // الحملات البريدية: عرض السجل، الإرسال، وإدارة قائمة الحظر (إلغاء الاشتراك).
+        'campaigns.view', 'campaigns.send', 'campaigns.suppressions.manage',
         // 3.4 Orders & payment.
         'orders.view', 'orders.view_financials', 'orders.update_status',
         'orders.ship', 'orders.cancel', 'orders.refund', 'orders.export',
@@ -99,7 +101,7 @@ class RolePermissionSeeder extends Seeder
                     'homepage', 'pages', 'menus', 'banners', 'media',
                     'coupons', 'popups', 'surveys', 'referrals',
                     'orders', 'payment_proof', 'reviews', 'comments', 'inquiries',
-                    'shipping',
+                    'shipping', 'campaigns',
                 ]),
                 [
                     'seo.view', 'seo.edit',
@@ -149,7 +151,7 @@ class RolePermissionSeeder extends Seeder
 
             // Marketing & SEO only.
             'marketing' => array_merge(
-                $byPrefix(['coupons', 'popups']),
+                $byPrefix(['coupons', 'popups', 'campaigns']),
                 [
                     'surveys.manage', 'referrals.manage',
                     'banners.manage', 'sliders.manage',
