@@ -59,6 +59,13 @@
         ])
         ->filter(fn (array $l): bool => filled($l['url']))
         ->values();
+
+    // شريط العميلة الافتراضي (قائمة أدمن غائبة أو فارغة الروابط) يبقى مركّزًا على
+    // حسابها: لا تُلحق الأقسام حتى لو كانت show_categories على افتراضها true في قائمة
+    // header_customer فارغة أنشأها الأدمن سهوًا.
+    if ($isCustomerNav && $stripLinks->isEmpty()) {
+        $showNavCategories = false;
+    }
 @endphp
 
 @once

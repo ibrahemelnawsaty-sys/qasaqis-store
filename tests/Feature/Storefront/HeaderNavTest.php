@@ -50,6 +50,18 @@ final class HeaderNavTest extends TestCase
         $response->assertSee('بياناتي', false);
     }
 
+    public function test_an_admin_web_user_sees_the_public_strip_not_the_customer_strip(): void
+    {
+        // حارس web (أدمن) ليس عميلة: auth('customer') لا يلتبس به فيرى شريط الزائرة.
+        $admin = \App\Models\User::factory()->create();
+
+        $response = $this->actingAs($admin, 'web')->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('العروض', false);   // شريط الزائرة العام
+        $response->assertDontSee('سلتي', false);  // لا شريط العميلة
+    }
+
     public function test_the_admin_can_override_the_customer_strip_via_a_menu(): void
     {
         $customer = Customer::factory()->create();

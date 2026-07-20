@@ -16,11 +16,12 @@
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .acc-idbar span{ display:block; font-size:.74rem; color:var(--ink-soft); }
 
-        /* زرّ الرجوع — حبّة أنيقة تُحاذى إلى اليسار (حتى في RTL) بسهم يومئ لليسار */
-        .acc-backwrap{ text-align:left; margin-bottom:12px; }
-        .acc-back{ display:inline-flex; align-items:center; gap:7px; font-size:.82rem; font-weight:800;
-            color:var(--ink-soft); text-decoration:none; background:var(--surface); border:1px solid var(--line);
-            border-radius:var(--r-pill); padding:8px 15px; box-shadow:var(--shadow-s);
+        /* زرّ الرجوع — حبّة أنيقة عند نهاية السطر (يسار في RTL) بخاصية منطقية لا
+           left الصلبة (بند 6.2)، ومساحة لمس ≥44px (بند 6.3) بسهم يومئ لليسار. */
+        .acc-backwrap{ text-align:end; margin-bottom:12px; }
+        .acc-back{ display:inline-flex; align-items:center; gap:7px; min-height:44px; font-size:.82rem;
+            font-weight:800; color:var(--ink-soft); text-decoration:none; background:var(--surface);
+            border:1px solid var(--line); border-radius:var(--r-pill); padding:8px 16px; box-shadow:var(--shadow-s);
             transition:color .15s ease, border-color .15s ease, background .15s ease; }
         .acc-back:hover{ color:var(--purple); border-color:var(--purple); background:var(--surface-soft); }
         .acc-back .ar{ display:inline-flex; transition:transform .15s ease; }

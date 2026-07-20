@@ -112,6 +112,13 @@ class MenuResource extends Resource
                 Tables\Columns\TextColumn::make('location')
                     ->label('الموقع')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'header' => 'الترويسة — الزائرة',
+                        'header_customer' => 'الترويسة — بعد الدخول',
+                        'footer' => 'التذييل',
+                        'mobile' => 'الموبايل',
+                        default => $state,
+                    })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('allItems_count')
                     ->counts('allItems')
