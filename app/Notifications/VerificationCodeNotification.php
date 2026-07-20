@@ -30,13 +30,14 @@ class VerificationCodeNotification extends Notification
     {
         $minutes = (int) config('verification.expiry_minutes', 15);
 
+        // ‎->view()‎ لا ‎->line()‎: الأخيرة تُصيَّر بقالب Laravel الافتراضي العام،
+        // بينما القالب المؤسسي (ترويسة/تذييل) يُستعمل عبر عرض يرث emails.layout —
+        // نفس نمط CustomerOrderNotification/AdminOrderNotification.
         return (new MailMessage)
             ->subject(__('verification.email.subject'))
-            ->greeting(__('verification.email.greeting'))
-            ->line(__('verification.email.intro'))
-            // الكود بارزًا في سطر مستقلّ — panel أوضح من دفنه في نصّ.
-            ->line('## '.$this->code)
-            ->line(__('verification.email.expiry', ['minutes' => $minutes]))
-            ->line(__('verification.email.ignore'));
+            ->view('emails.verification-code', [
+                'code' => $this->code,
+                'minutes' => $minutes,
+            ]);
     }
 }

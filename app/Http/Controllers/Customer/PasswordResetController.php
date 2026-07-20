@@ -163,15 +163,16 @@ final class PasswordResetController extends Controller
 
                 public function toMail(object $notifiable): MailMessage
                 {
+                    // ‎->view()‎ لا سلسلة ‎->line()/->action()‎: القالب الافتراضي عامّ
+                    // (ترويسة نصّية وزر أسود و«If you're having trouble…»). العرض هنا
+                    // يرث emails.layout فيأخذ الترويسة والتذييل المؤسسيين.
                     return (new MailMessage)
                         ->subject(__('account.password.mail.subject'))
-                        ->greeting(__('account.password.mail.greeting', ['name' => $this->name]))
-                        ->line(__('account.password.mail.line_1'))
-                        ->action(__('account.password.mail.action'), $this->url)
-                        ->line(__('account.password.mail.expire', ['count' => $this->expire]))
-                        ->line(__('account.password.mail.line_2'))
-                        // بدل «Regards» الإنجليزية التي يضعها القالب الافتراضي.
-                        ->salutation(__('common.brand'));
+                        ->view('emails.reset-password', [
+                            'name' => $this->name,
+                            'url' => $this->url,
+                            'expire' => $this->expire,
+                        ]);
                 }
             }
         );
