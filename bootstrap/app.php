@@ -4,6 +4,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Sentry\Laravel\Integration;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -13,7 +14,24 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // زائرة غير مسجّلة تفتح صفحة حساب (auth:customer) تُوجَّه لدخول العملاء
+        // لا للمسار الافتراضي 'login' غير المعرَّف (M8/M9). مقصور على مسارات
+        // الحساب؛ ما عداها يبقى على السلوك الافتراضي (لا مسار web-guard محميًّا
+        // في المتجر، ولوحة الأدمن تدير مصادقتها بنفسها عبر Filament).
+        $middleware->redirectGuestsTo(function (Request $request): ?string {
+            if ($request->routeIs('customer.*') || $request->is('account', 'account/*')) {
+                return route('customer.login.show');
+            }
+
+            return null;
+        });
+
+        // نقرة إلغاء الاشتراك (One-Click POST من Gmail/Yahoo) لا تحمل توكن CSRF ولا
+        // كوكي جلسة، فتُعفى وإلا رُفضت بـ419. آمن: التوكن العشوائي (48 حرفًا، فريد)
+        // في الرابط هو السرّ غير القابل للتخمين، والفعل يقتصر على حظر البريد نفسه.
+        $middleware->validateCsrfTokens(except: [
+            'email/unsubscribe/*',
+        ]);
     })
     /*
      | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة:
@@ -46,7 +64,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // يُفرَّغ ما تراكم ثم يتوقف، ويُعاد تشغيله كل دقيقة عبر المُجدول.
         // مهلة قفل قصيرة (دقيقتان > max-time=55ث) كي لا يتجمّد الطابور 24 ساعة
         // إن قُتل العامل قسريًا (OOM/إعادة تشغيل) دون تحرير القفل.
-        $schedule->command('queue:work --stop-when-empty --tries=3 --max-time=55')
+        // يخدم طابورَي default (المعاملات — أولوية) ثم campaigns (البريد الجماعي).
+        $schedule->command('queue:work --queue=default,campaigns --stop-when-empty --tries=3 --max-time=55')
             ->everyMinute()
             ->withoutOverlapping(2);
 

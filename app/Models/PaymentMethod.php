@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PaymentMethod extends Model
 {
+    use \App\Support\Audit\RecordsAdminActivity;
+
     protected $fillable = [
         'code',
         'name',

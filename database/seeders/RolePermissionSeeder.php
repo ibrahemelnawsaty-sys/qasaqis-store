@@ -51,6 +51,8 @@ class RolePermissionSeeder extends Seeder
         'products.cost.view', 'products.cost.update',
         // دفتر المصروفات التشغيلية (م٤ج) — بيانات مالية حسّاسة، صلاحية مستقلة.
         'expenses.view', 'expenses.create', 'expenses.update', 'expenses.delete',
+        // الحملات البريدية: عرض السجل، الإرسال، وإدارة قائمة الحظر (إلغاء الاشتراك).
+        'campaigns.view', 'campaigns.send', 'campaigns.suppressions.manage',
         // 3.4 Orders & payment.
         'orders.view', 'orders.view_financials', 'orders.update_status',
         'orders.ship', 'orders.cancel', 'orders.refund', 'orders.export',
@@ -105,13 +107,15 @@ class RolePermissionSeeder extends Seeder
                     'homepage', 'pages', 'menus', 'banners', 'media',
                     'coupons', 'popups', 'surveys', 'referrals',
                     'orders', 'payment_proof', 'reviews', 'comments', 'inquiries',
-                    'shipping', 'expenses',
+                    'shipping', 'expenses', 'campaigns',
                 ]),
                 [
                     'seo.view', 'seo.edit',
                     'payments.methods.toggle', 'payments.manual_accounts.manage',
                     'users.view', 'users.manage',
                     'settings.view', 'settings.general.edit',
+                    // سجل التدقيق «من غيّر ماذا ومتى» (M8) — المالك/الأدمن يراه.
+                    'system.logs.view',
                 ],
             ),
 
@@ -153,7 +157,7 @@ class RolePermissionSeeder extends Seeder
 
             // Marketing & SEO only.
             'marketing' => array_merge(
-                $byPrefix(['coupons', 'popups']),
+                $byPrefix(['coupons', 'popups', 'campaigns']),
                 [
                     'surveys.manage', 'referrals.manage',
                     'banners.manage', 'sliders.manage',

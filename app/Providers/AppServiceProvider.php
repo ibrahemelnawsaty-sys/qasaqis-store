@@ -9,11 +9,13 @@ use App\Models\Book;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\Order;
+use App\Models\Review;
 use App\Models\Setting;
 use App\Models\User;
 use App\Observers\BookObserver;
 use App\Observers\ExpenseObserver;
 use App\Observers\OrderObserver;
+use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
 use Illuminate\Console\Events\CommandStarting;
@@ -31,7 +33,14 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // قناة كود التحقق (M9) تُحلّ من config/verification.php — الانتقال إلى OTP
+        // الجوال لاحقًا تبديلُ مفتاح + صنف قناة جديد، بلا تعديل الخدمة.
+        $this->app->bind(
+            \App\Support\Verification\VerificationChannel::class,
+            static fn (): \App\Support\Verification\VerificationChannel => match (config('verification.channel', 'email')) {
+                default => new \App\Support\Verification\EmailVerificationChannel,
+            },
+        );
     }
 
     public function boot(): void
@@ -76,6 +85,11 @@ class AppServiceProvider extends ServiceProvider
 
         // إبطال كاش القسم المالي عند تغيّر المصروفات (م٤ج) — مصدر مستقل عن الطلبات.
         Expense::observe(ExpenseObserver::class);
+
+        // يحدّث books.avg_rating و reviews_count عند حفظ/حذف مراجعة أو تغيّر اعتمادها.
+        // كان ReviewObserver غير مسجّل (كودًا ميتًا) فبقي العمودان صفرًا — وهما مصدر
+        // aggregateRating (نجوم البحث) في صفحة الكتاب. هذا السطر يُفعّلهما.
+        Review::observe(ReviewObserver::class);
 
         // Shared data for every storefront view (layout, partials, and the page
         // content section alike). Computed once per request. Wrapped in rescue()

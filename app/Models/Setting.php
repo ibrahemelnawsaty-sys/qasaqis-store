@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Setting extends Model
 {
+    use \App\Support\Audit\RecordsAdminActivity;
+
     protected $fillable = [
         'group',
         'key',

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Storefront;
 use App\Actions\Checkout\PlaceOrderAction;
 use App\Exceptions\CheckoutException;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Country;
@@ -70,6 +71,11 @@ class CheckoutController extends Controller
 
         // المفتاح لا يُنسى هنا عمدًا — انظر CheckoutSession: نسيانه يفتح ثغرة
         // إعادة إرسال النموذج بعد اكتمال الطلب. يُستبدل عند العرض التالي للصفحة.
+
+        // ربط قدرة «إنشاء حساب بعد الشراء» بجلسة المشتري نفسه (M10): نافذة الشكر
+        // لا تظهر ولا تُقبل إلا لهذه الجلسة، فرابط شكر مُسرَّب في متصفح آخر لا يُنشئ
+        // حسابًا على هوية العميلة (دفاع في العمق مع التوقيع).
+        $request->session()->put(PostPurchaseAccountController::SESSION_KEY, $result->order->id);
 
         return $this->redirectAfterPlacement($request, $result->order, $result->initiation);
     }

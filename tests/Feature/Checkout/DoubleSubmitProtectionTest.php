@@ -32,6 +32,10 @@ final class DoubleSubmitProtectionTest extends TestCase
     {
         parent::setUp();
         $this->seed(PaymentMethodSeeder::class);
+
+        // COD مبذور معطّلًا (3c40e04)؛ هذا الملف يحتاجه مفعّلًا. نُفعّله صراحةً
+        // بدل الاعتماد على قيمة بذرة تتغيّر بقرار تجاري.
+        \App\Models\PaymentMethod::query()->where('code', 'cod')->update(['is_enabled' => true]);
     }
 
     private function book(): Book
@@ -52,6 +56,7 @@ final class DoubleSubmitProtectionTest extends TestCase
         return [
             'name' => 'أم أحمد',
             'phone' => '01012345678',
+            'email' => 'buyer@example.com',
             'country_code' => 'EG',
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',

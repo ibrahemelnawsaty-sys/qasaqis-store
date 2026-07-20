@@ -32,6 +32,10 @@ final class CouponCounterAtomicityTest extends TestCase
     {
         parent::setUp();
         $this->seed(PaymentMethodSeeder::class); // cod enabled, no online gateway.
+
+        // COD مبذور معطّلًا (3c40e04)؛ هذا الملف يحتاجه مفعّلًا. نُفعّله صراحةً
+        // بدل الاعتماد على قيمة بذرة تتغيّر بقرار تجاري.
+        \App\Models\PaymentMethod::query()->where('code', 'cod')->update(['is_enabled' => true]);
     }
 
     /** A published, in-stock, priced book. */
@@ -53,6 +57,7 @@ final class CouponCounterAtomicityTest extends TestCase
         return [
             'name' => 'أم أحمد',
             'phone' => '01012345678',
+            'email' => 'buyer@example.com',
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',
             'payment_method' => 'cod',

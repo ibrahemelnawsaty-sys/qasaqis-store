@@ -18,6 +18,7 @@ class Book extends Model
 {
     /** @use HasFactory<BookFactory> */
     use HasFactory, SoftDeletes;
+    use \App\Support\Audit\RecordsAdminActivity;
 
     protected $fillable = [
         'category_id',

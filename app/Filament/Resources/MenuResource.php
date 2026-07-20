@@ -83,11 +83,12 @@ class MenuResource extends Resource
                         ->required()
                         ->unique(ignoreRecord: true)
                         ->options([
-                            'header' => 'الترويسة (Header)',
+                            'header' => 'الترويسة — الزائرة (Header)',
+                            'header_customer' => 'الترويسة — بعد دخول العميلة',
                             'footer' => 'التذييل (Footer)',
                             'mobile' => 'الموبايل (Mobile)',
                         ])
-                        ->helperText('كل موقع يقبل قائمة واحدة فقط.'),
+                        ->helperText('كل موقع يقبل قائمة واحدة فقط. «بعد دخول العميلة» تظهر في شريط التنقّل بدل قائمة الزائرة حين تسجّل العميلة الدخول.'),
                     Forms\Components\Toggle::make('is_active')
                         ->label('مُفعّلة')
                         ->default(true),
@@ -111,6 +112,13 @@ class MenuResource extends Resource
                 Tables\Columns\TextColumn::make('location')
                     ->label('الموقع')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'header' => 'الترويسة — الزائرة',
+                        'header_customer' => 'الترويسة — بعد الدخول',
+                        'footer' => 'التذييل',
+                        'mobile' => 'الموبايل',
+                        default => $state,
+                    })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('allItems_count')
                     ->counts('allItems')

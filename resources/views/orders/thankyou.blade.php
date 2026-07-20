@@ -9,6 +9,7 @@
 @section('content')
     @include('partials.checkout-styles')
     @include('partials.clear-local-cart')
+    @include('partials.post-purchase-account')
 
     @php
         $money = fn ($v) => number_format((float) $v, 0);

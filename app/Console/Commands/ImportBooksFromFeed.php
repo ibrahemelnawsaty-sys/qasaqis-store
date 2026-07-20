@@ -63,6 +63,9 @@ class ImportBooksFromFeed extends Command
     /** @var array<string, string> sku => العنوان الذي استهلكه في هذا التشغيل (كشف التصادم). */
     private array $seenSkus = [];
 
+    /** @var array<string, Category> slug => قسم، لأقسام الملف لكل كتاب (يُبنى مرّة). */
+    private array $categoryMap = [];
+
     public function handle(): int
     {
         $path = (string) $this->argument('file');
@@ -113,6 +116,13 @@ class ImportBooksFromFeed extends Command
         $limit = (int) $this->option('limit');
         if ($limit > 0) {
             $products = array_slice($products, 0, $limit);
+        }
+
+        // خريطة أقسام الملف: كل slug يشير إليه أي كتاب (رئيسيًّا أو شكليًّا) يجب أن
+        // يوجد مسبقًا. نتحقّق دفعةً ونوقف بوضوح لو نقص قسم (فيُنشئه الأدمن أولًا) بدل
+        // أن يسقط الاستيراد كتابًا كتابًا في منتصفه.
+        if (! $this->buildCategoryMap($products)) {
+            return self::FAILURE;
         }
 
         $dryRun = (bool) $this->option('dry-run');
@@ -195,6 +205,47 @@ class ImportBooksFromFeed extends Command
     }
 
     /**
+     * يبني خريطة slug => Category لكل قسم يشير إليه الملف (رئيسيًّا أو شكليًّا)،
+     * ويتحقّق أنها موجودة. يوقف بقائمة الأقسام الناقصة بدل الفشل صفًّا صفًّا.
+     *
+     * @param  array<int, array<string, mixed>>  $products
+     */
+    private function buildCategoryMap(array $products): bool
+    {
+        $slugs = [];
+        foreach ($products as $p) {
+            if (filled($p['category'] ?? null)) {
+                $slugs[] = (string) $p['category'];
+            }
+            foreach ((array) ($p['extra_categories'] ?? []) as $s) {
+                if (filled($s)) {
+                    $slugs[] = (string) $s;
+                }
+            }
+        }
+        $slugs = array_values(array_unique($slugs));
+
+        if ($slugs === []) {
+            return true;   // الملف بلا أقسام لكل كتاب — يُستعمل --category للجميع.
+        }
+
+        $found = Category::query()->whereIn('slug', $slugs)->get()->keyBy('slug');
+        $missing = array_values(array_diff($slugs, $found->keys()->all()));
+
+        if ($missing !== []) {
+            $this->error('أقسام مذكورة في الملف وغير موجودة: '.implode('، ', $missing));
+            $this->line('أنشئها أولًا (شغّل الهجرات) ثم أعد المحاولة. المتاح: '
+                .Category::query()->pluck('slug')->implode(', '));
+
+            return false;
+        }
+
+        $this->categoryMap = $found->all();
+
+        return true;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function parseFeed(string $path): array
@@ -234,6 +285,13 @@ class ImportBooksFromFeed extends Command
                 'price' => $this->toDecimal($variant['price'] ?? null),
                 'compare_at' => $this->toDecimal($variant['compare_at_price'] ?? null),
                 'grams' => (int) ($variant['grams'] ?? 0),
+                // قسم رئيسي اختياري لكل كتاب (slug). إن غاب، يُستعمل --category.
+                // وأقسام شكلية إضافية (many-to-many) مثل «أنشطة/تفاعلي».
+                'category' => trim((string) ($p['category'] ?? '')),
+                'extra_categories' => array_values(array_filter(array_map(
+                    static fn ($c): string => trim((string) $c),
+                    (array) ($p['extra_categories'] ?? []),
+                ))),
                 'images' => array_values(array_unique(array_filter(array_map(
                     static fn ($img): string => is_array($img) ? (string) ($img['src'] ?? '') : (string) $img,
                     (array) ($p['images'] ?? []),
@@ -305,6 +363,8 @@ class ImportBooksFromFeed extends Command
                 $grouped[$key] = [
                     'handle' => $key, 'title' => '', 'body_html' => '', 'vendor' => '', 'type' => '', 'tags' => [],
                     'sku' => '', 'price' => null, 'compare_at' => null, 'grams' => 0,
+                    // تصدير Shopify لا يحمل أقسامًا؛ تبقى فارغة فيُستعمل --category.
+                    'category' => '', 'extra_categories' => [],
                     'images' => [], 'variantLocked' => false,
                 ];
             }
@@ -402,12 +462,16 @@ class ImportBooksFromFeed extends Command
         }
 
         if ($dryRun) {
+            $catSlug = filled($product['category'] ?? null) ? (string) $product['category'] : $this->option('category');
+            $extra = (array) $product['extra_categories'];
             $this->line(sprintf(
-                '  %s %s  [%s]  %s',
+                '  %s %s  [%s]  %s  → %s%s',
                 $existing ? '~' : '+',
-                Str::limit($title, 44),
+                Str::limit($title, 40),
                 $slug,
                 $price !== null ? $price.' ج.م' : 'بلا سعر',
+                $catSlug,
+                $extra !== [] ? ' +('.implode('،', $extra).')' : '',
             ));
             $existing ? $stats['updated']++ : $stats['created']++;
 
@@ -452,7 +516,11 @@ class ImportBooksFromFeed extends Command
             $content['publisher_id'] = $publisher->id;
         }
 
-        $book = DB::transaction(function () use ($existing, $content, $category, $slug): Book {
+        // القسم الرئيسي: قسم الكتاب من الملف إن وُجد، وإلا الافتراضي (--category).
+        // يُطبَّق على الإنشاء فقط؛ التحديث لا يمسّ القسم كي لا يدهس تصنيف الأدمن.
+        $effectiveCategory = $this->categoryMap[$product['category']] ?? $category;
+
+        $book = DB::transaction(function () use ($existing, $content, $effectiveCategory, $slug): Book {
             if ($existing) {
                 $update = $content;
 
@@ -476,7 +544,7 @@ class ImportBooksFromFeed extends Command
             }
 
             $create = $content + $this->stockAttributes() + [
-                'category_id' => $category->id,
+                'category_id' => $effectiveCategory->id,
                 'slug' => $slug,
                 'is_published' => (bool) $this->option('publish'),
                 'published_at' => $this->option('publish') ? now() : null,
@@ -484,6 +552,20 @@ class ImportBooksFromFeed extends Command
 
             return Book::create($create);
         });
+
+        // الأقسام الشكلية الإضافية (أنشطة/تفاعلي/باقات) عبر العلاقة المتعدّدة.
+        // syncWithoutDetaching: يضيف بلا حذف — فلا يمحو أقسامًا أضافها الأدمن يدويًّا،
+        // وآمن لإعادة التشغيل. القسم الرئيسي لا يُكرَّر هنا (هو category_id).
+        $extraIds = [];
+        foreach ((array) $product['extra_categories'] as $slugExtra) {
+            $cat = $this->categoryMap[$slugExtra] ?? null;
+            if ($cat && $cat->id !== $effectiveCategory->id) {
+                $extraIds[] = $cat->id;
+            }
+        }
+        if ($extraIds !== []) {
+            $book->categories()->syncWithoutDetaching($extraIds);
+        }
 
         $existing ? $stats['updated']++ : $stats['created']++;
         $this->line(sprintf('  %s %s', $existing ? '~ حُدّث' : '+ أُنشئ', Str::limit($title, 50)));

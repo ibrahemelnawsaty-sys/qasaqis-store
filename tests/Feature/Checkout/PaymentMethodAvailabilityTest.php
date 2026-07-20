@@ -94,6 +94,7 @@ final class PaymentMethodAvailabilityTest extends TestCase
         $response = $this->from(route('checkout.show'))->post(route('checkout.place'), [
             'name' => 'أم أحمد',
             'phone' => '01012345678',
+            'email' => 'buyer@example.com',
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',
             'payment_method' => 'online_gateway', // hidden -> not in the whitelist.

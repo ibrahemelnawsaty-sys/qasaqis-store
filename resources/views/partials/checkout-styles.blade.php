@@ -116,6 +116,48 @@
             .co-mono { font-family: var(--mono); direction: ltr; }              /* أرقام/مراجع LTR */
             .co-lead { color: var(--ink-soft); line-height: 1.8; }              /* فقرة توضيحية */
             .co-thumb.ph { background: var(--purple-soft); }                    /* مصغّرة بديلة */
+
+            /* ══ تعليمات الدفع: زرّ بارز + نسخ بضغطة (بدل نصّ باهت بلا رابط) ══ */
+            .pay-box { margin-top: 4px; border: 1.5px solid color-mix(in srgb, var(--teal) 45%, transparent);
+                background: color-mix(in srgb, var(--teal) 7%, var(--surface)); border-radius: var(--r-sm); padding: 15px 15px 16px; }
+            .pay-box-head { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 14px; color: var(--ink); margin-bottom: 12px; }
+            .pay-box-head .ic { width: 26px; height: 26px; border-radius: 8px; background: var(--teal); color: #06312d; display: grid; place-items: center; flex: 0 0 auto; }
+            .pay-cta { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%;
+                background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; text-decoration: none;
+                font-weight: 900; font-size: 15.5px; padding: 13px 18px 11px; border-radius: var(--r-sm);
+                box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--pink) 70%, transparent); transition: transform .15s, box-shadow .15s; }
+            .pay-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -10px color-mix(in srgb, var(--pink) 75%, transparent); }
+            .pay-cta:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
+            .pay-cta .arrow { font-size: 16px; line-height: 1; opacity: .9; animation: payDown 1.6s ease-in-out infinite; }
+            @keyframes payDown { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+            .pay-or { display: flex; align-items: center; gap: 10px; margin: 13px 2px 4px; color: var(--ink-faint); font-size: 12.5px; font-weight: 800; }
+            .pay-or::before, .pay-or::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }
+            .pay-alt-label { font-size: 12.5px; color: var(--ink-soft); text-align: center; margin-bottom: 4px; }
+            .pay-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; margin-top: 9px;
+                background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+            .pay-row-label { font-size: 12.5px; color: var(--ink-soft); font-weight: 700; flex: 0 0 auto; min-width: 82px; }
+            .pay-row-value { font-size: 15px; font-weight: 800; color: var(--ink); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+            .pay-copy { flex: 0 0 auto; border: 1.5px solid color-mix(in srgb, var(--purple) 30%, transparent); background: var(--surface);
+                color: var(--purple); font-weight: 800; font-size: 12.5px; font-family: inherit; padding: 7px 13px; border-radius: 9px; cursor: pointer; transition: background .15s; }
+            .pay-copy:hover { background: var(--purple-soft); }
+            .pay-copy.done { background: var(--teal-soft); color: var(--teal); border-color: transparent; }
+            .pay-note { font-size: 13px; line-height: 1.7; color: var(--ink-soft); margin: 12px 2px 0; }
+            .pay-note a { color: var(--purple); font-weight: 700; word-break: break-all; }
+            @media (prefers-reduced-motion: reduce) { .pay-cta .arrow { animation: none; } .pay-cta:hover { transform: none; } }
+
+            /* ══ بوب-اب «رفع الإثبات إجباري» ══ */
+            .pm-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px;
+                background: color-mix(in srgb, #000 55%, transparent); backdrop-filter: blur(2px); }
+            .pm-overlay[hidden] { display: none; }
+            .pm-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+                max-width: 420px; width: 100%; padding: 26px 22px 22px; text-align: center; box-shadow: var(--shadow); animation: pmIn .22s ease; }
+            @keyframes pmIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+            .pm-ic { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 16px; display: grid; place-items: center;
+                font-size: 30px; background: var(--purple-soft); }
+            .pm-box h3 { font-size: 18px; font-weight: 900; color: var(--ink); margin: 0 0 8px; }
+            .pm-box p { font-size: 14px; line-height: 1.75; color: var(--ink-soft); margin: 0 0 18px; }
+            .pm-box .btn { width: 100%; }
+            @media (prefers-reduced-motion: reduce) { .pm-box { animation: none; } }
         </style>
     @endpush
 @endonce
