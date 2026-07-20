@@ -69,4 +69,17 @@ final class AgeFilterTest extends TestCase
             $response->getContent(),
         );
     }
+
+    public function test_multiple_selected_ages_show_a_truthful_placeholder(): void
+    {
+        // اختيار عمري متعدّد من اللوحة الجانبية لا تُمثّله القائمة الأحادية: يجب أن
+        // تُظهر نائبًا صادقًا «أعمار متعددة» لا أن يبدو «كل الأعمار» مختارًا (كذبًا).
+        $response = $this->get(route('books.index', ['age' => ['0-3', '3-6']]));
+
+        $response->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/<option selected disabled hidden>أعمار متعددة/u',
+            $response->getContent(),
+        );
+    }
 }

@@ -103,7 +103,9 @@
                 <span class="catalog-count">{{ trans_choice('catalog.results_count', $books->total(), ['count' => $books->total()]) }}</span>
 
                 @unless ($plainList)
-                    <div style="display:flex;gap:8px;align-items:center">
+                    {{-- flex-wrap كي تلتفّ الحبّات (فلاتر/عمر/ترتيب) بدل الفيض أفقيًا على
+                         الهواتف الضيّقة (~360px) — جمهور بشبكة/أجهزة ضعيفة (بند 1.6). --}}
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true">
                             🔽 {{ __('catalog.filters_open') }}
                         </button>
@@ -117,6 +119,11 @@
                                  age[] في اللوحة الجانبية؛ القائمة أحادية فتضبط عنصرًا واحدًا. --}}
                             <select class="sort-select" aria-label="{{ __('catalog.facet_age') }}"
                                 onchange="if (this.value) window.location.href = this.value">
+                                {{-- عند اختيار أعمار متعددة من اللوحة الجانبية، القائمة الأحادية
+                                     لا تُمثّلها؛ نُظهر نائبًا صادقًا بدل أن يبدو «كل الأعمار» مختارًا. --}}
+                                @if (count($ageSel) > 1)
+                                    <option selected disabled hidden>{{ __('catalog.age_multiple') }}</option>
+                                @endif
                                 <option value="{{ request()->fullUrlWithQuery(['age' => null, 'page' => null]) }}" @selected($ageSel === [])>{{ __('catalog.age_all') }}</option>
                                 @foreach ($ageOptions as $opt)
                                     <option value="{{ request()->fullUrlWithQuery(['age' => [$opt['value']], 'page' => null]) }}"
