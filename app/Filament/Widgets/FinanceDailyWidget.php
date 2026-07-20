@@ -22,7 +22,7 @@ class FinanceDailyWidget extends Widget
 
     protected static string $view = 'filament.widgets.finance-daily';
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 3;
 
     protected int|string|array $columnSpan = 'full';
 
@@ -35,22 +35,28 @@ class FinanceDailyWidget extends Widget
     }
 
     /**
-     * @return array<int, array{date:string, day:string, orders:int, net:string}>
+     * @return array<int, array{date:string, day:string, orders:int, net:string, bar:float}>
      */
     public function getRows(): array
     {
         [$from, $to] = FinanceRange::fromFilters($this->filters);
 
-        return app(FinanceReportService::class)
-            ->dailySeries($from, $to)
-            ->map(function (array $row): array {
+        $series = app(FinanceReportService::class)->dailySeries($from, $to);
+
+        // أعلى صافي في المدى مرجعًا لعرض شريط كل يوم (0.01 يمنع القسمة على صفر).
+        $max = max(0.01, (float) $series->max(fn (array $row): float => (float) $row['net_sales']));
+
+        return $series
+            ->map(function (array $row) use ($max): array {
                 $date = CarbonImmutable::createFromFormat('Y-m-d', $row['date']);
+                $net = (float) $row['net_sales'];
 
                 return [
                     'date' => $row['date'],
                     'day' => self::AR_DAYS[$date->dayOfWeek],
                     'orders' => $row['orders'],
-                    'net' => number_format((float) $row['net_sales'], 2),
+                    'net' => number_format($net, 2),
+                    'bar' => min(100.0, $net / $max * 100),
                 ];
             })
             // الأحدث أولًا — يقرأ المالك اليوم الحالي في الأعلى.

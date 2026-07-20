@@ -1,37 +1,42 @@
 <x-filament-widgets::widget>
-    <x-filament::section>
-        <x-slot name="heading">الأداء اليومي</x-slot>
-        <x-slot name="description">صافي المبيعات المحقّقة لكل يوم — بتوقيت القاهرة، الأحدث أولًا.</x-slot>
+    <div class="fin-scope">
+        <section class="fin-band" aria-label="الأداء اليومي">
+            <header class="fin-band-head">
+                <h2 class="fin-band-title">الأداء اليومي</h2>
+                <span class="fin-badge fin-badge-neutral">صافي المبيعات لكل يوم · الأحدث أولًا</span>
+            </header>
 
-        @php($rows = $this->getRows())
+            @php($rows = $this->getRows())
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-start">
+            <table class="fin-day">
                 <thead>
-                    <tr class="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
-                        <th class="py-2 px-3 text-start font-medium">التاريخ</th>
-                        <th class="py-2 px-3 text-start font-medium">اليوم</th>
-                        <th class="py-2 px-3 text-start font-medium">الطلبات</th>
-                        <th class="py-2 px-3 text-start font-medium">صافي المبيعات (ج.م)</th>
+                    <tr>
+                        <th scope="col">التاريخ</th>
+                        <th scope="col" class="fin-day-col-day">اليوم</th>
+                        <th scope="col">الطلبات</th>
+                        <th scope="col">صافي المبيعات (ج.م)</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($rows as $row)
-                        <tr class="border-b border-gray-100 dark:border-white/5 {{ $row['orders'] === 0 ? 'opacity-50' : '' }}">
-                            <td class="py-2 px-3 font-mono" dir="ltr">{{ $row['date'] }}</td>
-                            <td class="py-2 px-3">{{ $row['day'] }}</td>
-                            <td class="py-2 px-3 tabular-nums">{{ number_format($row['orders']) }}</td>
-                            <td class="py-2 px-3 tabular-nums font-semibold">{{ $row['net'] }}</td>
+                        <tr class="{{ $row['orders'] === 0 ? 'is-empty' : '' }}">
+                            <td class="fin-day-date fin-num" dir="ltr">{{ $row['date'] }}</td>
+                            <td class="fin-day-col-day">{{ $row['day'] }}</td>
+                            <td class="fin-num" dir="ltr">{{ number_format($row['orders']) }}</td>
+                            <td>
+                                <span class="fin-day-net-cell">
+                                    <span class="fin-day-bar"><i aria-hidden="true" style="inline-size:{{ $row['bar'] }}%"></i></span>
+                                    <span class="fin-num" dir="ltr">{{ $row['net'] }}</span>
+                                </span>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="py-6 text-center text-gray-500 dark:text-gray-400">
-                                لا بيانات في هذا النطاق.
-                            </td>
+                            <td colspan="4" class="fin-day-empty">لا بيانات في هذا النطاق.</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
-        </div>
-    </x-filament::section>
+        </section>
+    </div>
 </x-filament-widgets::widget>

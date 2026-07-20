@@ -11,6 +11,7 @@ use App\Filament\Resources\ExpenseResource;
 use App\Filament\Resources\OrderResource\Pages\ViewOrder;
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceStatsWidget;
+use App\Filament\Widgets\FinanceTrendWidget;
 use App\Models\Book;
 use App\Models\User;
 use Database\Factories\OrderFactory;
@@ -44,6 +45,7 @@ final class FinanceSecurityTest extends TestCase
         $this->actingAs($support);
         $this->assertFalse(FinanceDashboard::canAccess(), 'الدعم يجب ألا يصل للوحة المالية');
         $this->assertFalse(FinanceStatsWidget::canView(), 'ويدجت المؤشرات يجب أن يحمي نفسه');
+        $this->assertFalse(FinanceTrendWidget::canView(), 'ويدجت المنحنى يجب أن يحمي نفسه');
         $this->assertFalse(FinanceDailyWidget::canView(), 'ويدجت الجدول اليومي يجب أن يحمي نفسه');
     }
 
@@ -55,6 +57,7 @@ final class FinanceSecurityTest extends TestCase
         $this->actingAs($manager);
         $this->assertTrue(FinanceDashboard::canAccess());
         $this->assertTrue(FinanceStatsWidget::canView());
+        $this->assertTrue(FinanceTrendWidget::canView());
         $this->assertTrue(FinanceDailyWidget::canView());
     }
 

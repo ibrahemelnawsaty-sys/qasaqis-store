@@ -7,6 +7,7 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceRange;
 use App\Filament\Widgets\FinanceStatsWidget;
+use App\Filament\Widgets\FinanceTrendWidget;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Services\Finance\FinanceReportService;
 use Filament\Actions\Action;
@@ -51,6 +52,32 @@ class FinanceDashboard extends Page
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
+    }
+
+    /**
+     * ملخّص الفترة المختارة لشريط الترويسة — يتفاعل مع الفلتر ويعرض المدى الفعلي
+     * بيوم القاهرة وعدد أيامه، فيعرف المالك بالضبط ما تُغطّيه الأرقام.
+     *
+     * @return array{label:string, from:string, to:string, days:int}
+     */
+    public function periodSummary(): array
+    {
+        [$from, $to] = FinanceRange::fromFilters($this->filters ?? []);
+
+        $labels = [
+            'today' => 'اليوم', '7d' => 'آخر ٧ أيام', '30d' => 'آخر ٣٠ يومًا',
+            'month' => 'هذا الشهر', 'custom' => 'نطاق مخصّص',
+        ];
+        $preset = $this->filters['preset'] ?? '30d';
+
+        return [
+            'label' => $labels[$preset] ?? 'آخر ٣٠ يومًا',
+            'from' => $from->format('Y-m-d'),
+            'to' => $to->format('Y-m-d'),
+            // فرق الأيام شامل الطرفين (يوم واحد = فرق صفر + ١). cast صريح لصحيح:
+            // Carbon 3 يعيد diffInDays كـ float فيظهر «٣٠٫٩٩ يوم» بلا هذا.
+            'days' => (int) $from->diffInDays($to) + 1,
+        ];
     }
 
     /**
@@ -123,21 +150,19 @@ class FinanceDashboard extends Page
     }
 
     /**
+     * ودجت اللوحة — يُصيّرها القالب يدويًا داخل الـslot عبر getWidgets() لتمرير
+     * الفلاتر الصحيحة. لا نسمّيها getHeaderWidgets: ذلك الاسم يجعل مكوّن صفحة
+     * Filament يرسمها تلقائيًا فوق الـslot بفلاتر فارغة (نطاق ٣٠ يومًا ثابت)،
+     * فتتكرّر كل ويدجت مرّتين بمفاتيح Livewire متضاربة. المصدر واحد هنا.
+     *
      * @return array<int, class-string<Widget>>
      */
     public function getWidgets(): array
     {
         return [
             FinanceStatsWidget::class,
+            FinanceTrendWidget::class,
             FinanceDailyWidget::class,
         ];
-    }
-
-    /**
-     * @return array<int, class-string<Widget>>
-     */
-    protected function getHeaderWidgets(): array
-    {
-        return $this->getWidgets();
     }
 }

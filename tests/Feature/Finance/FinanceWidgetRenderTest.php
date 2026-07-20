@@ -6,6 +6,7 @@ namespace Tests\Feature\Finance;
 
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceStatsWidget;
+use App\Filament\Widgets\FinanceTrendWidget;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,8 +15,9 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * تصيير ويدجت المالية كمكوّنات Livewire مستقلة (طلب update:1 هو ما يُسقط الإنتاج
- * بـ500، لا تحميل الصفحة الأول). يحاكي دورة تحديث Livewire التي تُصيّر الويدجت.
+ * تصيير ودجت المالية كمكوّنات Livewire مستقلة (طلب update:1 هو ما يُسقط الإنتاج
+ * بـ500، لا تحميل الصفحة الأول). يحاكي دورة تحديث Livewire التي تُصيّر الودجت،
+ * ويغطّي الحالة التي أسقطت الإنتاج فعلًا: filters = null (لا تُمرَّر الفلاتر).
  */
 final class FinanceWidgetRenderTest extends TestCase
 {
@@ -32,9 +34,15 @@ final class FinanceWidgetRenderTest extends TestCase
         $this->actingAs($admin);
     }
 
-    public function test_stats_widget_renders_via_livewire(): void
+    public function test_overview_widget_renders_via_livewire(): void
     {
         Livewire::test(FinanceStatsWidget::class, ['filters' => ['preset' => '30d']])
+            ->assertOk();
+    }
+
+    public function test_trend_widget_renders_via_livewire(): void
+    {
+        Livewire::test(FinanceTrendWidget::class, ['filters' => ['preset' => '30d']])
             ->assertOk();
     }
 
@@ -44,19 +52,13 @@ final class FinanceWidgetRenderTest extends TestCase
             ->assertOk();
     }
 
-    public function test_stats_widget_renders_with_empty_filters(): void
-    {
-        // دورة تحديث Livewire قد تصل بلا فلاتر — يجب ألا تُسقط الويدجت.
-        Livewire::test(FinanceStatsWidget::class, ['filters' => []])
-            ->assertOk();
-    }
-
-    public function test_widgets_render_when_filters_is_null(): void
+    public function test_all_widgets_render_when_filters_is_null(): void
     {
         // الحالة الحقيقية التي أسقطت الإنتاج بـ500: InteractsWithPageFilters يبدأ
-        // $filters = null، ويبقى null عند تصيير الويدجت مستقلًّا — فكان
+        // $filters = null، ويبقى null عند تصيير الودجت مستقلًّا — فكان
         // FinanceRange::fromFilters(null) يرمي TypeError. لا تُمرَّر filters هنا.
         Livewire::test(FinanceStatsWidget::class)->assertOk();
+        Livewire::test(FinanceTrendWidget::class)->assertOk();
         Livewire::test(FinanceDailyWidget::class)->assertOk();
     }
 }
