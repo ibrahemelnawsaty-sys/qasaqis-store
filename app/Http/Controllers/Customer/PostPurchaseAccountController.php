@@ -34,6 +34,9 @@ final class PostPurchaseAccountController extends Controller
 {
     private const GUARD = 'customer';
 
+    /** مفتاح جلسة المشتري الذي أتمّ الطلب — يُضبط في CheckoutController::place. */
+    public const SESSION_KEY = 'post_purchase_order_id';
+
     public function store(
         PostPurchaseAccountRequest $request,
         Order $order,
@@ -41,6 +44,14 @@ final class PostPurchaseAccountController extends Controller
     ): RedirectResponse {
         // مسجّلة الدخول أصلًا، أو الطلب مربوط: لا حاجة لإنشاء حساب.
         if (Auth::guard(self::GUARD)->check() || $order->customer_id !== null) {
+            return $this->backToThankYou($order);
+        }
+
+        // ربط القدرة بجلسة المشتري نفسه (M10): الرابط الموقّع دائم وقابل للتسريب،
+        // فحيازته وحدها لا تكفي — يجب أن تكون هذه هي الجلسة التي أتمّت الطلب. جلسة
+        // أخرى (رابط مُسرَّب في متصفح آخر) لا تملك هذا المفتاح فتُرفض. دفاع في العمق
+        // مع التوقيع. المفتاح يُضبط في CheckoutController::place عند إتمام الطلب.
+        if ((int) $request->session()->get(self::SESSION_KEY) !== (int) $order->id) {
             return $this->backToThankYou($order);
         }
 
@@ -54,9 +65,7 @@ final class PostPurchaseAccountController extends Controller
 
         // حساب قائم بهذا الجوال: لا نُنشئ فوقه — نوجّه للدخول (منع الاستيلاء).
         if (Customer::where('phone_normalized', $phoneNormalized)->withTrashed()->exists()) {
-            return redirect()
-                ->route('customer.login.show')
-                ->with('status', __('account.post_purchase.already_registered'));
+            return $this->toLogin();
         }
 
         // البريد: من الطلب إن وُجد (لا يُقبل من النموذج حينها)، وإلا من النموذج.
@@ -64,37 +73,52 @@ final class PostPurchaseAccountController extends Controller
             ? (string) $order->customer_email
             : (string) $request->validated('email');
 
-        $customer = DB::transaction(function () use ($order, $request, $phoneNormalized, $email): Customer {
-            $customer = new Customer([
-                'name' => (string) $order->customer_name,
-                'email' => $email,
-                'password' => Hash::make((string) $request->validated('password')),
-            ]);
+        // حارس متماثل للبريد (M10): بريد الطلب يُدرَج بلا فحص تفرّد النموذج، وعمود
+        // email فريد. أمّ سجّلت سابقًا ببريدها ثم اشترت كضيفة برقم مختلف كانت
+        // ستصطدم بقيد القاعدة (500). withTrashed كي يشمل المحذوف ناعمًا.
+        if (Customer::where('email', $email)->withTrashed()->exists()) {
+            return $this->toLogin();
+        }
 
-            // أعمدة الهوية والعنوان خارج $fillable (يحكمها الخادم) — forceFill.
-            // كل البيانات تُؤخذ من الطلب (M10): الاسم، الجوال، البريد، والعنوان
-            // الافتراضي — فلا تُعيد العميلة إدخال شيء سوى كلمة المرور.
-            $customer->forceFill([
-                'phone_normalized' => $phoneNormalized,
-                'phone_e164' => PhoneNormalizer::toE164((string) $order->customer_phone),
-                'last_governorate' => $order->governorate,
-                'last_city' => $order->city,
-                'last_address_line' => $order->address_line,
-                'last_country_code' => $order->country_code,
-                'is_claimed' => true,
-            ])->save();
+        try {
+            $customer = DB::transaction(function () use ($order, $request, $phoneNormalized, $email): Customer {
+                $customer = new Customer([
+                    'name' => (string) $order->customer_name,
+                    'email' => $email,
+                    'password' => Hash::make((string) $request->validated('password')),
+                ]);
 
-            // ربط هذا الطلب وحده (تحديث ذرّي شرطي: ما دام غير مربوط).
-            Order::query()
-                ->whereKey($order->getKey())
-                ->whereNull('customer_id')
-                ->update(['customer_id' => $customer->getKey()]);
+                // أعمدة الهوية والعنوان خارج $fillable (يحكمها الخادم) — forceFill.
+                // كل البيانات تُؤخذ من الطلب (M10): الاسم، الجوال، البريد، والعنوان
+                // الافتراضي — فلا تُعيد العميلة إدخال شيء سوى كلمة المرور.
+                $customer->forceFill([
+                    'phone_normalized' => $phoneNormalized,
+                    'phone_e164' => PhoneNormalizer::toE164((string) $order->customer_phone),
+                    'last_governorate' => $order->governorate,
+                    'last_city' => $order->city,
+                    'last_address_line' => $order->address_line,
+                    'last_country_code' => $order->country_code,
+                    'is_claimed' => true,
+                ])->save();
 
-            return $customer;
-        });
+                // ربط هذا الطلب وحده (تحديث ذرّي شرطي: ما دام غير مربوط).
+                Order::query()
+                    ->whereKey($order->getKey())
+                    ->whereNull('customer_id')
+                    ->update(['customer_id' => $customer->getKey()]);
+
+                return $customer;
+            });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // سباق تزامن نادر (طلبان لنفس الجوال/البريد يعبران الحارس معًا) — يفشل
+            // بأمان بلا 500: الحساب الآخر أُنشئ، فنوجّه للدخول.
+            return $this->toLogin();
+        }
 
         Auth::guard(self::GUARD)->login($customer);
         $request->session()->regenerate();
+        // استُهلك مفتاح الشراء — لا تُعرض النافذة ثانيةً ولا تُقبل.
+        $request->session()->forget(self::SESSION_KEY);
 
         Log::info('customer.post_purchase_account', [
             'customer_id' => $customer->id,
@@ -108,6 +132,13 @@ final class PostPurchaseAccountController extends Controller
         return redirect()
             ->route('customer.verify.show')
             ->with('status', __('account.post_purchase.created'));
+    }
+
+    private function toLogin(): RedirectResponse
+    {
+        return redirect()
+            ->route('customer.login.show')
+            ->with('status', __('account.post_purchase.already_registered'));
     }
 
     private function backToThankYou(Order $order): RedirectResponse

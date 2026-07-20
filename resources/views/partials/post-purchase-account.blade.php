@@ -5,7 +5,11 @@
     نمط cart-drawer القائم. النصوص من الترجمة (بند 6.4).
 --}}
 @php
-    $showAccountPopup = $order->customer_id === null && auth('customer')->guest();
+    // تظهر فقط لجلسة المشتري نفسه (M10): طلب غير مربوط + ضيفة + مفتاح جلسة الشراء
+    // يطابق هذا الطلب. رابط شكر مُسرَّب في متصفح آخر لا يملك المفتاح فلا نافذة له.
+    $showAccountPopup = $order->customer_id === null
+        && auth('customer')->guest()
+        && (int) session(\App\Http\Controllers\Customer\PostPurchaseAccountController::SESSION_KEY) === (int) $order->id;
     $ppEmail = (string) ($order->customer_email ?? '');
 @endphp
 

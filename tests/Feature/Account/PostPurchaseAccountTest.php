@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Account;
 
+use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Notifications\VerificationCodeNotification;
@@ -42,6 +43,17 @@ final class PostPurchaseAccountTest extends TestCase
         return URL::signedRoute('orders.create-account', ['order' => $order->id]);
     }
 
+    /**
+     * POST مع مفتاح جلسة الشراء المطابق — يحاكي جلسة المشترية نفسها (M10).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function submit(Order $order, array $payload)
+    {
+        return $this->withSession([PostPurchaseAccountController::SESSION_KEY => $order->id])
+            ->post($this->signedUrl($order), $payload);
+    }
+
     // ── المسار السعيد ────────────────────────────────────────────────────────
 
     public function test_a_guest_creates_an_account_from_the_thank_you_page(): void
@@ -49,7 +61,7 @@ final class PostPurchaseAccountTest extends TestCase
         Notification::fake();
         $order = $this->guestOrder();
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'password' => 'secret123',
             'password_confirmation' => 'secret123',
         ])->assertRedirect(route('customer.verify.show'));
@@ -69,7 +81,7 @@ final class PostPurchaseAccountTest extends TestCase
         Notification::fake();
         $order = $this->guestOrder();
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ]);
 
@@ -81,7 +93,7 @@ final class PostPurchaseAccountTest extends TestCase
         Notification::fake();
         $order = $this->guestOrder();
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ]);
 
@@ -110,7 +122,7 @@ final class PostPurchaseAccountTest extends TestCase
         $order = $this->guestOrder(['customer_email' => 'real@example.com']);
 
         // محاولة حقن بريد مختلف عبر النموذج — يجب أن يُتجاهَل ويُؤخذ بريد الطلب.
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'email' => 'attacker@example.com',
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ]);
@@ -124,7 +136,7 @@ final class PostPurchaseAccountTest extends TestCase
         // حساب قائم بنفس الجوال.
         Customer::factory()->create(['phone_normalized' => '1012345678', 'email' => 'existing@example.com']);
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ])->assertRedirect(route('customer.login.show'));
 
@@ -133,13 +145,56 @@ final class PostPurchaseAccountTest extends TestCase
         $this->assertNull($order->fresh()->customer_id);
     }
 
+    public function test_it_refuses_to_create_over_an_existing_email_account(): void
+    {
+        // أمّ سجّلت سابقًا ببريدها بجوال مختلف، ثم اشترت كضيفة برقم آخر بنفس البريد.
+        // بريد الطلب يُدرَج بلا فحص تفرّد النموذج — الحارس يمنع اصطدام القيد (500).
+        $order = $this->guestOrder(['customer_email' => 'shared@example.com', 'customer_phone' => '01055556666']);
+        Customer::factory()->create(['email' => 'shared@example.com', 'phone_normalized' => '1099998888']);
+
+        $this->submit($order, [
+            'password' => 'secret123', 'password_confirmation' => 'secret123',
+        ])->assertRedirect(route('customer.login.show'));
+
+        $this->assertSame(1, Customer::count());
+        $this->assertNull($order->fresh()->customer_id);
+    }
+
+    public function test_a_leaked_link_without_the_purchase_session_creates_nothing(): void
+    {
+        // متجه M-2: مهاجم يحوز رابط شكر مُسرَّب في متصفح آخر (لا مفتاح جلسة الشراء).
+        Notification::fake();
+        $order = $this->guestOrder();
+
+        // post موقّع لكن بلا مفتاح الجلسة (submit وحده يضبطه).
+        $this->post($this->signedUrl($order), [
+            'password' => 'attacker1', 'password_confirmation' => 'attacker1',
+        ])->assertRedirect(); // يُعاد لصفحة الشكر بلا إنشاء.
+
+        $this->assertSame(0, Customer::count());
+        $this->assertNull($order->fresh()->customer_id);
+    }
+
+    public function test_the_purchase_session_key_only_authorizes_its_own_order(): void
+    {
+        // مفتاح جلسة لطلب آخر لا يأذن بإنشاء حساب لهذا الطلب.
+        $mine = $this->guestOrder(['customer_phone' => '01011112222', 'customer_email' => 'a@example.com']);
+        $other = $this->guestOrder(['customer_phone' => '01033334444', 'customer_email' => 'b@example.com']);
+
+        $this->withSession([PostPurchaseAccountController::SESSION_KEY => $other->id])
+            ->post($this->signedUrl($mine), ['password' => 'secret123', 'password_confirmation' => 'secret123'])
+            ->assertRedirect();
+
+        $this->assertSame(0, Customer::count());
+    }
+
     public function test_an_already_linked_order_does_not_create_a_second_account(): void
     {
         Notification::fake();
         $existing = Customer::factory()->create();
         $order = $this->guestOrder(['customer_id' => $existing->id, 'customer_phone' => '01099998888']);
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ])->assertRedirect();
 
@@ -150,8 +205,7 @@ final class PostPurchaseAccountTest extends TestCase
     {
         $order = $this->guestOrder();
 
-        $this->from(route('orders.thankyou', ['order' => $order->id]))
-            ->post($this->signedUrl($order), ['password' => '123', 'password_confirmation' => '123'])
+        $this->submit($order, ['password' => '123', 'password_confirmation' => '123'])
             ->assertSessionHasErrors('password');
 
         $this->assertSame(0, Customer::count());
@@ -163,8 +217,7 @@ final class PostPurchaseAccountTest extends TestCase
     {
         $order = $this->guestOrder(['customer_email' => null]);
 
-        $this->from(route('orders.thankyou', ['order' => $order->id]))
-            ->post($this->signedUrl($order), ['password' => 'secret123', 'password_confirmation' => 'secret123'])
+        $this->submit($order, ['password' => 'secret123', 'password_confirmation' => 'secret123'])
             ->assertSessionHasErrors('email');
 
         $this->assertSame(0, Customer::count());
@@ -175,7 +228,7 @@ final class PostPurchaseAccountTest extends TestCase
         Notification::fake();
         $order = $this->guestOrder(['customer_email' => null]);
 
-        $this->post($this->signedUrl($order), [
+        $this->submit($order, [
             'email' => 'chosen@example.com',
             'password' => 'secret123', 'password_confirmation' => 'secret123',
         ])->assertRedirect(route('customer.verify.show'));
