@@ -45,7 +45,10 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // مهلة صريحة قصيرة: مع الإرسال المتزامن/المؤجَّل، القيمة null تعني الرجوع
+            // إلى default_socket_timeout في PHP (~60ث)، فمُضيف SMTP بطيء/محجوب يعلّق
+            // الطلب (أو عامل PHP) دقيقة كاملة. عشر ثوانٍ تفشل بسرعة بدل التجمّد.
+            'timeout' => (int) env('MAIL_TIMEOUT', 10),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 

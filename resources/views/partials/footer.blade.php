@@ -1,23 +1,10 @@
 @php
-    // روابط السوشيال: المصدر الرسمي هو مفاتيح social_* في جدول الإعدادات (CMS، يحرّرها
-    // الأدمن من «إعدادات المتجر»). نقرأها مباشرةً باستعلام واحد خفيف على عمود key الفريد،
-    // لأن المصفوفة المشتركة $storeSettings (المبنية في AppServiceProvider، خارج نطاق هذا
-    // الملف) لا تمرّر إلا مجموعة جزئية قديمة. rescue: تُعرض الصفحة حتى قبل الهجرة/البذر.
-    $socialRows = rescue(
-        fn () => \App\Models\Setting::query()
-            ->whereIn('key', [
-                'social_facebook', 'social_instagram', 'social_tiktok',
-                'social_youtube', 'social_twitter', 'social_snapchat', 'social_telegram',
-            ])
-            ->pluck('value', 'key')
-            ->toArray(),
-        [],
-        report: false,
-    );
-
-    // توافق خلفي: عند غياب مفتاح social_* نرجع لقيم *_url القديمة المشتركة عبر $storeSettings.
-    $socialLink = static function (string $key, string $legacy = '') use ($socialRows, $storeSettings): string {
-        $value = (string) ($socialRows[$key] ?? '');
+    // روابط السوشيال: مفاتيح social_* مقروءة من المصفوفة المشتركة $storeSettings المبنيّة
+    // مرّةً في AppServiceProvider من نفس جدول الإعدادات (تحوي كل مفاتيح social_* ضمن
+    // defaults). كان هنا استعلام Setting منفصل يكرّر القراءة نفسها على كل صفحة — أُزيل.
+    // توافق خلفي: عند غياب مفتاح social_* نرجع لقيم *_url القديمة إن مُرِّرت في $storeSettings.
+    $socialLink = static function (string $key, string $legacy = '') use ($storeSettings): string {
+        $value = (string) ($storeSettings[$key] ?? '');
 
         if (blank($value) && $legacy !== '') {
             $value = (string) ($storeSettings[$legacy] ?? '');
@@ -47,43 +34,65 @@
     // رقم واتساب لبلاطة أيقونة واتساب في صفّ السوشيال.
     $waNumber = preg_replace('/\D+/', '', (string) ($storeSettings['whatsapp_number'] ?? ''));
 
-    // قائمة الفوتر المُدارة من الـ CMS (Menu location=footer). eager load للعناصر
-    // وأبنائها وربطها لتفادي N+1. عند غيابها تبقى الروابط الافتراضية كما هي.
-    $resolveMenuUrl = static function ($item): ?string {
-        if (filled($item->url)) {
-            return $item->url;
-        }
+    // قائمة الفوتر (CMS، Menu location=footer) مخزّنة مؤقّتًا كبنية مُحلّلة جاهزة
+    // (StorefrontCache): كان استعلام Menu مع eager load للأبناء والربط متعدّد الأشكال
+    // يُنفَّذ على كل صفحة. نخزّن مصفوفات بسيطة (روابط محلولة + الأبناء) لا نماذج
+    // Eloquent — أخفّ وأأمن للتسلسل. نُبقي العناصر ذات الرابط الفارغ (قد تحمل أبناءً).
+    // يُبطَل عند حفظ أي Menu/MenuItem. rescue تُبقي الفوتر يعمل قبل الهجرات.
+    $footerMenuItems = rescue(
+        fn (): array => \Illuminate\Support\Facades\Cache::remember(
+            \App\Support\Cache\StorefrontCache::menuKey('footer'),
+            \App\Support\Cache\StorefrontCache::TTL,
+            static function (): array {
+                $resolveMenuUrl = static function ($item): ?string {
+                    if (filled($item->url)) {
+                        return $item->url;
+                    }
 
-        $target = $item->linkable;
+                    $target = $item->linkable;
 
-        if ($target !== null) {
-            return match ($item->link_type) {
-                'page' => route('pages.show', $target),
-                'category' => route('categories.show', $target),
-                'product' => route('books.show', $target),
-                default => null,
-            };
-        }
+                    if ($target !== null) {
+                        return match ($item->link_type) {
+                            'page' => route('pages.show', $target),
+                            'category' => route('categories.show', $target),
+                            'product' => route('books.show', $target),
+                            default => null,
+                        };
+                    }
 
-        return null;
-    };
+                    return null;
+                };
 
-    $footerMenu = rescue(
-        fn () => \App\Models\Menu::query()
-            ->where('is_active', true)
-            ->where('location', 'footer')
-            ->with([
-                'items' => fn ($q) => $q->where('is_active', true),
-                'items.children' => fn ($q) => $q->where('is_active', true),
-                'items.linkable',
-                'items.children.linkable',
-            ])
-            ->first(),
-        null,
+                $menu = \App\Models\Menu::query()
+                    ->where('is_active', true)
+                    ->where('location', 'footer')
+                    ->with([
+                        'items' => fn ($q) => $q->where('is_active', true),
+                        'items.children' => fn ($q) => $q->where('is_active', true),
+                        'items.linkable',
+                        'items.children.linkable',
+                    ])
+                    ->first();
+
+                return ($menu?->items ?? collect())
+                    ->map(fn ($mi): array => [
+                        'url' => $resolveMenuUrl($mi),
+                        'label' => $mi->label,
+                        'target' => $mi->target,
+                        'children' => $mi->children
+                            ->map(fn ($child): array => [
+                                'url' => $resolveMenuUrl($child),
+                                'label' => $child->label,
+                                'target' => $child->target,
+                            ])
+                            ->all(),
+                    ])
+                    ->all();
+            }
+        ),
+        [],
         report: false,
     );
-
-    $footerMenuItems = $footerMenu?->items ?? collect();
 @endphp
 
 <footer class="ft">
@@ -119,14 +128,12 @@
 
                     {{-- روابط قائمة الفوتر (CMS: من نحن، الشحن، الاسترجاع…) تُلحق بعد الافتراضي --}}
                     @foreach ($footerMenuItems as $mi)
-                        @php $mu = $resolveMenuUrl($mi); @endphp
-                        @if ($mu)
-                            <a href="{{ $mu }}"@if ($mi->target === '_blank') target="_blank" rel="noopener"@endif>{{ $mi->label }}</a>
+                        @if ($mi['url'])
+                            <a href="{{ $mi['url'] }}"@if ($mi['target'] === '_blank') target="_blank" rel="noopener"@endif>{{ $mi['label'] }}</a>
                         @endif
-                        @foreach ($mi->children as $child)
-                            @php $cu = $resolveMenuUrl($child); @endphp
-                            @if ($cu)
-                                <a href="{{ $cu }}"@if ($child->target === '_blank') target="_blank" rel="noopener"@endif>{{ $child->label }}</a>
+                        @foreach ($mi['children'] as $child)
+                            @if ($child['url'])
+                                <a href="{{ $child['url'] }}"@if ($child['target'] === '_blank') target="_blank" rel="noopener"@endif>{{ $child['label'] }}</a>
                             @endif
                         @endforeach
                     @endforeach
