@@ -13,6 +13,7 @@ use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordRes
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Auth\UnifiedLoginController;
 use App\Http\Controllers\EmailUnsubscribeController;
+use App\Http\Controllers\TaskRunnerController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -51,6 +52,19 @@ Route::get('/email/unsubscribe/{token}', [EmailUnsubscribeController::class, 'sh
     ->name('email.unsubscribe.show');
 Route::post('/email/unsubscribe/{token}', [EmailUnsubscribeController::class, 'store'])
     ->name('email.unsubscribe.store');
+
+// مشغّل المهام المجدولة عبر HTTP (بديل cron حين تمنعه الاستضافة). تناديه خدمة نبض
+// خارجية كل دقيقة. التوكن السرّي في المسار هو الحارس. بلا جلسة كي لا تتراكم جلسات
+// يتيمة من النداء المتكرّر، وبحدّ معدّل يمنع الإغراق.
+Route::get('/tasks/run/{token}', TaskRunnerController::class)
+    ->middleware('throttle:30,1')
+    ->withoutMiddleware([
+        \Illuminate\Session\Middleware\StartSession::class,
+        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        // CSRF يعتمد على الجلسة لكتابة كوكي XSRF؛ يُسقَط هنا (GET لا يحتاجه أصلًا).
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+    ])
+    ->name('tasks.run');
 
 // SEO تقني: خريطة موقع ديناميكية (مخزّنة مؤقتًا ساعة) + روبوتس احتياطي.
 // في الإنتاج يخدم public/robots.txt الساكن أولًا؛ يبقى المسار عاملًا حين يغيب.
