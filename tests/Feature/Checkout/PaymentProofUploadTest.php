@@ -135,13 +135,27 @@ final class PaymentProofUploadTest extends TestCase
         $order = $this->manualOrder();
         $url = $this->signedUrl($order);
 
-        // 5 MB > the 4 MB (4096 KB) cap, even though the type is allowed.
+        // 9 MB > the 8 MB (8192 KB) cap, even though the type is allowed.
         $response = $this->from($url)->post($url, [
-            'proof' => UploadedFile::fake()->create('big.jpg', 5000, 'image/jpeg'),
+            'proof' => UploadedFile::fake()->create('big.jpg', 9000, 'image/jpeg'),
         ]);
 
         $response->assertSessionHasErrors('proof');
         $this->assertSame(0, PaymentProof::where('order_id', $order->id)->count());
+    }
+
+    public function test_a_typical_phone_photo_within_the_new_cap_is_accepted(): void
+    {
+        // 6 MB كان يُرفض قبل رفع الحدّ (صورة إيصال بهاتف حديث) — الآن يُقبل.
+        $order = $this->manualOrder();
+        $url = $this->signedUrl($order);
+
+        $response = $this->from($url)->post($url, [
+            'proof' => UploadedFile::fake()->create('receipt.jpg', 6000, 'image/jpeg'),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertSame(1, PaymentProof::where('order_id', $order->id)->count());
     }
 
     public function test_missing_proof_is_rejected(): void

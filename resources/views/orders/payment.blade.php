@@ -67,7 +67,9 @@
                 <h2><span class="n" aria-hidden="true">2</span>{{ __('checkout.payment.upload_title') }}</h2>
                 <p class="co-hint" style="margin-bottom:14px">{{ __('checkout.payment.upload_hint') }}</p>
 
-                <form id="proofForm" method="POST" action="{{ $proofUrl }}" enctype="multipart/form-data">
+                {{-- novalidate: نعطّل فقاعة المتصفّح ليظهر بوب-اب «الإثبات إجباري» الأوضح.
+                     يبقى required على الحقل لقارئ الشاشة، والتحقّق مفروض خادميًّا أيضًا. --}}
+                <form id="proofForm" method="POST" action="{{ $proofUrl }}" enctype="multipart/form-data" novalidate>
                     @csrf
 
                     <div class="co-field">
@@ -123,4 +125,90 @@
 
         </div>
     </div>
+
+    {{-- بوب-اب: رفع الإثبات إجباري (يظهر عند محاولة الإرسال بلا ملف أو بملف أكبر
+         من الحدّ). النصوص من ملف اللغة، والتحقّق مفروض خادميًّا أيضًا. --}}
+    @php
+        $pmL = [
+            'reqTitle' => __('checkout.payment.proof_required_title'),
+            'reqBody' => __('checkout.payment.proof_required_body'),
+            'bigBody' => __('checkout.payment.proof_too_big'),
+            'preparing' => __('checkout.payment.preparing'),
+            'submit' => __('checkout.payment.submit'),
+            'submitting' => __('checkout.payment.submitting'),
+        ];
+    @endphp
+    <div id="proofModal" class="pm-overlay" hidden>
+        <div class="pm-box" role="dialog" aria-modal="true" aria-labelledby="pm-title">
+            <div class="pm-ic" aria-hidden="true">🧾</div>
+            <h3 id="pm-title">{{ $pmL['reqTitle'] }}</h3>
+            <p id="pm-body">{{ $pmL['reqBody'] }}</p>
+            <button type="button" class="btn btn-primary pm-ok">{{ __('checkout.payment.proof_required_ok') }}</button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var form = document.getElementById('proofForm');
+            var input = document.getElementById('f-proof');
+            var btn = document.getElementById('proofSubmitBtn');
+            var modal = document.getElementById('proofModal');
+            if (!form || !input || !modal) return;
+            var T = @json($pmL);
+            var MAX = 8 * 1024 * 1024;                 // يطابق حدّ الخادم (8 ميجا)
+            var compressing = false;
+
+            function openModal(body) {
+                document.getElementById('pm-body').textContent = body || T.reqBody;
+                modal.hidden = false;
+            }
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal || e.target.classList.contains('pm-ok')) modal.hidden = true;
+            });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+
+            function setBtn(text, disabled) {
+                if (!btn) return;
+                btn.disabled = disabled;
+                btn.textContent = disabled ? text : ('📤 ' + T.submit);
+            }
+
+            // ضغط الصور الكبيرة في المتصفّح قبل الرفع — فتصعد أي صورة مهما كبرت.
+            input.addEventListener('change', function () {
+                var f = input.files && input.files[0];
+                if (!f || f.type.indexOf('image/') !== 0 || f.size <= 1.5 * 1024 * 1024) return;
+                compressing = true; setBtn(T.preparing, true);
+                compress(f).then(function (out) {
+                    if (out && out.size < f.size) {
+                        var dt = new DataTransfer(); dt.items.add(out); input.files = dt.files;
+                    }
+                }).catch(function () {}).finally(function () {
+                    compressing = false; setBtn(null, false);
+                });
+            });
+
+            function compress(file) {
+                return createImageBitmap(file).then(function (bmp) {
+                    var max = 1600, w = bmp.width, h = bmp.height;
+                    if (Math.max(w, h) > max) { var s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+                    var c = document.createElement('canvas'); c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+                    return new Promise(function (res) {
+                        c.toBlob(function (b) {
+                            res(b ? new File([b], (file.name || 'proof').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : null);
+                        }, 'image/jpeg', 0.82);
+                    });
+                });
+            }
+
+            form.addEventListener('submit', function (e) {
+                if (compressing) { e.preventDefault(); return; }               // انتظر انتهاء الضغط
+                var f = input.files && input.files[0];
+                if (!f) { e.preventDefault(); openModal(T.reqBody); return; }    // إجباري
+                if (f.size > MAX) { e.preventDefault(); openModal(T.bigBody); return; }
+                // ملف صالح: امنع النقر المزدوج (رفع مكرّر) وطمئنها أثناء الرفع.
+                if (btn) { btn.disabled = true; btn.textContent = '📤 ' + T.submitting; }
+            });
+        })();
+    </script>
 @endsection

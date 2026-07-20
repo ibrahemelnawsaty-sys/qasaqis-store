@@ -144,6 +144,20 @@
             .pay-note { font-size: 13px; line-height: 1.7; color: var(--ink-soft); margin: 12px 2px 0; }
             .pay-note a { color: var(--purple); font-weight: 700; word-break: break-all; }
             @media (prefers-reduced-motion: reduce) { .pay-cta .arrow { animation: none; } .pay-cta:hover { transform: none; } }
+
+            /* ══ بوب-اب «رفع الإثبات إجباري» ══ */
+            .pm-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px;
+                background: color-mix(in srgb, #000 55%, transparent); backdrop-filter: blur(2px); }
+            .pm-overlay[hidden] { display: none; }
+            .pm-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+                max-width: 420px; width: 100%; padding: 26px 22px 22px; text-align: center; box-shadow: var(--shadow); animation: pmIn .22s ease; }
+            @keyframes pmIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+            .pm-ic { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 16px; display: grid; place-items: center;
+                font-size: 30px; background: var(--purple-soft); }
+            .pm-box h3 { font-size: 18px; font-weight: 900; color: var(--ink); margin: 0 0 8px; }
+            .pm-box p { font-size: 14px; line-height: 1.75; color: var(--ink-soft); margin: 0 0 18px; }
+            .pm-box .btn { width: 100%; }
+            @media (prefers-reduced-motion: reduce) { .pm-box { animation: none; } }
         </style>
     @endpush
 @endonce
