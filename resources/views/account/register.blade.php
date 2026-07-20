@@ -8,6 +8,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     {{-- الشبكات المصرية بطيئة: الضغطة الثانية تُنتج محاولة تسجيل مكرّرة تفشل
          بتصادم رقم الجوال وتُربك الأم. الحماية النهائية خادمية دائمًا. --}}
@@ -91,13 +92,32 @@
                         @enderror
                     </div>
 
-                    <div class="co-field">
+                    {{-- كلمة المرور بزر عين + مقياس قوة محلي (تحسين تدريجي، لا يمسّ
+                         التحقّق الخادمي). --}}
+                    <div class="co-field" x-data="{ show: false, value: '',
+                        get lvl() { const p = this.value; if (! p) return 0; let s = 0;
+                            if (p.length >= 8) s++; if (p.length >= 12) s++;
+                            if (/[0-9]/.test(p) && /[A-Za-z]/.test(p)) s++; if (/[^A-Za-z0-9]/.test(p)) s++;
+                            return s <= 1 ? 1 : (s === 2 ? 2 : 3); } }">
                         <label class="co-label" for="reg-password">{{ __('account.register.password') }}</label>
-                        <input id="reg-password" type="password" name="password" minlength="8"
-                            class="co-input @error('password') err @enderror"
-                            autocomplete="new-password" dir="ltr" required
-                            aria-describedby="reg-password-hint @error('password') reg-password-err @enderror"
-                            @error('password') aria-invalid="true" @enderror>
+                        <div class="acc-passwrap">
+                            <input id="reg-password" :type="show ? 'text' : 'password'" name="password" minlength="8"
+                                class="co-input @error('password') err @enderror"
+                                autocomplete="new-password" dir="ltr" required x-model="value"
+                                aria-describedby="reg-password-hint @error('password') reg-password-err @enderror"
+                                @error('password') aria-invalid="true" @enderror>
+                            <button type="button" class="acc-eye" x-cloak @click="show = !show"
+                                :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
+                                :aria-pressed="show ? 'true' : 'false'">
+                                <span x-show="!show" aria-hidden="true">👁️</span>
+                                <span x-show="show" aria-hidden="true" x-cloak>🙈</span>
+                            </button>
+                        </div>
+                        <div class="acc-strength" x-cloak x-show="value.length > 0" aria-hidden="true">
+                            <div class="bar"><i :class="{ w1: lvl === 1, w2: lvl === 2, w3: lvl === 3 }" :style="`width:${lvl * 33.34}%`"></i></div>
+                            <div class="lbl" :class="{ w1: lvl === 1, w2: lvl === 2, w3: lvl === 3 }"
+                                x-text="lvl === 1 ? @js(__('account.password.strength_weak')) : (lvl === 2 ? @js(__('account.password.strength_medium')) : @js(__('account.password.strength_strong')))"></div>
+                        </div>
                         <p class="co-hint" id="reg-password-hint">{{ __('account.register.password_hint') }}</p>
                         @error('password')
                             <p class="co-err" id="reg-password-err" role="alert">{{ $message }}</p>

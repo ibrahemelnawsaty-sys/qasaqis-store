@@ -68,7 +68,11 @@ final class OrderHistoryController extends Controller
         // ‏ضيف بمطابقة جوال العميلة يجب أن يبقى غير مرئي تمامًا (customer_id فقط).
         abort_unless($this->policy->view($customer, $order), 404);
 
-        $order->load('items');
+        // items لبطاقة الكتب، وstatusHistories للخط الزمني (رحلة الطلب). كلاهما
+        // تحميل مسبق دفعةً واحدة تجنّبًا لـ N+1 (الدستور 2.5). الترتيب الزمني يتمّ
+        // في القالب لأن الفهرس (order_id, created_at) يخدم الجلب، والفرز على مجموعة
+        // صغيرة (انتقالات طلب واحد) لا يستدعي استعلامًا آخر.
+        $order->load(['items', 'statusHistories']);
 
         return view('customer.orders.show', [
             'customer' => $customer,

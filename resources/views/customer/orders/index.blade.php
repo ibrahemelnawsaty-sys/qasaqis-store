@@ -8,6 +8,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     @include('partials.submit-guard', [
         'formId' => 'attachForm',
@@ -18,16 +19,28 @@
     @php
         $money = fn ($v) => number_format((float) $v, 0);
 
-        // تصنيف شارات الحالة — مطابق لصفحة الشكر كي لا يختلف اللون بين الصفحتين.
-        $badgeFor = fn (string $status): string => match ($status) {
-            'confirmed', 'processing', 'shipped', 'delivered', 'completed' => 'paid',
+        // نبرة لونية للحافة + إيموجي دلالي — مطابقة للوحة وصفحة الطلب كي لا يختلف
+        // معنى اللون بين الشاشات.
+        $toneFor = fn (string $status): string => match ($status) {
+            'delivered', 'completed' => 'ok',
             'cancelled', 'refused', 'refunded' => 'bad',
             default => 'wait',
+        };
+        $edgeFor = fn (string $tone): string => match ($tone) {
+            'ok' => 'var(--teal)', 'bad' => 'var(--pink)', default => 'var(--gold)',
+        };
+        $emojiFor = fn (string $status): string => match ($status) {
+            'confirmed' => '✅', 'processing' => '📦', 'shipped' => '🚚',
+            'delivered', 'completed' => '🎉',
+            'cancelled', 'refused', 'refunded' => '⚠️',
+            default => '🧾',
         };
     @endphp
 
     <div class="co">
         <div class="wrap" style="max-width:760px">
+
+            @include('partials.account-header')
 
             <p style="margin-bottom:10px">
                 <a href="{{ route('customer.dashboard') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">
@@ -52,35 +65,33 @@
             </div>
 
             @if ($orders->isNotEmpty())
-                <div class="co-card">
-                    <div class="co-items">
-                        @foreach ($orders as $order)
-                            @php
-                                // يظهر عدد الكتب فقط حين يحمّله المتحكّم بـ withCount('items')
-                                // — لا نعرض صفرًا مخترعًا حين يغيب العمود (بند 1.1).
-                                $itemsCount = isset($order->items_count) ? (int) $order->items_count : null;
-                            @endphp
-                            {{-- الصف بأكمله رابط: مساحة لمس واسعة تناسب الهاتف (بند 6.3). --}}
-                            <a class="co-item" href="{{ route('customer.orders.show', ['order' => $order->id]) }}"
-                                style="text-decoration:none"
-                                aria-label="{{ __('account.orders.view_aria', ['number' => $order->order_number]) }}">
-                                <span class="co-thumb ph"><span class="co-thumb-i" aria-hidden="true">🧾</span></span>
-                                <div class="co-item-main">
-                                    <span class="co-item-title co-mono">{{ $order->order_number }}</span>
-                                    <div class="co-item-meta">
-                                        {{ $order->created_at?->translatedFormat('Y/m/d') }}
-                                        @if ($itemsCount !== null)
-                                            · {{ trans_choice('checkout.summary.items_count', $itemsCount, ['count' => $itemsCount]) }}
-                                        @endif
-                                    </div>
-                                    <div style="margin-top:6px">
-                                        <span class="co-badge {{ $badgeFor($order->status) }}">{{ __('payment.status.' . $order->status) }}</span>
-                                    </div>
+                <div class="acc-orders">
+                    @foreach ($orders as $order)
+                        @php
+                            // يظهر عدد الكتب فقط حين يحمّله المتحكّم بـ withCount('items')
+                            // — لا نعرض صفرًا مخترعًا حين يغيب العمود (بند 1.1).
+                            $itemsCount = isset($order->items_count) ? (int) $order->items_count : null;
+                            $tone = $toneFor($order->status);
+                        @endphp
+                        {{-- الصف بأكمله رابط: مساحة لمس واسعة تناسب الهاتف (بند 6.3).
+                             الحافة اللونية تُشتَقّ من نبرة الحالة عبر متغيّر --edge. --}}
+                        <a class="acc-order" href="{{ route('customer.orders.show', ['order' => $order->id]) }}"
+                            style="--edge:{{ $edgeFor($tone) }}"
+                            aria-label="{{ __('account.orders.view_aria', ['number' => $order->order_number]) }}">
+                            <span class="oc" aria-hidden="true">📖@if ($itemsCount !== null && $itemsCount > 1)<span class="cnt">{{ $itemsCount }}</span>@endif</span>
+                            <div class="om">
+                                <div class="ost {{ $tone }}"><span aria-hidden="true">{{ $emojiFor($order->status) }}</span>{{ __('payment.status.' . $order->status) }}</div>
+                                <div class="omt">
+                                    <span class="co-mono">{{ $order->order_number }}</span>
+                                    · {{ $order->created_at?->translatedFormat('Y/m/d') }}
+                                    @if ($itemsCount !== null)
+                                        · {{ trans_choice('checkout.summary.items_count', $itemsCount, ['count' => $itemsCount]) }}
+                                    @endif
                                 </div>
-                                <div class="co-item-price">{{ $money($order->grand_total) }} {{ __('common.currency') }}</div>
-                            </a>
-                        @endforeach
-                    </div>
+                            </div>
+                            <div class="op">{{ $money($order->grand_total) }} {{ __('common.currency') }}</div>
+                        </a>
+                    @endforeach
 
                     <div class="pagination-wrap">
                         {{ $orders->onEachSide(1)->links() }}
