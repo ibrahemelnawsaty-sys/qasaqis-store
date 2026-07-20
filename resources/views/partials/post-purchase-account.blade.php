@@ -1,8 +1,11 @@
 {{--
     نافذة إنشاء حساب بعد الشراء (M10). تظهر تلقائيًا في صفحة الشكر إن كان الطلب
-    غير مربوط بحساب والزائرة ضيفة. كل البيانات من الطلب — لا تُدخل العميلة إلا كلمة
-    المرور (والبريد فقط للطلبات القديمة التي سبقت إلزام البريد). Alpine خفيف على
-    نمط cart-drawer القائم. النصوص من الترجمة (بند 6.4).
+    غير مربوط والزائرة ضيفة ومفتاح جلسة الشراء يطابق هذا الطلب. كل البيانات من
+    الطلب — لا تُدخل العميلة إلا كلمة المرور. Alpine خفيف. النصوص من الترجمة (6.4).
+
+    التوسيط بفئات CSS لا بأنماط inline (إصلاح M11): x-show يبدّل style.display، فلو
+    كان التوسيط (display:flex) مكتوبًا inline لمسحه x-show عند العرض فتلتصق النافذة
+    بالحافّة (كما ظهر على اللاب توب). بوضعه في فئة يعود x-show ليبدّل flex↔none بأمان.
 --}}
 @php
     // تظهر فقط لجلسة المشتري نفسه (M10): طلب غير مربوط + ضيفة + مفتاح جلسة الشراء
@@ -14,18 +17,30 @@
 @endphp
 
 @if ($showAccountPopup)
+    <style>
+        .pp-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); z-index: 1000; }
+        .pp-center {
+            position: fixed; inset: 0; z-index: 1001;
+            display: flex; align-items: center; justify-content: center;
+            padding: 16px; overflow-y: auto;
+        }
+        .pp-modal {
+            width: 100%; max-width: 440px; max-height: 92vh; overflow-y: auto;
+            position: relative; margin: auto;
+        }
+        .pp-close { position: absolute; inset-inline-end: 12px; inset-block-start: 12px; z-index: 2; }
+    </style>
+
     <div x-data="{ open: true }" x-cloak>
-        <div class="drawer-backdrop" x-show="open" @click="open = false" x-transition.opacity
-            style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60"></div>
+        {{-- الخلفية المعتمة --}}
+        <div class="pp-overlay" x-show="open" x-transition.opacity @click="open = false"></div>
 
-        <div x-show="open" x-transition
-            role="dialog" aria-modal="true" aria-labelledby="pp-title"
-            style="position:fixed;inset:0;z-index:61;display:flex;align-items:center;justify-content:center;padding:16px">
-            <div class="co-card" style="max-width:420px;width:100%;max-height:90vh;overflow:auto;position:relative">
+        {{-- حاوية التوسيط (flex في CSS كي لا يمسحه x-show) --}}
+        <div class="pp-center" x-show="open" x-transition role="dialog" aria-modal="true" aria-labelledby="pp-title">
+            <div class="co-card pp-modal" @click.stop>
 
-                <button type="button" class="icon-btn" @click="open = false"
-                    aria-label="{{ __('account.post_purchase.later') }}"
-                    style="position:absolute;inset-inline-end:12px;inset-block-start:12px">✕</button>
+                <button type="button" class="icon-btn pp-close" @click="open = false"
+                    aria-label="{{ __('account.post_purchase.later') }}">✕</button>
 
                 <div style="text-align:center;margin-bottom:8px">
                     <div class="em" aria-hidden="true" style="font-size:2.2em">🎉</div>

@@ -49,17 +49,23 @@ class VerificationCodeService
             'expires_at' => now()->addMinutes((int) config('verification.expiry_minutes', 15)),
         ]);
 
-        // فشل الإرسال (SMTP مقطوع مثلًا) يُبتلع ويُسجَّل: الحساب أُنشئ والكود جاهز،
-        // والعميلة تُعيد الإرسال. رمي الخطأ هنا كان سيُسقِط تسجيلًا ناجحًا.
-        try {
-            $this->channel->send($identifier, $code);
+        // الإرسال يجري **بعد الاستجابة** (defer): إرسال SMTP المتزامن كان يحجب
+        // الاستجابة ثوانيَ فتبطؤ الصفحة التالية (شكوى المالك). الكود مُخزَّن الآن
+        // فهو صالح فورًا، والإرسال يكمل في نهاية الطلب بعد تفريغ الاستجابة للمتصفح.
+        // فشل SMTP يُبتلع ويُسجَّل ولا يُسقِط شيئًا (الحساب أُنشئ والكود جاهز للإعادة).
+        $channel = $this->channel;
 
-            return true;
-        } catch (\Throwable $e) {
-            report($e);
+        defer(static function () use ($channel, $identifier, $code): void {
+            try {
+                $channel->send($identifier, $code);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
 
-            return false;
-        }
+        // متفائل: النجاح الفعلي يُعرَف بعد الاستجابة، والمستدعي لا يعتمد عليه
+        // لإسقاط عملية (التسجيل/الإنشاء يمضيان، والإعادة تُظهر رسالة تفاؤلية).
+        return true;
     }
 
     /**
