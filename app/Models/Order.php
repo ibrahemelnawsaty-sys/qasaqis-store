@@ -105,4 +105,37 @@ class Order extends Model
     {
         return $query->where('status', $status);
     }
+
+    /**
+     * الإيراد المحقّق — القاعدة الوحيدة التي تحكم كل رقم في القسم المالي
+     * (قرار المالك المعتمد 2026-07-20):
+     *   • المدفوع مقدّمًا (أونلاين/تحويل يدوي) يُحتسب عند payment_status = paid.
+     *   • الدفع عند الاستلام (COD) يُحتسب عند status ∈ (delivered, completed)،
+     *     لأنه يُنشأ unpaid ولا يتحوّل إلى paid أبدًا (النقطة الوحيدة التي تضبط
+     *     paid هي قبول إثبات التحويل اليدوي) — فاعتماد paid وحده يُخفي كل مبيعات
+     *     COD، وهي الأغلب في مصر.
+     *   • يُستبعد ضمنيًا كل ما عدا ذلك: pending / cancelled / refused / refunded.
+     *
+     * القيم مطابقة لـ enum('status') و enum('payment_status') في هجرتَي الطلبات
+     * (تُحقّق فعليًا، لا تُخمَّن — الدستور 1.1).
+     */
+    public function scopeRealisedRevenue(Builder $query): Builder
+    {
+        // الاستبعاد أولًا ويعلو على أي شيء: طلب ملغى/مرفوض/مرتجع لا يُحتسب إيرادًا
+        // ولو كان مدفوعًا (paid ثم أُلغي/رُدّ) — وإلا حُسبت مبيعات لم تكتمل.
+        //
+        // فرع delivered/completed مقصور على COD عمدًا: هو وحده يُنشأ unpaid ولا
+        // يتحوّل إلى paid، فيُحتسب عند التسليم. أما المدفوع مقدّمًا (أونلاين/تحويل)
+        // فيُحتسب حصريًا عبر paid — وإلا لو وُضع طلب أونلاين غير مدفوع على «مُسلَّم»
+        // يدويًا لاحتُسب إيرادًا لم يُحصَّل (قيمة الـ enum هي 'cod' لا 'cash_on_delivery').
+        return $query
+            ->whereNotIn('status', ['cancelled', 'refused', 'refunded'])
+            ->where(function (Builder $q): void {
+                $q->where('payment_status', 'paid')
+                    ->orWhere(function (Builder $cod): void {
+                        $cod->where('payment_method', 'cod')
+                            ->whereIn('status', ['delivered', 'completed']);
+                    });
+            });
+    }
 }

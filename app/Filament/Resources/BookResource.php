@@ -170,10 +170,26 @@ class BookResource extends Resource
                         ->numeric()
                         ->minValue(0),
 
+                    // تكلفة الشراء سرّية (الدستور 0.7): تظهر لمن يملك products.cost.view،
+                    // وتُعطّل لمن لا يملك products.cost.update. dehydrated المربوط بالصلاحية
+                    // يمنع كتابتها من طلب مُلفَّق حتى لو تلاعب بالحقل (الدستور 4.1) — ومن لا
+                    // يراها يبقى صفّها في القاعدة سليمًا لأن الحقل لا يُرطَّب عند الحفظ.
                     Forms\Components\TextInput::make('cost_price')
                         ->label('سعر التكلفة (ج.م)')
                         ->numeric()
-                        ->minValue(0),
+                        ->minValue(0)
+                        ->visible(fn (): bool => static::userCan('cost.view'))
+                        ->disabled(fn (): bool => ! static::userCan('cost.update'))
+                        ->dehydrated(fn (): bool => static::userCan('cost.update'))
+                        // Book::$hidden يحذف cost_price من attributesToArray الذي يملأ
+                        // منه Filament النموذج، فيظهر الحقل فارغًا ويُكتب NULL عند الحفظ
+                        // (إتلاف صامت للتكلفة). نُعيد ترطيبه من القيمة الخام (getRawOriginal
+                        // يتجاوز $hidden) لمن يملك الرؤية فقط، فيُعرض ويُحفظ سليمًا.
+                        ->afterStateHydrated(function (Forms\Components\TextInput $component, ?Book $record): void {
+                            if ($record !== null && static::userCan('cost.view')) {
+                                $component->state($record->getRawOriginal('cost_price'));
+                            }
+                        }),
                 ]),
 
             Forms\Components\Section::make('المخزون')

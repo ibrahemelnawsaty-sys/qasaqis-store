@@ -7,6 +7,7 @@ namespace App\Observers;
 use App\Actions\Order\RestoreOrderStockAction;
 use App\Jobs\SendPurchaseServerEvent;
 use App\Models\Order;
+use App\Services\Finance\FinanceReportService;
 
 /**
  * مُراقب الطلب — نقطة واحدة، حارسان مستقلان:
@@ -29,6 +30,21 @@ class OrderObserver
     {
         $this->maybeRestoreStock($order);
         $this->maybeDispatchPurchaseEvent($order);
+    }
+
+    /**
+     * إبطال كاش تقارير القسم المالي عند أي إنشاء/تعديل طلب — saved يغطّي
+     * الحالتين. بدونه يظل الطلب الجديد أو تغيّر الحالة غير مرئي في الداشبورد
+     * حتى انتهاء عمر الكاش (الدستور 5.4). flush رفع إصدار واحد رخيص.
+     */
+    public function saved(Order $order): void
+    {
+        app(FinanceReportService::class)->flush();
+    }
+
+    public function deleted(Order $order): void
+    {
+        app(FinanceReportService::class)->flush();
     }
 
     private function maybeRestoreStock(Order $order): void

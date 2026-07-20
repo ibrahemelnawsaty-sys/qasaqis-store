@@ -45,6 +45,10 @@ class RolePermissionSeeder extends Seeder
         'popups.view', 'popups.manage', 'surveys.manage',
         'referrals.manage',
         'seo.view', 'seo.edit', 'seo.technical.manage',
+        // تكلفة الشراء الداخلية (سرّية): من يراها ومن يعدّلها. تُفصل عن
+        // products.price.update لأن المسعّر ليس بالضرورة من يرى هامش الربح
+        // (الدستور 0.7 «التكلفة مخفية عن دور الدعم» + مبدأ الامتياز الأدنى).
+        'products.cost.view', 'products.cost.update',
         // 3.4 Orders & payment.
         'orders.view', 'orders.view_financials', 'orders.update_status',
         'orders.ship', 'orders.cancel', 'orders.refund', 'orders.export',

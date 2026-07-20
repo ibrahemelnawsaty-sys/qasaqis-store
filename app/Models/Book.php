@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Book extends Model
 {
-    /** @use HasFactory<\Database\Factories\BookFactory> */
+    /** @use HasFactory<BookFactory> */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
@@ -55,6 +56,15 @@ class Book extends Model
         'title_normalized',
         'search_index',
     ];
+
+    /**
+     * تكلفة الشراء سرّية (الدستور 0.7): تُستبعد من أي تسلسل تلقائي (toArray/toJson)
+     * حتى لو حُمِّل الصف كاملًا في الواجهة، فلا تتسرّب في JSON-LD أو dataLayer أو API.
+     * دفاع في العمق يكمّل حماية الحقل في لوحة الأدمن بصلاحية products.cost.view.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = ['cost_price'];
 
     /**
      * @return array<string, string>
