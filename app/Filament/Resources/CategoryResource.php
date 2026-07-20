@@ -8,6 +8,7 @@ use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\CategoryResource\Pages;
 use App\Models\Category;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Filament\Support\SeoFieldset;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -147,8 +148,12 @@ class CategoryResource extends Resource
                     Forms\Components\Textarea::make('description')
                         ->label('الوصف')
                         ->rows(3)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->helperText('يُستخدم أيضًا كوصف الميتا الافتراضي للقسم إن تُرك حقل SEO فارغًا.'),
                 ]),
+
+            // قسم SEO: كان القسم يملك علاقة seo() دون واجهة تملؤها (علاقة ميتة).
+            SeoFieldset::make(),
         ]);
     }
 

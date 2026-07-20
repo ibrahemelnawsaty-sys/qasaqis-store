@@ -2,10 +2,10 @@
 
 
 @php
-    $metaTitle = filled($article->seo_title) ? $article->seo_title : $article->title . ' — ' . __('common.brand');
-    $metaDesc = filled($article->seo_description)
-        ? $article->seo_description
-        : (filled($article->excerpt) ? $article->excerpt : __('common.tagline'));
+    // تجاوز الكاتب (عمودا seo_title/seo_description) إن وُجد، وإلا المشتقّ تلقائيًا من
+    // عنوان المقال/مقتطفه عبر المصدر الموحّد SeoDefaults (نفسه يغذّي placeholder الإدارة).
+    $metaTitle = filled($article->seo_title) ? $article->seo_title : \App\Support\Seo\SeoDefaults::title($article);
+    $metaDesc = filled($article->seo_description) ? $article->seo_description : \App\Support\Seo\SeoDefaults::description($article);
 
     // غلاف المقال إن وُجد؛ وإلا شعار العلامة (لا نخترع صورة — بند 1.1/0.4).
     $coverSrc = filled($article->cover_image)

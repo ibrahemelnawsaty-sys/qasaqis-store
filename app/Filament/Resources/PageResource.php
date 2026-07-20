@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\PageResource\Pages;
+use App\Filament\Support\SeoPlaceholder;
 use App\Models\Page;
 use App\Providers\Filament\AdminPanelProvider;
 use Filament\Forms;
@@ -99,22 +100,26 @@ class PageResource extends Resource
                 ])
                 ->columns(3),
 
-            Forms\Components\Section::make('تحسين محركات البحث (SEO)')
-                ->description('بيانات SEO خاصة بهذه الصفحة.')
+            Forms\Components\Section::make(__('seo.admin.section'))
+                ->description(__('seo.admin.section_hint'))
                 ->collapsible()
                 ->schema([
                     // relationship() on a Group is the documented Filament v3 way to
                     // persist a hasOne/morphOne relation (Page morphOne SeoMeta).
+                    // ما يُترك فارغًا يُشتقّ تلقائيًا من محتوى الصفحة عبر SeoDefaults
+                    // (نفس مصدر الـplaceholder هنا وقيمة الإصدار في الواجهة).
                     Forms\Components\Group::make()
                         ->relationship('seo')
                         ->schema([
                             Forms\Components\TextInput::make('meta_title')
                                 ->label('عنوان الميتا')
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->placeholder(fn ($livewire): string => SeoPlaceholder::title($livewire)),
                             Forms\Components\Textarea::make('meta_description')
                                 ->label('وصف الميتا')
                                 ->maxLength(320)
-                                ->rows(2),
+                                ->rows(2)
+                                ->placeholder(fn ($livewire): string => SeoPlaceholder::description($livewire)),
                             Forms\Components\TextInput::make('meta_keywords')
                                 ->label('الكلمات المفتاحية')
                                 ->maxLength(255),
@@ -133,11 +138,13 @@ class PageResource extends Resource
                                 ->default('index,follow'),
                             Forms\Components\TextInput::make('og_title')
                                 ->label('عنوان OpenGraph')
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->placeholder(fn ($livewire): string => SeoPlaceholder::title($livewire)),
                             Forms\Components\Textarea::make('og_description')
                                 ->label('وصف OpenGraph')
                                 ->maxLength(320)
-                                ->rows(2),
+                                ->rows(2)
+                                ->placeholder(fn ($livewire): string => SeoPlaceholder::description($livewire)),
                             Forms\Components\FileUpload::make('og_image_path')
                                 ->label('صورة OpenGraph')
                                 ->image()

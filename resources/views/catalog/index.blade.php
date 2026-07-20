@@ -6,12 +6,16 @@
 @php
     // وصف ميتا فريد لكل سياق. كانت كل صفحات الأقسام والتصفّح والسلاسل ترث الوصف
     // الافتراضي الواحد من التخطيط (common.tagline)، فتتنافس على نفس المقتطف في النتائج.
-    // الأولوية: وصف SEO من الأدمن ← وصف القسم ← وصف مُركَّب من السياق.
+    // الأولوية لكل سياق: تجاوز الأدمن (seo_meta) ← المشتقّ من الكيان نفسه عبر
+    // SeoDefaults ← نصّ عام. القسم والسلسلة لكلٍّ اشتقاقه الخاص من اسمه/وصفه؛ صفحتا
+    // التصفّح والبحث لا كيان لهما فترجعان للنصّ العام. (كان $seoSeries يُحسب ولا يُستخدم.)
     $seoCategory = $category ?? null;
     $seoSeries = $series ?? null;
-    $catalogMetaDescription = $seoCategory?->seo?->meta_description
-        ?: ($seoCategory?->description
-        ?: __('catalog.meta_description', ['context' => $heading, 'brand' => __('common.brand')]));
+    $seoEntity = $seoCategory ?? $seoSeries;
+    $catalogMetaDescription = $seoEntity?->seo?->meta_description
+        ?: ($seoEntity
+            ? \App\Support\Seo\SeoDefaults::description($seoEntity)
+            : __('catalog.meta_description', ['context' => $heading, 'brand' => __('common.brand')]));
 
     // canonical صريح: url()->current() يحذف الـ query string فيوحّد كل الفلاتر
     // والفرز والتصفيح على رابط واحد — وهو المطلوب، عدا /offers الذي يستحق رابطه.
