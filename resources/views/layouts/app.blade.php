@@ -178,6 +178,9 @@
 
     @include('partials.consent-banner')
 
+    {{-- رسائل تحقّق المتصفح بالعربية لكل النماذج (M11). --}}
+    @include('partials.native-validation')
+
     @stack('scripts')
 </body>
 </html>
