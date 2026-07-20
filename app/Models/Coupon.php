@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Coupon extends Model
 {
+    use \App\Support\Audit\RecordsAdminActivity;
+
     protected $fillable = [
         'code',
         'description',

@@ -21,6 +21,12 @@ use Illuminate\Database\Seeder;
  * COD) stay the always-on default; online payment is OFF until a gateway key
  * exists (doc 04 §5.1). Booleans are stored as '1'/'0' strings with type=boolean
  * so the reader casts them consistently.
+ *
+ * COVERAGE INVARIANT (constitution 0.8, docs/10 §315): every key seeded here MUST
+ * also be editable from ManageStoreSettings — a seeded value the owner cannot change
+ * from the panel is a CMS gap. Tests\Feature\Admin\SettingsCoverageTest enforces this
+ * and fails on any key added here without a matching field on the settings page, so
+ * keep the two in step (same key, same group, same type).
  */
 class SettingSeeder extends Seeder
 {
@@ -42,7 +48,21 @@ class SettingSeeder extends Seeder
             ['contact', 'contact_email', 'info@qasaqis.store', 'string'],
             ['contact', 'contact_address', '6 أكتوبر، محافظة الجيزة، الحي الرابع', 'string'],
             ['contact', 'store_maps_url', 'https://maps.app.goo.gl/C6P3GVQdRiVuEdK4A', 'string'],
-            ['contact', 'shipping_note', 'شحن دولي لكل الدول', 'string'],
+
+            // --- Shipping (shipping) ----------------------------------------
+            // `shipping_note` moved out of the `contact` group: it is shipping copy,
+            // and it now sits beside the threshold in the panel's «الشحن» section.
+            // Behaviour-neutral: nothing reads `settings` by group except the
+            // appearance/pattern rows (BackgroundPatternService); every other reader
+            // looks rows up by `key`. `group` is declared in the settings migration
+            // as general/contact/payment/shipping/social, so `shipping` is not new.
+            ['shipping', 'shipping_note', 'شحن دولي لكل الدول', 'text'],
+
+            // Free-shipping threshold in EGP, measured on the order total AFTER the
+            // discount. Ships EMPTY on purpose: empty = no threshold at all. No amount
+            // is invented here (constitution 0.4 / 1.1) — the store owner sets the real
+            // figure from the panel.
+            ['shipping', 'free_shipping_threshold', '', 'string'],
 
             // --- Social media (social) — empty, ready for the admin to fill --
             ['social', 'social_facebook', 'https://www.facebook.com/groups/1596310100703409/', 'string'],

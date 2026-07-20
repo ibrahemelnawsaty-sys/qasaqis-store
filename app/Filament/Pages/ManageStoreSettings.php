@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use App\Providers\Filament\AdminPanelProvider;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -15,8 +16,14 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Store settings (constitution 0.8 / doc 04 §4): store identity, contact, and
- * payment-method toggles — all CMS-managed key/value rows in the `settings` table.
+ * Store settings (constitution 0.8 / doc 04 §4): store identity, contact, shipping,
+ * social links, and payment-method toggles — all CMS-managed key/value rows in the
+ * `settings` table.
+ *
+ * Every key SettingSeeder writes MUST have a field here: a seeded value the owner
+ * cannot edit from the panel is a CMS gap (two such keys, store_maps_url and
+ * shipping_note, were visitor-facing yet uneditable — see docs/10 §315).
+ * Tests\Feature\Admin\SettingsCoverageTest holds that line.
  *
  * SECURITY (constitution 4.3 / doc 04 §7.5): this page NEVER reads or writes any
  * secret. Only the explicit non-secret whitelist below is handled, and every write
@@ -50,13 +57,19 @@ class ManageStoreSettings extends Page implements HasForms
     public ?array $data = [];
 
     /**
-     * The ONLY settings this page manages. Every entry is non-secret. Shape:
-     * key => [group, type]. Booleans are persisted as '1'/'0' strings with
-     * type=boolean, matching SettingSeeder.
+     * The ONLY settings this page manages — the authoritative registry of editable
+     * keys. Every entry is non-secret. Shape: key => [group, type]. Booleans are
+     * persisted as '1'/'0' strings with type=boolean, matching SettingSeeder.
+     *
+     * PUBLIC on purpose (docs/10 §315): Tests\Feature\Admin\SettingsCoverageTest
+     * diffs the keys SettingSeeder actually writes against this list and fails when
+     * a seeded key has no field here, so the "seeded but uneditable" gap cannot come
+     * back. Adding a key here also requires adding its field in form() — the same
+     * test asserts that too.
      *
      * @var array<string, array{0: string, 1: string}>
      */
-    private const MANAGED = [
+    public const MANAGED = [
         // Store identity.
         'store_name' => ['general', 'string'],
         'tagline' => ['general', 'string'],
@@ -68,6 +81,10 @@ class ManageStoreSettings extends Page implements HasForms
         'contact_phone' => ['contact', 'string'],
         'contact_email' => ['contact', 'string'],
         'contact_address' => ['contact', 'string'],
+        'store_maps_url' => ['contact', 'string'],
+        // Shipping.
+        'shipping_note' => ['shipping', 'text'],
+        'free_shipping_threshold' => ['shipping', 'string'],
         // Social media (public profile URLs, non-secret).
         'social_facebook' => ['social', 'string'],
         'social_instagram' => ['social', 'string'],
@@ -153,6 +170,36 @@ class ManageStoreSettings extends Page implements HasForms
                         Forms\Components\TextInput::make('contact_address')
                             ->label('العنوان')
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('store_maps_url')
+                            ->label('رابط الموقع على خرائط جوجل')
+                            ->url()
+                            ->maxLength(300)
+                            ->prefixIcon('heroicon-o-map-pin')
+                            ->helperText('يظهر كزر «تفضّلوا بزيارتنا» في الفوتر والصفحة الرئيسية. اتركيه فارغًا ليختفي الزر.'),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('الشحن')
+                    ->description('نصوص الشحن الظاهرة للعميل وعتبة الشحن المجاني.')
+                    ->schema([
+                        Forms\Components\Textarea::make('shipping_note')
+                            ->label('ملاحظة الشحن')
+                            ->rows(2)
+                            ->maxLength(500)
+                            ->helperText('سطر قصير عن سياسة الشحن (مثل نطاق التوصيل أو مدّته).'),
+                        // Stored as a string (type=string) but validated as a number.
+                        // Deliberately no maxLength(): on a numeric field Filament turns
+                        // it into `max_digits`, and there is no defined ceiling for the
+                        // threshold — inventing one would cap the owner arbitrarily
+                        // (constitution 0.4 / 1.1). Rules resolve to
+                        // ["nullable","numeric","min:0"]: blank is accepted (Laravel
+                        // skips non-implicit rules for an empty string), negatives are
+                        // not, and large amounts are never truncated.
+                        Forms\Components\TextInput::make('free_shipping_threshold')
+                            ->label('عتبة الشحن المجاني (بالجنيه)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->helperText('تُحتسب على إجمالي الطلب بعد الخصم. اتركيها فارغة فلا تكون هناك عتبة (لا شحن مجاني).'),
                     ])
                     ->columns(2),
 
@@ -253,12 +300,12 @@ class ManageStoreSettings extends Page implements HasForms
     }
 
     /**
-     * @return array<int, \Filament\Actions\Action>
+     * @return array<int, Action>
      */
     protected function getFormActions(): array
     {
         return [
-            \Filament\Actions\Action::make('save')
+            Action::make('save')
                 ->label('حفظ')
                 ->submit('save')
                 ->visible(fn (): bool => (bool) auth()->user()?->can('settings.general.edit')),
