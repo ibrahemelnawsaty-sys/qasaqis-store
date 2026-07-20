@@ -36,6 +36,8 @@
     <div class="co">
         <div class="wrap" style="max-width:620px">
 
+            @include('partials.account-header', ['sub' => __('account.profile.idbar_sub')])
+
             <p style="margin-bottom:10px">
                 <a href="{{ route('customer.dashboard') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">
                     <span aria-hidden="true">←</span> {{ __('account.nav.dashboard') }}
@@ -190,7 +192,7 @@
                                     class="co-input @error('current_password') err @enderror"
                                     autocomplete="current-password" dir="ltr"
                                     @error('current_password') aria-invalid="true" aria-describedby="pf-current-password-err" @enderror>
-                                <button type="button" class="acc-eye" @click="show = !show"
+                                <button type="button" class="acc-eye" x-cloak @click="show = !show"
                                     :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
                                     :aria-pressed="show ? 'true' : 'false'">
                                     <span x-show="!show" aria-hidden="true">👁️</span>
@@ -210,7 +212,7 @@
                                     autocomplete="new-password" dir="ltr"
                                     aria-describedby="pf-password-hint @error('password') pf-password-err @enderror"
                                     @error('password') aria-invalid="true" @enderror>
-                                <button type="button" class="acc-eye" @click="show = !show"
+                                <button type="button" class="acc-eye" x-cloak @click="show = !show"
                                     :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
                                     :aria-pressed="show ? 'true' : 'false'">
                                     <span x-show="!show" aria-hidden="true">👁️</span>

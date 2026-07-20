@@ -106,7 +106,7 @@
                                 autocomplete="new-password" dir="ltr" required x-model="value"
                                 aria-describedby="reg-password-hint @error('password') reg-password-err @enderror"
                                 @error('password') aria-invalid="true" @enderror>
-                            <button type="button" class="acc-eye" @click="show = !show"
+                            <button type="button" class="acc-eye" x-cloak @click="show = !show"
                                 :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
                                 :aria-pressed="show ? 'true' : 'false'">
                                 <span x-show="!show" aria-hidden="true">👁️</span>

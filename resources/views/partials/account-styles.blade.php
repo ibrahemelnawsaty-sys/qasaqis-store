@@ -6,6 +6,16 @@
 --}}
 @once
     <style>
+        /* شريط هوية مصغّر للصفحات الفرعية — يُبقي إحساس «هذا حسابي» متّصلًا خارج اللوحة */
+        .acc-idbar{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+        .acc-idbar .m{ width:38px; height:38px; border-radius:50%; flex:none; display:grid; place-items:center;
+            color:#fff; font-weight:900; font-size:15px;
+            background:linear-gradient(135deg,var(--purple),var(--pink)); box-shadow:var(--shadow-s); }
+        .acc-idbar .t{ min-width:0; }
+        .acc-idbar b{ display:block; font-size:.95rem; font-weight:900; line-height:1.2;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .acc-idbar span{ display:block; font-size:.74rem; color:var(--ink-soft); }
+
         /* الهيرو الشخصي: تحية بالاسم + مونوغرام */
         .acc-hero{ text-align:center; border-radius:var(--r-lg); padding:22px 16px 18px;
             background:radial-gradient(130% 120% at 50% 0%, var(--purple-soft), var(--surface));
@@ -50,28 +60,28 @@
         .acc-last-main .ot{ font-weight:900; font-size:1rem; }
         .acc-last-main .meta{ color:var(--ink-faint); font-size:.74rem; font-variant-numeric:tabular-nums; }
         .acc-status{ font-size:.85rem; font-weight:800; margin-top:3px; display:inline-flex; gap:5px; align-items:center; }
-        .acc-status.ok{ color:var(--teal); } .acc-status.wait{ color:var(--gold-ink); } .acc-status.bad{ color:#e23c3c; }
+        .acc-status.ok{ color:var(--teal); } .acc-status.wait{ color:var(--gold-ink); } .acc-status.bad{ color:var(--pink); }
 
         /* مقياس قوة كلمة المرور — تلميح بصري محلي (لا يُغني عن تحقّق الخادم) */
         .acc-strength{ margin-top:8px; }
         .acc-strength .bar{ height:6px; border-radius:var(--r-pill); background:var(--line); overflow:hidden; }
         .acc-strength .bar > i{ display:block; height:100%; width:0; border-radius:var(--r-pill);
             transition:width .2s ease, background .2s ease; }
-        .acc-strength .bar > i.w1{ background:#e23c3c; }
+        .acc-strength .bar > i.w1{ background:var(--pink); }
         .acc-strength .bar > i.w2{ background:var(--gold); }
         .acc-strength .bar > i.w3{ background:var(--teal); }
         .acc-strength .lbl{ font-size:.74rem; font-weight:800; margin-top:5px; }
-        .acc-strength .lbl.w1{ color:#e23c3c; }
+        .acc-strength .lbl.w1{ color:var(--pink); }
         .acc-strength .lbl.w2{ color:var(--gold-ink); }
         .acc-strength .lbl.w3{ color:var(--teal); }
         @media (prefers-reduced-motion: reduce){ .acc-strength .bar > i{ transition:none; } }
 
-        /* حقل كلمة مرور بزر عين */
+        /* حقل كلمة مرور بزر عين — مساحة لمس ≥44px (بند 6.3) */
         .acc-passwrap{ position:relative; }
-        .acc-eye{ position:absolute; inset-inline-end:8px; top:50%; transform:translateY(-50%);
-            background:none; border:0; cursor:pointer; color:var(--ink-faint); padding:6px; font-size:1.05rem;
-            line-height:1; }
-        .acc-passwrap input{ padding-inline-end:40px; }
+        .acc-eye{ position:absolute; inset-inline-end:4px; top:50%; transform:translateY(-50%);
+            background:none; border:0; cursor:pointer; color:var(--ink-faint); font-size:1.05rem;
+            min-width:44px; min-height:44px; display:grid; place-items:center; padding:0; }
+        .acc-passwrap input{ padding-inline-end:46px; }
 
         /* خانات رمز التحقق (OTP) — تحسين تدريجي:
            الأساس حقلٌ واحد مرئيّ يعمل بلا JS ويحفظ ملء one-time-code التلقائي؛
@@ -79,8 +89,10 @@
         .otp-input{ width:100%; height:56px; text-align:center; font-size:1.5rem; letter-spacing:.5em;
             font-variant-numeric:tabular-nums; }
         .otp.js{ position:relative; height:56px; }
+        /* 16px لا 1px: خطٌّ أصغر يُطلق تكبير iOS التلقائي عند التركيز، والحقل شفّاف
+           أصلًا (color/caret شفّافان) فلا يُرى نصّه. */
         .otp.js .otp-input{ position:absolute; inset:0; height:100%; z-index:2; border:0; background:transparent;
-            font-size:1px; color:transparent; caret-color:transparent; letter-spacing:0; }
+            font-size:16px; color:transparent; caret-color:transparent; letter-spacing:0; }
         .otp.js .otp-cells{ position:absolute; inset:0; z-index:1; display:grid; gap:8px;
             grid-template-columns:repeat(var(--n,6),1fr); }
         .otp-cell{ border:2px solid var(--line); border-radius:var(--r-sm); display:grid; place-items:center;
@@ -91,7 +103,7 @@
         .otp-cell.active::after{ content:""; width:2px; height:26px; background:var(--purple);
             animation:otp-blink 1.05s step-end infinite; }
         .otp-cell.filled.active::after{ display:none; }
-        .otp.is-error .otp-cell{ border-color:#e23c3c; }
+        .otp.is-error .otp-cell{ border-color:var(--pink); }
         @keyframes otp-blink{ 50%{ opacity:0; } }
         @media (prefers-reduced-motion: reduce){ .otp-cell.active::after{ animation:none; } }
 
@@ -134,8 +146,8 @@
         .acc-order .om{ flex:1; min-width:0; }
         .acc-order .ost{ font-weight:900; font-size:.98rem; display:flex; align-items:center; gap:6px; line-height:1.2; }
         .acc-order .ost.ok{ color:var(--teal); } .acc-order .ost.wait{ color:var(--gold-ink); }
-        .acc-order .ost.bad{ color:#e23c3c; }
-        .acc-order .omt{ color:var(--ink-faint); font-size:.74rem; font-variant-numeric:tabular-nums; margin-top:3px; }
+        .acc-order .ost.bad{ color:var(--pink); }
+        .acc-order .omt{ color:var(--ink-soft); font-size:.74rem; font-variant-numeric:tabular-nums; margin-top:3px; }
         .acc-order .op{ font-weight:900; font-size:.95rem; white-space:nowrap; font-variant-numeric:tabular-nums; }
 
         /* الخط الزمني — قلب رحلة الطلب: عمودي، يقرأه الجوال بلمحة */
@@ -152,16 +164,15 @@
             border-radius:50%; display:grid; place-items:center; font-size:.9rem; line-height:1;
             background:var(--surface); border:2px solid var(--line); color:var(--ink-faint); }
         .acc-tl .done .nd{ background:var(--purple); border-color:var(--purple); color:#fff; }
+        /* «أنتِ هنا»: حلقة ثابتة بارزة بلا حركة لا نهائية — إبرازٌ واضح وأخفّ على
+           الأجهزة الضعيفة (لا إعادة رسم مستمرة). */
         .acc-tl .active .nd{ background:linear-gradient(135deg,var(--purple),var(--pink)); border-color:transparent;
-            color:#fff; box-shadow:0 0 0 4px var(--purple-soft); animation:acc-pulse 2s ease-in-out infinite; }
-        .acc-tl .bad .nd{ background:#e23c3c; border-color:#e23c3c; color:#fff; }
+            color:#fff; box-shadow:0 0 0 4px var(--purple-soft); }
+        .acc-tl .bad .nd{ background:var(--pink); border-color:var(--pink); color:#fff; }
         .acc-tl .tl-lbl{ font-weight:800; font-size:.95rem; line-height:1.35; padding-top:5px; }
         .acc-tl .upcoming .tl-lbl{ color:var(--ink-faint); font-weight:700; }
         .acc-tl .active .tl-lbl{ color:var(--purple); }
-        .acc-tl .bad .tl-lbl{ color:#e23c3c; }
-        .acc-tl .tl-time{ font-size:.72rem; color:var(--ink-faint); font-variant-numeric:tabular-nums; margin-top:1px; }
-        @keyframes acc-pulse{ 0%,100%{ box-shadow:0 0 0 4px var(--purple-soft); }
-            50%{ box-shadow:0 0 0 7px color-mix(in srgb,var(--purple) 12%, transparent); } }
-        @media (prefers-reduced-motion: reduce){ .acc-tl .active .nd{ animation:none; } }
+        .acc-tl .bad .tl-lbl{ color:var(--pink); }
+        .acc-tl .tl-time{ font-size:.72rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; margin-top:1px; }
     </style>
 @endonce

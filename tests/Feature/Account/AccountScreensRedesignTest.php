@@ -33,6 +33,20 @@ final class AccountScreensRedesignTest extends TestCase
         $response->assertSee('otp-input', false);   // الحقل الحقيقي الواحد (يحفظ الملء التلقائي)
         $response->assertSee('otp-cells', false);    // الخانات المرئية فوقه
         $response->assertSee('one-time-code', false); // ملء الرمز التلقائي محفوظ
+        // dir=ltr على الحاوية كي لا تنعكس الخانات في سياق RTL (تطابق رسالة الرمز).
+        $this->assertMatchesRegularExpression('/class="otp[^"]*"[^>]*dir="ltr"/', $response->getContent());
+    }
+
+    public function test_sub_pages_carry_the_identity_bar_to_keep_the_logged_in_feel(): void
+    {
+        $customer = Customer::factory()->create(['name' => 'أم يوسف']);
+
+        foreach (['customer.orders.index', 'customer.profile.edit'] as $route) {
+            $response = $this->actingAs($customer, 'customer')->get(route($route));
+            $response->assertOk();
+            $response->assertSee('acc-idbar', false);   // شريط الهوية المصغّر
+            $response->assertSee('أم يوسف', false);      // تحية بالاسم على الصفحة الفرعية
+        }
     }
 
     public function test_the_reset_page_shows_a_local_password_strength_meter(): void

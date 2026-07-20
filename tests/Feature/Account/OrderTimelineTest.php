@@ -57,6 +57,24 @@ final class OrderTimelineTest extends TestCase
         );
     }
 
+    public function test_a_delivered_order_marks_the_final_step_done_not_active(): void
+    {
+        $customer = Customer::factory()->create();
+        $order = $this->order($customer, 'delivered');
+        OrderStatusHistory::create([
+            'order_id' => $order->id, 'from_status' => 'shipped',
+            'to_status' => 'delivered', 'source' => 'admin',
+        ]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('customer.orders.show', ['order' => $order->id]));
+
+        $response->assertOk();
+        // طلبٌ منتهٍ لا يبدو جاريًا: لا عقدة «نشطة» تنبض في خطّه الزمني.
+        $this->assertStringNotContainsString('aria-current="step"', $response->getContent());
+        // ونصّ الحالة لقارئ الشاشة موجود (المعلومة ليست باللون وحده — WCAG 1.4.1).
+        $response->assertSee('تمّت', false);
+    }
+
     public function test_a_cancelled_order_shows_a_negative_terminal_and_no_future_happy_steps(): void
     {
         $customer = Customer::factory()->create();

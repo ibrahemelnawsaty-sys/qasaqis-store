@@ -54,7 +54,9 @@
                          نفسه مركزيًّا وقابلًا للإدخال — لا تُحجب المهمّة خلف نص برمجي. --}}
                     <div class="co-field">
                         <label class="co-label" for="f-code">{{ __('account.verify.code_label') }}</label>
-                        <div class="otp @error('code') is-error @enderror" style="--n:{{ $codeLen }}"
+                        {{-- dir=ltr على الحاوية: الرمز يُقرأ يسار→يمين (كرسالة SMS)، ولولاه
+                             لرتّبت شبكة الخانات نفسها من اليمين في سياق RTL فيظهر معكوسًا. --}}
+                        <div class="otp @error('code') is-error @enderror" dir="ltr" style="--n:{{ $codeLen }}"
                             x-data="{ n: {{ $codeLen }}, value: '' }" x-init="$el.classList.add('js')">
                             <input id="f-code" type="text" name="code"
                                 inputmode="numeric" autocomplete="one-time-code"

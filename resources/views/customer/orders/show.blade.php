@@ -63,6 +63,8 @@
     <div class="co">
         <div class="wrap" style="max-width:760px">
 
+            @include('partials.account-header', ['sub' => __('account.order.idbar_sub')])
+
             <p style="margin-bottom:10px">
                 <a href="{{ route('customer.orders.index') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">
                     <span aria-hidden="true">←</span> {{ __('account.order.back') }}
@@ -95,14 +97,14 @@
                         {{-- مسار متوقّف: استلام ثم حالة نهائية سلبية، بلا خطوات لاحقة وهمية --}}
                         <li class="done">
                             <span class="nd" aria-hidden="true">✓</span>
-                            <div class="tl-lbl">{{ __('account.order.timeline.received') }}</div>
+                            <div class="tl-lbl">{{ __('account.order.timeline.received') }}<span class="sr-only"> — {{ __('account.order.timeline.state_done') }}</span></div>
                             @if ($order->created_at)
                                 <div class="tl-time">{{ $order->created_at->translatedFormat('Y/m/d — H:i') }}</div>
                             @endif
                         </li>
-                        <li class="bad active">
+                        <li class="bad active" aria-current="step">
                             <span class="nd" aria-hidden="true">⚠️</span>
-                            <div class="tl-lbl">{{ __('payment.status.' . $order->status) }}</div>
+                            <div class="tl-lbl">{{ __('payment.status.' . $order->status) }}<span class="sr-only"> — {{ __('account.order.timeline.state_active') }}</span></div>
                             @if ($stamp[$order->status] ?? null)
                                 <div class="tl-time">{{ $stamp[$order->status]->translatedFormat('Y/m/d — H:i') }}</div>
                             @endif
@@ -110,16 +112,23 @@
                     @else
                         @foreach ($milestones as $i => $m)
                             @php
-                                $state = $i < $currentRank ? 'done' : ($i === $currentRank ? 'active' : 'upcoming');
+                                // عند التسليم/الاكتمال يصير المعلم الأخير «مكتملًا» (✓ هادئ)
+                                // لا «نشطًا» ينبض، فالطلب المنتهي لا يبدو جاريًا.
+                                $positiveTerminal = in_array($order->status, ['delivered', 'completed'], true);
+                                $state = $i < $currentRank
+                                    ? 'done'
+                                    : ($i === $currentRank ? ($positiveTerminal ? 'done' : 'active') : 'upcoming');
                                 // وقت حقيقي فقط: الاستلام من created_at، وبقية المعالم من سجل
                                 // التاريخ (delivered يقبل ختم completed). القادم بلا وقت.
                                 $t = $m['key'] === 'pending'
                                     ? $order->created_at
                                     : ($stamp[$m['key']] ?? ($m['key'] === 'delivered' ? ($stamp['completed'] ?? null) : null));
                             @endphp
-                            <li class="{{ $state }}">
+                            <li class="{{ $state }}" @if ($state === 'active') aria-current="step" @endif>
                                 <span class="nd" aria-hidden="true">{{ $state === 'done' ? '✓' : $m['emoji'] }}</span>
-                                <div class="tl-lbl">{{ $m['label'] }}</div>
+                                {{-- الحالة تُنقل باللون والأيقونة بصريًا؛ نضيف نصًّا مخفيًا
+                                     بصريًا كي لا تعتمد المعلومة على اللون وحده (WCAG 1.4.1). --}}
+                                <div class="tl-lbl">{{ $m['label'] }}<span class="sr-only"> — {{ __('account.order.timeline.state_' . $state) }}</span></div>
                                 @if ($state !== 'upcoming' && $t)
                                     <div class="tl-time">{{ $t->translatedFormat('Y/m/d — H:i') }}</div>
                                 @endif

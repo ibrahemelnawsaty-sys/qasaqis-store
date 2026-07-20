@@ -17,8 +17,14 @@
 @endphp
 
 @if ($showAccountPopup)
-    @include('partials.account-styles')
+    {{-- أنماط زر العين مضمّنة هنا (سطور قليلة) بدل ضمّ كامل account-styles: صفحة
+         الشكر تحويلية وتخضع لميزانية الأداء (5.1)، فلا نضخّ CSS الحساب كلّه لزرّ واحد. --}}
     <style>
+        .acc-passwrap { position: relative; }
+        .acc-passwrap input { padding-inline-end: 46px; }
+        .acc-eye { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+            background: none; border: 0; cursor: pointer; color: var(--ink-faint); font-size: 1.05rem;
+            min-width: 44px; min-height: 44px; display: grid; place-items: center; padding: 0; }
         .pp-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); z-index: 1000; }
         .pp-center {
             position: fixed; inset: 0; z-index: 1001;
@@ -85,7 +91,7 @@
                         <div class="acc-passwrap">
                             <input id="pp-password" :type="show ? 'text' : 'password'" name="password" minlength="8"
                                 class="co-input @error('password') err @enderror" autocomplete="new-password" required>
-                            <button type="button" class="acc-eye" @click="show = !show"
+                            <button type="button" class="acc-eye" x-cloak @click="show = !show"
                                 :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
                                 :aria-pressed="show ? 'true' : 'false'">
                                 <span x-show="!show" aria-hidden="true">👁️</span>

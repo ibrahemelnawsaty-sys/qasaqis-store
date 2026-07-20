@@ -27,7 +27,7 @@
             default => 'wait',
         };
         $edgeFor = fn (string $tone): string => match ($tone) {
-            'ok' => 'var(--teal)', 'bad' => '#e23c3c', default => 'var(--gold)',
+            'ok' => 'var(--teal)', 'bad' => 'var(--pink)', default => 'var(--gold)',
         };
         $emojiFor = fn (string $status): string => match ($status) {
             'confirmed' => '✅', 'processing' => '📦', 'shipped' => '🚚',
@@ -39,6 +39,8 @@
 
     <div class="co">
         <div class="wrap" style="max-width:760px">
+
+            @include('partials.account-header')
 
             <p style="margin-bottom:10px">
                 <a href="{{ route('customer.dashboard') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">

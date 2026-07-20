@@ -73,7 +73,7 @@
                                 class="co-input @if ($errors->any()) err @endif"
                                 autocomplete="current-password" dir="ltr" required
                                 @if ($errors->any()) aria-invalid="true" aria-describedby="login-err" @endif>
-                            <button type="button" class="acc-eye" @click="show = !show"
+                            <button type="button" class="acc-eye" x-cloak @click="show = !show"
                                 :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
                                 :aria-pressed="show ? 'true' : 'false'">
                                 <span x-show="!show" aria-hidden="true">👁️</span>
