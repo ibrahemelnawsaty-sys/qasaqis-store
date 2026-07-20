@@ -48,11 +48,25 @@ final class DashboardController extends Controller
             'customer' => $customer,
             'ordersCount' => $this->orders($customer)->count(),
             'totalSpent' => $this->totalSpent($customer),
+            'booksCount' => $this->booksCount($customer),
             'lastOrder' => $this->orders($customer)
                 ->select(self::LAST_ORDER_COLUMNS)
                 ->latest('created_at')
                 ->first(),
         ]);
+    }
+
+    /**
+     * ‏عدد الكتب في «مكتبة» العميلة: مجموع كميات بنود طلباتها المحتسَبة (بند 1.1:
+     * ‏order_items.quantity عمود حقيقي). إعادة تأطير «كم دفعتِ» إلى «ماذا بنيتِ
+     * ‏لطفلك». join لا علاقة Eloquent كي لا نحمّل كل البنود لمجرّد جمع كمياتها.
+     */
+    private function booksCount(Customer $customer): int
+    {
+        return (int) $this->orders($customer)
+            ->whereNotIn('status', self::NON_SPENT_STATUSES)
+            ->join('order_items', 'orders.id', '=', 'order_items.order_id')
+            ->sum('order_items.quantity');
     }
 
     /**

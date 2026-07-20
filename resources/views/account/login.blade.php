@@ -8,6 +8,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     @include('partials.submit-guard', [
         'formId' => 'loginForm',
@@ -64,12 +65,21 @@
                             @if ($errors->any()) aria-invalid="true" aria-describedby="login-err" @endif>
                     </div>
 
-                    <div class="co-field">
+                    {{-- كلمة المرور بزر عين: تُقلّل احتكاك الإدخال على الجوال (M12). --}}
+                    <div class="co-field" x-data="{ show: false }">
                         <label class="co-label" for="log-password">{{ __('account.login.password') }}</label>
-                        <input id="log-password" type="password" name="password"
-                            class="co-input @if ($errors->any()) err @endif"
-                            autocomplete="current-password" dir="ltr" required
-                            @if ($errors->any()) aria-invalid="true" aria-describedby="login-err" @endif>
+                        <div class="acc-passwrap">
+                            <input id="log-password" :type="show ? 'text' : 'password'" name="password"
+                                class="co-input @if ($errors->any()) err @endif"
+                                autocomplete="current-password" dir="ltr" required
+                                @if ($errors->any()) aria-invalid="true" aria-describedby="login-err" @endif>
+                            <button type="button" class="acc-eye" @click="show = !show"
+                                :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
+                                :aria-pressed="show ? 'true' : 'false'">
+                                <span x-show="!show" aria-hidden="true">👁️</span>
+                                <span x-show="show" aria-hidden="true" x-cloak>🙈</span>
+                            </button>
+                        </div>
                     </div>
 
                     {{-- مربّع اختيار بمساحة لمس كاملة: التسمية نفسها هدف النقر (بند 6.3). --}}
