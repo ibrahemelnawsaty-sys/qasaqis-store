@@ -8,7 +8,10 @@ use App\Enums\PatternSurface;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Expense;
+use App\Models\Menu;
+use App\Models\MenuItem;
 use App\Models\Order;
+use App\Models\Page;
 use App\Models\Review;
 use App\Models\Setting;
 use App\Models\User;
@@ -18,10 +21,12 @@ use App\Observers\OrderObserver;
 use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
+use App\Support\Cache\StorefrontCache;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -91,9 +96,36 @@ class AppServiceProvider extends ServiceProvider
         // aggregateRating (نجوم البحث) في صفحة الكتاب. هذا السطر يُفعّلهما.
         Review::observe(ReviewObserver::class);
 
+        // إبطال كاش قشرة المتجر عند تحرير مصادره من الـ CMS (StorefrontCache). أحداث
+        // الموديل تلتقط كل مسارات الكتابة (Filament، البذر، tinker) لا شاشة واحدة.
+        // عدد الكتب المنشورة في القسم يعتمد أيضًا على حفظ الكتب، لكن تقادمه تجميليّ
+        // ويحدّه TTL — فلا نُبطل ملاحة الأقسام على كل حفظ كتاب حفاظًا على فاعلية الكاش.
+        Category::saved(static fn (): mixed => StorefrontCache::forgetNavCategories());
+        Category::deleted(static fn (): mixed => StorefrontCache::forgetNavCategories());
+        Setting::saved(static fn (): mixed => StorefrontCache::forgetStoreSettings());
+        Setting::deleted(static fn (): mixed => StorefrontCache::forgetStoreSettings());
+
+        // قوائم CMS تخزّن روابط route() مُحلّلةً بالـslug. تُبطَل عند تعديل القائمة أو
+        // عناصرها، وأيضًا عند تغيّر slug هدفٍ مرتبط (صفحة/قسم/كتاب) أو حذفه — وإلا بقي
+        // رابط الهيدر/الفوتر مكسورًا (404) حتى انقضاء TTL. نفحص wasChanged('slug') كي لا
+        // نُبطل على كل حفظ كتاب (شائع) بل عند تغيّر الرابط فعلًا فقط.
+        foreach ([Menu::class, MenuItem::class] as $menuModel) {
+            $menuModel::saved(static fn (): mixed => StorefrontCache::forgetMenus());
+            $menuModel::deleted(static fn (): mixed => StorefrontCache::forgetMenus());
+        }
+        foreach ([Page::class, Category::class, Book::class] as $linkableModel) {
+            $linkableModel::saved(static function ($target): void {
+                if ($target->wasChanged('slug')) {
+                    StorefrontCache::forgetMenus();
+                }
+            });
+            $linkableModel::deleted(static fn (): mixed => StorefrontCache::forgetMenus());
+        }
+
         // Shared data for every storefront view (layout, partials, and the page
-        // content section alike). Computed once per request. Wrapped in rescue()
-        // so views still render before the tables are migrated/seeded (empty data).
+        // content section alike). Computed once per request, cached across requests
+        // via StorefrontCache. Wrapped in rescue() so views still render before the
+        // tables are migrated/seeded (empty data).
         View::share('navCategories', $this->navCategories());
         View::share('storeSettings', $this->storeSettings());
 
@@ -202,15 +234,21 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function navCategories()
     {
+        // مخزّن مؤقّتًا (StorefrontCache): استعلام تجميعي (withCount) كان يُنفَّذ على
+        // كل طلب في الموقع. يُبطَل عند حفظ/حذف قسم؛ وTTL يحدّ تقادم عدد الكتب.
         return rescue(
-            fn () => Category::query()
-                ->where('is_active', true)
-                ->whereNull('parent_id')
-                ->orderBy('sort_order')
-                ->withCount(['books as books_count' => function (Builder $q): void {
-                    $q->where('is_published', true);
-                }])
-                ->get(),
+            fn () => Cache::remember(
+                StorefrontCache::NAV_CATEGORIES,
+                StorefrontCache::TTL,
+                fn () => Category::query()
+                    ->where('is_active', true)
+                    ->whereNull('parent_id')
+                    ->orderBy('sort_order')
+                    ->withCount(['books as books_count' => function (Builder $q): void {
+                        $q->where('is_published', true);
+                    }])
+                    ->get(),
+            ),
             collect(),
             report: false,
         );
@@ -249,11 +287,18 @@ class AppServiceProvider extends ServiceProvider
             'social_telegram' => '',
         ];
 
+        // مخزّن مؤقّتًا (StorefrontCache): قراءة الإعدادات العامة تتكرّر على كل طلب.
+        // نخزّن صفوف قاعدة البيانات فقط ثم ندمجها مع الافتراضيات (فتبقى الافتراضيات
+        // القائمة على config حيّة دومًا). يُبطَل عند حفظ/حذف أي Setting.
         $fromDb = rescue(
-            fn () => Setting::query()
-                ->whereIn('key', array_keys($defaults))
-                ->pluck('value', 'key')
-                ->toArray(),
+            fn () => Cache::remember(
+                StorefrontCache::STORE_SETTINGS,
+                StorefrontCache::TTL,
+                fn () => Setting::query()
+                    ->whereIn('key', array_keys($defaults))
+                    ->pluck('value', 'key')
+                    ->toArray(),
+            ),
             [],
             report: false,
         );

@@ -1,68 +1,82 @@
 @php
-    // روابط قائمة الهيدر المُدارة من الـ CMS (Menu location=header). تُجلب مرة واحدة
-    // مع تحميل مسبق (eager) للعناصر وربطها المتعدد لتفادي N+1. rescue() تُبقي الهيدر
-    // يعمل قبل تشغيل الهجرات (قائمة فارغة). عند غياب القائمة تبقى الروابط الافتراضية.
-    $resolveMenuUrl = static function ($item): ?string {
-        // الأدمن يملأ url مباشرةً لنوع «رابط»؛ للأنواع الأخرى يُشتق من الهدف المرتبط
-        // عبر المسارات الموجودة فعليًا فقط (دار النشر بلا مسار متجر بعد => تُتجاهل).
-        if (filled($item->url)) {
-            return $item->url;
-        }
-
-        $target = $item->linkable;
-
-        if ($target !== null) {
-            return match ($item->link_type) {
-                'page' => route('pages.show', $target),
-                'category' => route('categories.show', $target),
-                'product' => route('books.show', $target),
-                default => null,
-            };
-        }
-
-        return null;
-    };
-
-    // العميلة المسجّلة ترى قائمة حسابها (location=header_customer)، والزائرة ترى قائمة
-    // الترويسة العامة (location=header). كلاهما يحرّره الأدمن من «القوائم» بلا كود.
+    // قائمة الهيدر المُدارة من الـ CMS مخزّنة مؤقّتًا لكل موقع (StorefrontCache): كان
+    // استعلام Menu مع eager load متعدّد الأشكال يُنفَّذ على كل صفحة. نخزّن مصفوفات بسيطة
+    // (روابط محلولة) لا نماذج Eloquent — أخفّ وأأمن للتسلسل، وroute() يُبنى وقت التخزين.
+    // يُبطَل عند حفظ Menu/MenuItem أو تغيّر slug هدف مرتبط. rescue تُبقي الهيدر يعمل قبل
+    // الهجرات (قائمة فارغة) فلا تختفي الملاحة.
+    //
+    // العميلة المسجّلة ترى قائمة حسابها (location=header_customer)، والزائرة قائمة
+    // الترويسة العامة (location=header) — كلاهما يحرّره الأدمن من «القوائم» بلا كود.
+    // مفتاح كاش منفصل لكل موقع فلا يختلط الشريطان، والقائمة نفسها مشتركة بين كل العميلات
+    // (لا بيانات خاصّة بمستخدم) فالتخزين آمن.
     $isCustomerNav = auth('customer')->check();
     $navMenuLocation = $isCustomerNav ? 'header_customer' : 'header';
 
-    $headerMenu = rescue(
-        fn () => \App\Models\Menu::query()
-            ->where('is_active', true)
-            ->where('location', $navMenuLocation)
-            ->with([
-                'items' => fn ($q) => $q->where('is_active', true),
-                'items.linkable',
-            ])
-            ->first(),
-        null,
+    $headerNav = rescue(
+        fn (): array => \Illuminate\Support\Facades\Cache::remember(
+            \App\Support\Cache\StorefrontCache::menuKey($navMenuLocation),
+            \App\Support\Cache\StorefrontCache::TTL,
+            static function () use ($navMenuLocation): array {
+                $resolveMenuUrl = static function ($item): ?string {
+                    // الأدمن يملأ url مباشرةً لنوع «رابط»؛ للأنواع الأخرى يُشتق من الهدف
+                    // المرتبط عبر المسارات الموجودة فعليًا فقط (دار النشر بلا مسار => تُتجاهل).
+                    if (filled($item->url)) {
+                        return $item->url;
+                    }
+
+                    $target = $item->linkable;
+
+                    if ($target !== null) {
+                        return match ($item->link_type) {
+                            'page' => route('pages.show', $target),
+                            'category' => route('categories.show', $target),
+                            'product' => route('books.show', $target),
+                            default => null,
+                        };
+                    }
+
+                    return null;
+                };
+
+                $menu = \App\Models\Menu::query()
+                    ->where('is_active', true)
+                    ->where('location', $navMenuLocation)
+                    ->with([
+                        'items' => fn ($q) => $q->where('is_active', true),
+                        'items.linkable',
+                    ])
+                    ->first();
+
+                $links = ($menu?->items ?? collect())
+                    ->map(fn ($mi): array => [
+                        'url' => $resolveMenuUrl($mi),
+                        'label' => $mi->label,
+                        'icon' => $mi->icon,
+                        'target' => $mi->target,
+                    ])
+                    ->filter(fn (array $l): bool => filled($l['url']))
+                    ->values()
+                    ->all();
+
+                // نخزّن show_categories الخام (قد يكون null)؛ يُحلّ افتراضه خارج الكاش
+                // لأنه يعتمد على نمط الملاحة (زائرة/عميلة) المتغيّر لكل طلب.
+                return [
+                    'show_categories' => $menu?->show_categories,
+                    'links' => $links,
+                ];
+            }
+        ),
+        ['show_categories' => null, 'links' => []],
         report: false,
     );
 
-    $headerMenuItems = $headerMenu?->items ?? collect();
+    $stripLinks = collect($headerNav['links']);
 
-    // خيار من إعدادات القائمة: إظهار روابط الأقسام تلقائيًا. الافتراضي في نمط الزائرة
-    // true (وكذلك قبل تشغيل الهجرة، إذ يعود العمود غير موجود بقيمة null)، أما شريط
-    // العميلة فيبقى مركّزًا على حسابها ما لم يُفعّل الأدمن الأقسام في قائمتها.
-    $showNavCategories = $headerMenu?->show_categories ?? ! $isCustomerNav;
+    // إظهار روابط الأقسام: الافتراضي true في نمط الزائرة، false في نمط العميلة (شريطها
+    // مركّز على حسابها ما لم يُفعّل الأدمن الأقسام في قائمتها).
+    $showNavCategories = $headerNav['show_categories'] ?? ! $isCustomerNav;
 
-    // روابط شريط التنقّل: تُبنى من قائمة الهيدر في الأدمن (بعد استبعاد ما لا يُحلّ رابطه).
-    // إن لم تُنشأ قائمة header أصلًا نرجع للروابط الافتراضية أدناه، فلا تختفي الملاحة.
-    $stripLinks = $headerMenuItems
-        ->map(fn ($mi) => [
-            'url' => $resolveMenuUrl($mi),
-            'label' => $mi->label,
-            'icon' => $mi->icon,
-            'target' => $mi->target,
-        ])
-        ->filter(fn (array $l): bool => filled($l['url']))
-        ->values();
-
-    // شريط العميلة الافتراضي (قائمة أدمن غائبة أو فارغة الروابط) يبقى مركّزًا على
-    // حسابها: لا تُلحق الأقسام حتى لو كانت show_categories على افتراضها true في قائمة
-    // header_customer فارغة أنشأها الأدمن سهوًا.
+    // شريط العميلة الافتراضي (قائمة أدمن غائبة أو فارغة الروابط) يبقى مركّزًا على حسابها.
     if ($isCustomerNav && $stripLinks->isEmpty()) {
         $showNavCategories = false;
     }

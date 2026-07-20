@@ -133,8 +133,12 @@ final class PasswordResetController extends Controller
      * `ResetPassword` يبني رابطه من مسار اسمه `password.reset` — غير موجود في هذا
      * المشروع — فيرفع RouteNotFoundException. المسار هنا هو `customer.password.reset`.
      *
-     * NOTE: بلا ShouldQueue عمدًا — الصنف المجهول غير قابل للتسلسل، والإرسال
-     * الفوري هو المطلوب أصلًا (المُجدول يشغّل الطابور كل دقيقة، فالتأخير محسوس).
+     * NOTE: الإرسال يجري **بعد الاستجابة** عبر defer() لا داخل الطلب. كان الإرسال
+     * المتزامن يحجب POST /forgot-password طوال مصافحة SMTP (ثوانٍ)، ويُطيل زمن الطلب
+     * فقط حين يوجد حساب — تسريب توقيتي يمكّن من تعداد المستخدمين. التأجيل يعيد الرد
+     * فورًا ويثبّت زمن الطلب. defer لا يُسلسِل الإغلاق (يعمل في نفس العملية) فالصنف
+     * المجهول غير القابل للتسلسل يبقى صالحًا هنا — بخلاف ShouldQueue. نفس نمط
+     * VerificationCodeService::issueAndSend. فشل SMTP يُسجَّل ولا يُسقِط شيئًا.
      */
     private function sendResetLinkMail(Customer $customer, string $token): void
     {
@@ -142,40 +146,47 @@ final class PasswordResetController extends Controller
 
         $url = route('customer.password.reset', ['token' => $token, 'email' => $email]);
         $expire = (int) config('auth.passwords.'.self::BROKER.'.expire', 60);
+        $name = (string) $customer->name;
 
-        Notification::route('mail', $email)->notify(
-            new class((string) $customer->name, $url, $expire) extends BaseNotification
-            {
-                public function __construct(
-                    private readonly string $name,
-                    private readonly string $url,
-                    private readonly int $expire,
-                ) {
-                }
+        defer(static function () use ($name, $url, $expire, $email): void {
+            try {
+                Notification::route('mail', $email)->notify(
+                    new class($name, $url, $expire) extends BaseNotification
+                    {
+                        public function __construct(
+                            private readonly string $name,
+                            private readonly string $url,
+                            private readonly int $expire,
+                        ) {
+                        }
 
-                /**
-                 * @return array<int, string>
-                 */
-                public function via(object $notifiable): array
-                {
-                    return ['mail'];
-                }
+                        /**
+                         * @return array<int, string>
+                         */
+                        public function via(object $notifiable): array
+                        {
+                            return ['mail'];
+                        }
 
-                public function toMail(object $notifiable): MailMessage
-                {
-                    // ‎->view()‎ لا سلسلة ‎->line()/->action()‎: القالب الافتراضي عامّ
-                    // (ترويسة نصّية وزر أسود و«If you're having trouble…»). العرض هنا
-                    // يرث emails.layout فيأخذ الترويسة والتذييل المؤسسيين.
-                    return (new MailMessage)
-                        ->subject(__('account.password.mail.subject'))
-                        ->view('emails.reset-password', [
-                            'name' => $this->name,
-                            'url' => $this->url,
-                            'expire' => $this->expire,
-                        ]);
-                }
+                        public function toMail(object $notifiable): MailMessage
+                        {
+                            // ‎->view()‎ لا سلسلة ‎->line()/->action()‎: القالب الافتراضي
+                            // عامّ (ترويسة نصّية وزر أسود و«If you're having trouble…»).
+                            // العرض هنا يرث emails.layout فيأخذ الترويسة والتذييل المؤسسيين.
+                            return (new MailMessage)
+                                ->subject(__('account.password.mail.subject'))
+                                ->view('emails.reset-password', [
+                                    'name' => $this->name,
+                                    'url' => $this->url,
+                                    'expire' => $this->expire,
+                                ]);
+                        }
+                    }
+                );
+            } catch (\Throwable $e) {
+                report($e);
             }
-        );
+        });
     }
 
     /**
