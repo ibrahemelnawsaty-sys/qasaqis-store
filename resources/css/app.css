@@ -206,6 +206,23 @@
   .band{ position:relative; }
   .band-lilac{ background:linear-gradient(180deg,var(--purple-soft),color-mix(in srgb,var(--purple-soft) 40%,var(--cream))); }
 
+  /* شريط قسم بنقش يختاره الأدمن (CMS). النقش يأتي من فئة .pat-* على العنصر نفسه.
+     حدّان شعريّان بدل ظل ثقيل: أخفّ رسمًا على الأجهزة الضعيفة (1.6).
+
+     الخلفية surface-soft (أفتح من الصفحة) لا cream-2 (أغمق) — والسبب مقاس لا
+     ذوقي: نص .sec-desc بلون --ink-soft يعطي 4.67 على خلفية الصفحة، فأي إعتام
+     يُسقطه تحت AA. القياس على cream-2 أعطى 4.42-4.47 (راسب)، وحتى مزج 30%
+     وقف عند 4.596 بلا فصل بصري يُذكر. الفصل بالإضاءة يعطي 4.82 (الدستور 6.3). */
+  .sec-band{
+    background-color:var(--surface-soft);
+    border-block:1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+    position:relative; z-index:1;
+  }
+  /* شريطان متجاوران يعطيان حدًّا مزدوجًا سميكًا — نُلغي العلوي من الثاني. */
+  .sec-band + .sec-band{ border-block-start:0; }
+  /* .sec يحمل z-index:2 ليعلو زخارف الهيرو؛ النقش على الشريط الأب فلا يحجبه. */
+  .sec-band > .sec{ z-index:auto; }
+
   /* trust bar */
   .trust{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; transform:translateY(-38px); position:relative; z-index:5; }
   @media (max-width:760px){ .trust{ grid-template-columns:repeat(2,1fr); transform:translateY(-26px); } }

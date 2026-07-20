@@ -22,6 +22,7 @@
     @endphp
 
     {{-- السلايدر الدعائي البارز (بلوكات CMS slider/banner). عند غيابها نعرض الهيرو الافتراضي المبهج. --}}
+    <x-section-band :pattern="$sectionPatterns['hero'] ?? ''">
     @if ($slides->isNotEmpty())
         {{-- عنوان رئيسي مخفيّ بصريًا: السلايدر لا يحمل <h1>، والهيرو (صاحب الـ <h1> الوحيد)
              لا يُعرض حين توجد شرائح — فكانت الرئيسية تُصيَّر بلا <h1> إطلاقًا. هذا يكسر
@@ -101,13 +102,14 @@
         </div>
     </div>
     @endif
+    </x-section-band>
     {{-- نهاية الهيرو الافتراضي --}}
 
     <svg class="wave" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true">
         <path d="M0,40 C240,90 480,90 720,55 C960,20 1200,20 1440,50 L1440,90 L0,90 Z" fill="var(--purple-soft)"/>
     </svg>
 
-    <div class="band band-lilac">
+    <div class="band band-lilac {{ $sectionPatterns['trust'] ?? '' }}">
         <div class="wrap">
             {{-- TRUST — محتوى قابل للتحرير من الأدمن (جدول trust_items). rescue تُرجع null
                  لو الجدول غير موجود (قبل الهجرة) فنرجع لقيم ملف اللغة؛ ومصفوفة فارغة تعني
@@ -144,6 +146,7 @@
             @endif
 
             {{-- CATEGORIES --}}
+            <x-section-band :pattern="$sectionPatterns['categories'] ?? ''">
             <section class="sec" style="padding-top:6px" aria-labelledby="cats-title">
                 <div class="sec-top">
                     <span class="sec-eyebrow">{{ __('home.categories_eyebrow') }}</span>
@@ -169,6 +172,7 @@
                     @endforeach
                 </div>
             </section>
+            </x-section-band>
         </div>
     </div>
 
@@ -178,6 +182,7 @@
 
     {{-- FEATURED --}}
     @if ($featured->isNotEmpty())
+        <x-section-band :pattern="$sectionPatterns['featured'] ?? ''">
         <section class="sec" aria-labelledby="feat-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -195,11 +200,13 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- BESTSELLERS «الأكثر مبيعًا» — يظهر فقط عند وجود كتب (المتحكّم يوفّر رجوعًا
          للأكثر مشاهدة/الأحدث فلا يكون القسم فارغًا). شبكة بطاقات مثل المميّزة. --}}
     @if ($bestsellers->isNotEmpty())
+        <x-section-band :pattern="$sectionPatterns['bestsellers'] ?? ''">
         <section class="sec" style="padding-top:6px" aria-labelledby="best-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -217,14 +224,19 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- بلوكات CMS القابلة للتحرير (نصوص/صور/بانرات عرض) بالترتيب.
          عند غيابها نعرض بانر العرض الافتراضي المبهج (لا فراغ). --}}
     @forelse ($blocks as $block)
-        @include('partials.home.block', ['block' => $block])
+        {{-- نقش اختياري تختاره الأدمن لكل كتلة من داخل شاشة كتل الرئيسية. --}}
+        <x-section-band :pattern="\App\Enums\BackgroundPattern::fromValue($block->background_pattern)->cssClass() ?? ''">
+            @include('partials.home.block', ['block' => $block])
+        </x-section-band>
     @empty
         {{-- PROMO الافتراضي --}}
+        <x-section-band :pattern="$sectionPatterns['promo'] ?? ''">
         <section class="sec" style="padding-top:6px">
             <div class="wrap">
                 <div class="promo">
@@ -242,10 +254,12 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endforelse
 
     {{-- LATEST --}}
     @if ($latest->isNotEmpty())
+        <x-section-band :pattern="$sectionPatterns['latest'] ?? ''">
         <section class="sec" aria-labelledby="latest-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -260,6 +274,7 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- WHY MOMS — بطاقات من قاعدة البيانات (جدول why_items). rescue تُرجع null قبل
@@ -282,6 +297,7 @@
         }
     @endphp
     @if (filled($whyItems))
+        <x-section-band :pattern="$sectionPatterns['why'] ?? ''">
         <section class="sec" style="padding-top:6px" aria-labelledby="why-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -300,6 +316,7 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- شهادات العملاء (صور) — من قاعدة البيانات (جدول feedback_images) ليضيف الأدمن صورًا.
@@ -328,6 +345,7 @@
         }
     @endphp
     @if (filled($feedbackImages))
+        <x-section-band :pattern="$sectionPatterns['feedback'] ?? ''">
         <section class="sec" aria-labelledby="feedback-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -346,9 +364,11 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- طلبات الجملة والاستفسارات + الموقع --}}
+    <x-section-band :pattern="$sectionPatterns['bulk'] ?? ''">
     <section class="sec" aria-labelledby="bulk-title">
         <div class="wrap">
             <div class="sec-top">
@@ -434,9 +454,11 @@
             </div>
         </div>
     </section>
+    </x-section-band>
 
     {{-- REVIEWS (بيانات حقيقية فقط) --}}
     @if ($reviews->isNotEmpty())
+        <x-section-band :pattern="$sectionPatterns['reviews'] ?? ''">
         <section class="sec" style="padding-top:6px" aria-labelledby="rev-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -464,6 +486,7 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 
     {{-- أحدث المقالات (المدونة) — يظهر فقط إن وُجدت مقالات منشورة. زر «كل المقالات»
@@ -475,6 +498,7 @@
                 ['#FF8A2A', '#FFC23C'], ['#6E2FB0', '#12B3A6'], ['#4FB0E8', '#12B3A6'],
             ];
         @endphp
+        <x-section-band :pattern="$sectionPatterns['blog_latest'] ?? ''">
         <section class="sec" style="padding-top:6px" aria-labelledby="blog-latest-title">
             <div class="wrap">
                 <div class="sec-top">
@@ -527,5 +551,6 @@
                 </div>
             </div>
         </section>
+        </x-section-band>
     @endif
 @endsection
