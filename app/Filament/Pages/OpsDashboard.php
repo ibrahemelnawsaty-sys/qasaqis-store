@@ -10,19 +10,20 @@ use App\Models\Book;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentProof;
-use Filament\Pages\Page;
+use Filament\Pages\Dashboard;
 use Illuminate\Support\Facades\DB;
 
 /**
- * لوحة العمليات وذكاء المنتجات — صفحة مخصّصة تعرض التصميم المعتمَد كاملًا ببيانات
- * حقيقية (قُمع، دونات، بطاقات ملوّنة، توصيات). بديل عن لوحة الودجت المبعثرة.
+ * لوحة العمليات وذكاء المنتجات — لوحة الأدمن الافتراضية (تحلّ محلّ لوحة الودجت).
+ * تمتدّ من Dashboard فتُخدَم على جذر اللوحة (/admin)، وتعرض التصميم المعتمَد كاملًا
+ * ببيانات حقيقية (قُمع، دونات، بطاقات ملوّنة، توصيات) عبر قالبها المخصّص.
  *
  * كل رقم مُشتقّ من عمود حقيقي. اللقطات اللحظية تعمل من أوّل طلب؛ المتوسّطات تُعرَض
  * مع عدد العيّنة n بشفافية. الماليات (إيراد/هامش) محجوبة خلف orders.view_financials.
  * التخزين المؤقّت والطلب-الصالح من حُقن اللوحة المشتركة اتّساقًا. المتصفّحون الآن لا
  * يُخزَّن (يجب أن يكون طازجًا)؛ الصفحة تحدّث نفسها عبر wire:poll في القالب.
  */
-class OpsDashboard extends Page
+class OpsDashboard extends Dashboard
 {
     use CachesDashboardData;
     use ScopesRevenue;
@@ -31,9 +32,18 @@ class OpsDashboard extends Page
 
     protected static ?string $navigationLabel = 'لوحة العمليات';
 
-    protected static ?int $navigationSort = -10;
-
     protected static string $view = 'filament.pages.ops-dashboard';
+
+    /**
+     * لا نرسم ودجت Filament المكتشَفة على هذه اللوحة — قالبنا المخصّص هو المحتوى.
+     * (ودجت الجلسة الأخرى تبقى موجودة كأصناف لكنها لا تُعرَض هنا.)
+     *
+     * @return array<class-string>
+     */
+    public function getWidgets(): array
+    {
+        return [];
+    }
 
     public function getTitle(): string
     {
