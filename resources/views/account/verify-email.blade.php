@@ -7,12 +7,15 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     @include('partials.submit-guard', [
         'formId' => 'verifyForm',
         'buttonId' => 'verifySubmit',
         'busyLabel' => __('account.verify.submit'),
     ])
+
+    @php $codeLen = (int) config('verification.code_length', 6); @endphp
 
     <div class="co">
         <div class="wrap" style="max-width:460px">
@@ -46,13 +49,27 @@
                 <form id="verifyForm" method="POST" action="{{ route('customer.verify.store') }}" style="margin-top:16px">
                     @csrf
 
+                    {{-- خانات الرمز: حقلٌ حقيقي واحد (يحفظ ملء one-time-code التلقائي
+                         والّلصق) تعلوه ٦ خانات مرئية حين يعمل Alpine. بلا JS يظهر الحقل
+                         نفسه مركزيًّا وقابلًا للإدخال — لا تُحجب المهمّة خلف نص برمجي. --}}
                     <div class="co-field">
                         <label class="co-label" for="f-code">{{ __('account.verify.code_label') }}</label>
-                        <input id="f-code" type="text" name="code"
-                            inputmode="numeric" autocomplete="one-time-code"
-                            maxlength="{{ (int) config('verification.code_length', 6) }}"
-                            dir="ltr" style="text-align:center;letter-spacing:.4em;font-size:1.4em"
-                            class="co-input @error('code') err @enderror" required autofocus>
+                        <div class="otp @error('code') is-error @enderror" style="--n:{{ $codeLen }}"
+                            x-data="{ n: {{ $codeLen }}, value: '' }" x-init="$el.classList.add('js')">
+                            <input id="f-code" type="text" name="code"
+                                inputmode="numeric" autocomplete="one-time-code"
+                                maxlength="{{ $codeLen }}" dir="ltr"
+                                class="co-input otp-input @error('code') err @enderror" required autofocus
+                                :value="value"
+                                @input="value = $event.target.value.replace(/[^0-9]/g, '').slice(0, n)">
+                            <div class="otp-cells" x-cloak aria-hidden="true">
+                                <template x-for="i in n" :key="i">
+                                    <div class="otp-cell" :class="{ filled: value.length >= i, active: value.length === i - 1 || (value.length === n && i === n) }">
+                                        <span x-text="value[i - 1] || ''"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     <button id="verifySubmit" type="submit" class="btn btn-primary btn-block" style="margin-top:14px">

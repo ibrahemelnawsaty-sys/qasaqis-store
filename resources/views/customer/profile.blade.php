@@ -8,6 +8,7 @@
 
 @section('content')
     @include('partials.checkout-styles')
+    @include('partials.account-styles')
 
     @include('partials.submit-guard', [
         'formId' => 'profileForm',
@@ -168,51 +169,68 @@
                     </div>
                 </div>
 
-                {{-- تغيير كلمة المرور — اختياري داخل النموذج نفسه، لأن العقد يخصّص
-                     مسارًا واحدًا لتحديث البيانات (customer.profile.update). --}}
-                <div class="co-card">
-                    <h2><span class="n" aria-hidden="true">3</span>{{ __('account.password.change_title') }}</h2>
+                {{-- تغيير كلمة المرور — قسم قابل للطي بعنصر details الأصلي (صفر JS،
+                     يعمل على شبكة ضعيفة). مطويّ افتراضيًا لأن أغلب الزيارات لا تغيّره،
+                     ويُفتح تلقائيًا (open) حين يرتدّ خطأ تحقق كي تراه العميلة فورًا.
+                     الحقول تبقى في DOM دومًا فلا يتأثّر إرسال النموذج. --}}
+                <details class="co-card acc-disc"
+                    @if ($errors->has('current_password') || $errors->has('password')) open @endif>
+                    <summary>
+                        <span class="st"><span class="ic" aria-hidden="true">🔒</span>{{ __('account.password.change_title') }}</span>
+                        <span class="chev" aria-hidden="true">▾</span>
+                    </summary>
 
-                    <div class="co-field">
-                        <label class="co-label" for="pf-current-password">
-                            {{ __('account.password.current_password') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <input id="pf-current-password" type="password" name="current_password"
-                            class="co-input @error('current_password') err @enderror"
-                            autocomplete="current-password" dir="ltr"
-                            @error('current_password') aria-invalid="true" aria-describedby="pf-current-password-err" @enderror>
-                        @error('current_password')
-                            <p class="co-err" id="pf-current-password-err" role="alert">{{ $message }}</p>
-                        @enderror
-                    </div>
+                    <div class="acc-disc-inner">
+                        <p class="co-hint" style="margin-bottom:14px">{{ __('account.password.change_lead') }}</p>
 
-                    <div class="co-field">
-                        <label class="co-label" for="pf-password">
-                            {{ __('account.password.new_password') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <input id="pf-password" type="password" name="password" minlength="8"
-                            class="co-input @error('password') err @enderror"
-                            autocomplete="new-password" dir="ltr"
-                            aria-describedby="pf-password-hint @error('password') pf-password-err @enderror"
-                            @error('password') aria-invalid="true" @enderror>
-                        <p class="co-hint" id="pf-password-hint">{{ __('account.register.password_hint') }}</p>
-                        @error('password')
-                            <p class="co-err" id="pf-password-err" role="alert">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="co-field">
+                            <label class="co-label" for="pf-current-password">{{ __('account.password.current_password') }}</label>
+                            <div class="acc-passwrap" x-data="{ show: false }">
+                                <input id="pf-current-password" :type="show ? 'text' : 'password'" name="current_password"
+                                    class="co-input @error('current_password') err @enderror"
+                                    autocomplete="current-password" dir="ltr"
+                                    @error('current_password') aria-invalid="true" aria-describedby="pf-current-password-err" @enderror>
+                                <button type="button" class="acc-eye" @click="show = !show"
+                                    :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
+                                    :aria-pressed="show ? 'true' : 'false'">
+                                    <span x-show="!show" aria-hidden="true">👁️</span>
+                                    <span x-show="show" aria-hidden="true" x-cloak>🙈</span>
+                                </button>
+                            </div>
+                            @error('current_password')
+                                <p class="co-err" id="pf-current-password-err" role="alert">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                    <div class="co-field">
-                        <label class="co-label" for="pf-password-confirmation">
-                            {{ __('account.password.new_password_confirmation') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <input id="pf-password-confirmation" type="password" name="password_confirmation"
-                            minlength="8" class="co-input @error('password') err @enderror"
-                            autocomplete="new-password" dir="ltr">
+                        <div class="co-field">
+                            <label class="co-label" for="pf-password">{{ __('account.password.new_password') }}</label>
+                            <div class="acc-passwrap" x-data="{ show: false }">
+                                <input id="pf-password" :type="show ? 'text' : 'password'" name="password" minlength="8"
+                                    class="co-input @error('password') err @enderror"
+                                    autocomplete="new-password" dir="ltr"
+                                    aria-describedby="pf-password-hint @error('password') pf-password-err @enderror"
+                                    @error('password') aria-invalid="true" @enderror>
+                                <button type="button" class="acc-eye" @click="show = !show"
+                                    :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
+                                    :aria-pressed="show ? 'true' : 'false'">
+                                    <span x-show="!show" aria-hidden="true">👁️</span>
+                                    <span x-show="show" aria-hidden="true" x-cloak>🙈</span>
+                                </button>
+                            </div>
+                            <p class="co-hint" id="pf-password-hint">{{ __('account.register.password_hint') }}</p>
+                            @error('password')
+                                <p class="co-err" id="pf-password-err" role="alert">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="co-field">
+                            <label class="co-label" for="pf-password-confirmation">{{ __('account.password.new_password_confirmation') }}</label>
+                            <input id="pf-password-confirmation" type="password" name="password_confirmation"
+                                minlength="8" class="co-input @error('password') err @enderror"
+                                autocomplete="new-password" dir="ltr">
+                        </div>
                     </div>
-                </div>
+                </details>
 
                 <div class="co-actions">
                     <button id="profileSubmit" type="submit" class="btn btn-primary btn-block">{{ __('account.profile.submit') }}</button>

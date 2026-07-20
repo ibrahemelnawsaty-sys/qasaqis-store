@@ -17,6 +17,7 @@
 @endphp
 
 @if ($showAccountPopup)
+    @include('partials.account-styles')
     <style>
         .pp-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); z-index: 1000; }
         .pp-center {
@@ -69,7 +70,7 @@
                         {{-- البريد من الطلب — يُعرض للقراءة، ويُؤخذ خادميًا لا من هذا الحقل. --}}
                         <div class="co-field">
                             <span class="co-label">{{ __('account.post_purchase.email_known') }}</span>
-                            <div class="co-input" dir="ltr" style="background:var(--surface-sub);cursor:default">{{ $ppEmail }}</div>
+                            <div class="co-input" dir="ltr" style="background:var(--surface-soft);cursor:default">{{ $ppEmail }}</div>
                         </div>
                     @else
                         <div class="co-field">
@@ -79,10 +80,18 @@
                         </div>
                     @endif
 
-                    <div class="co-field">
+                    <div class="co-field" x-data="{ show: false }">
                         <label class="co-label" for="pp-password">{{ __('account.post_purchase.password') }}</label>
-                        <input id="pp-password" type="password" name="password" minlength="8"
-                            class="co-input @error('password') err @enderror" autocomplete="new-password" required>
+                        <div class="acc-passwrap">
+                            <input id="pp-password" :type="show ? 'text' : 'password'" name="password" minlength="8"
+                                class="co-input @error('password') err @enderror" autocomplete="new-password" required>
+                            <button type="button" class="acc-eye" @click="show = !show"
+                                :aria-label="show ? @js(__('account.a11y.hide_password')) : @js(__('account.a11y.show_password'))"
+                                :aria-pressed="show ? 'true' : 'false'">
+                                <span x-show="!show" aria-hidden="true">👁️</span>
+                                <span x-show="show" aria-hidden="true" x-cloak>🙈</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="co-field">

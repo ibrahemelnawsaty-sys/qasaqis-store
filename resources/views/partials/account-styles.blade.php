@@ -52,12 +52,59 @@
         .acc-status{ font-size:.85rem; font-weight:800; margin-top:3px; display:inline-flex; gap:5px; align-items:center; }
         .acc-status.ok{ color:var(--teal); } .acc-status.wait{ color:var(--gold-ink); } .acc-status.bad{ color:#e23c3c; }
 
+        /* مقياس قوة كلمة المرور — تلميح بصري محلي (لا يُغني عن تحقّق الخادم) */
+        .acc-strength{ margin-top:8px; }
+        .acc-strength .bar{ height:6px; border-radius:var(--r-pill); background:var(--line); overflow:hidden; }
+        .acc-strength .bar > i{ display:block; height:100%; width:0; border-radius:var(--r-pill);
+            transition:width .2s ease, background .2s ease; }
+        .acc-strength .bar > i.w1{ background:#e23c3c; }
+        .acc-strength .bar > i.w2{ background:var(--gold); }
+        .acc-strength .bar > i.w3{ background:var(--teal); }
+        .acc-strength .lbl{ font-size:.74rem; font-weight:800; margin-top:5px; }
+        .acc-strength .lbl.w1{ color:#e23c3c; }
+        .acc-strength .lbl.w2{ color:var(--gold-ink); }
+        .acc-strength .lbl.w3{ color:var(--teal); }
+        @media (prefers-reduced-motion: reduce){ .acc-strength .bar > i{ transition:none; } }
+
         /* حقل كلمة مرور بزر عين */
         .acc-passwrap{ position:relative; }
         .acc-eye{ position:absolute; inset-inline-end:8px; top:50%; transform:translateY(-50%);
             background:none; border:0; cursor:pointer; color:var(--ink-faint); padding:6px; font-size:1.05rem;
             line-height:1; }
         .acc-passwrap input{ padding-inline-end:40px; }
+
+        /* خانات رمز التحقق (OTP) — تحسين تدريجي:
+           الأساس حقلٌ واحد مرئيّ يعمل بلا JS ويحفظ ملء one-time-code التلقائي؛
+           حين يعمل Alpine تُضاف .js فيصير الحقل شفّافًا فوق ٦ خانات جميلة. */
+        .otp-input{ width:100%; height:56px; text-align:center; font-size:1.5rem; letter-spacing:.5em;
+            font-variant-numeric:tabular-nums; }
+        .otp.js{ position:relative; height:56px; }
+        .otp.js .otp-input{ position:absolute; inset:0; height:100%; z-index:2; border:0; background:transparent;
+            font-size:1px; color:transparent; caret-color:transparent; letter-spacing:0; }
+        .otp.js .otp-cells{ position:absolute; inset:0; z-index:1; display:grid; gap:8px;
+            grid-template-columns:repeat(var(--n,6),1fr); }
+        .otp-cell{ border:2px solid var(--line); border-radius:var(--r-sm); display:grid; place-items:center;
+            font-size:1.5rem; font-weight:800; background:var(--surface); color:var(--ink);
+            font-variant-numeric:tabular-nums; }
+        .otp-cell.filled{ border-color:var(--purple); }
+        .otp-cell.active{ border-color:var(--purple); box-shadow:0 0 0 3px var(--purple-soft); }
+        .otp-cell.active::after{ content:""; width:2px; height:26px; background:var(--purple);
+            animation:otp-blink 1.05s step-end infinite; }
+        .otp-cell.filled.active::after{ display:none; }
+        .otp.is-error .otp-cell{ border-color:#e23c3c; }
+        @keyframes otp-blink{ 50%{ opacity:0; } }
+        @media (prefers-reduced-motion: reduce){ .otp-cell.active::after{ animation:none; } }
+
+        /* قسم قابل للطي بعنصر details الأصلي — صفر JS، يعمل بلا شبكة */
+        .acc-disc > summary{ list-style:none; cursor:pointer; display:flex; align-items:center;
+            justify-content:space-between; gap:10px; font-weight:900; font-size:1.05rem; }
+        .acc-disc > summary::-webkit-details-marker{ display:none; }
+        .acc-disc > summary .st{ display:flex; align-items:center; gap:8px; }
+        .acc-disc > summary .st .ic{ font-size:1.15rem; }
+        .acc-disc > summary .chev{ transition:transform .2s ease; color:var(--ink-faint); flex:none; font-size:.8rem; }
+        .acc-disc[open] > summary .chev{ transform:rotate(180deg); }
+        .acc-disc .acc-disc-inner{ margin-top:16px; }
+        @media (prefers-reduced-motion: reduce){ .acc-disc > summary .chev{ transition:none; } }
 
         /* فاصل «أو» */
         .acc-sep{ display:flex; align-items:center; gap:.7rem; color:var(--ink-faint); font-size:.78rem; margin:16px 0; }
