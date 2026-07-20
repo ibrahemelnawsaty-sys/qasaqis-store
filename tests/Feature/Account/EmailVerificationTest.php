@@ -57,6 +57,10 @@ final class EmailVerificationTest extends TestCase
         Notification::fake();
         $this->service()->issueAndSend('mom@example.com', 'email_verification');
 
+        // الإرسال مؤجَّل لِما بعد الاستجابة (M11 — لتسريع الصفحة). في استدعاء مباشر
+        // للخدمة لا يوجد terminate يُشغّله، فنُشغّل المؤجَّلات يدويًا قبل التوكيد.
+        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+
         Notification::assertSentOnDemand(
             VerificationCodeNotification::class,
             fn ($n, $channels, $notifiable) => $notifiable->routes['mail'] === 'mom@example.com'
