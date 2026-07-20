@@ -76,7 +76,8 @@ final class AuthFlowTest extends TestCase
     {
         $response = $this->post(route('customer.register.store'), $this->registrationPayload());
 
-        $response->assertRedirect(route('customer.dashboard'));
+        // بعد التسجيل تُوجَّه إلى تأكيد البريد (M9) — مسجّلة الدخول أصلًا.
+        $response->assertRedirect(route('customer.verify.show'));
         $this->assertAuthenticated('customer');
         $this->assertDatabaseHas('customers', [
             'phone_normalized' => self::PHONE_NORMALIZED,
@@ -100,7 +101,7 @@ final class AuthFlowTest extends TestCase
     {
         $this->post(route('customer.register.store'), $this->registrationPayload([
             'phone' => '+20 101 234 5678',
-        ]))->assertRedirect(route('customer.dashboard'));
+        ]))->assertRedirect(route('customer.verify.show'));
 
         $this->assertDatabaseHas('customers', ['phone_normalized' => self::PHONE_NORMALIZED]);
     }
@@ -114,7 +115,7 @@ final class AuthFlowTest extends TestCase
             'phone_e164' => '+201099999999',
             'is_claimed' => true,
             'orders_count' => 99,
-        ]))->assertRedirect(route('customer.dashboard'));
+        ]))->assertRedirect(route('customer.verify.show'));
 
         $this->assertDatabaseHas('customers', [
             'phone_normalized' => self::PHONE_NORMALIZED,
@@ -205,7 +206,7 @@ final class AuthFlowTest extends TestCase
         ]);
 
         $this->post(route('customer.register.store'), $this->registrationPayload())
-            ->assertRedirect(route('customer.dashboard'));
+            ->assertRedirect(route('customer.verify.show'));
 
         foreach ([$guestOrder, $altOrder] as $order) {
             $this->assertDatabaseHas('orders', [
