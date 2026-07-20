@@ -62,7 +62,8 @@ class CheckoutRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:150'],
             'phone' => ['required', 'string', $phoneRule],
             'phone_alt' => ['nullable', 'string', $phoneRule],
-            'email' => ['nullable', 'email', 'max:191'],
+            // إجباري (M10): كل طلب يحمل بريدًا كي يُمكن إنشاء حساب ومتابعة الطلبات.
+            'email' => ['required', 'email', 'max:191'],
 
             'country_code' => ['required', 'string', 'size:2', Rule::in($allowedCountries)],
             // مصر → محافظة من القائمة؛ دولي → ولاية/إقليم نصّي.

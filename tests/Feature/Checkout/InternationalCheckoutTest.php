@@ -60,6 +60,7 @@ final class InternationalCheckoutTest extends TestCase
         return array_merge([
             'name' => 'أم أحمد',
             'phone' => '01012345678',
+            'email' => 'buyer@example.com',
             'country_code' => 'EG',
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',
