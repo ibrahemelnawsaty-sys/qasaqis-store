@@ -65,11 +65,11 @@
 
             @include('partials.account-header', ['sub' => __('account.order.idbar_sub')])
 
-            <p style="margin-bottom:10px">
-                <a href="{{ route('customer.orders.index') }}" style="font-size:13.5px;color:var(--ink-soft);text-decoration:none">
-                    <span aria-hidden="true">←</span> {{ __('account.order.back') }}
+            <div class="acc-backwrap">
+                <a class="acc-back" href="{{ route('customer.orders.index') }}">
+                    <span class="ar" aria-hidden="true">←</span> {{ __('account.order.back') }}
                 </a>
-            </p>
+            </div>
 
             @if (session('status'))
                 <div class="co-alert ok" role="status">
