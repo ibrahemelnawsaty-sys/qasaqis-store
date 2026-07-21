@@ -100,4 +100,12 @@ class Customer extends Authenticatable
     {
         return $this->hasMany(Order::class);
     }
+
+    /** دفتر العناوين المُسمّى: الافتراضيّ أولًا ثم الأحدث. */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(CustomerAddress::class)
+            ->orderByDesc('is_default')
+            ->orderByDesc('id');
+    }
 }

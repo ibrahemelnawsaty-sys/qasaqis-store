@@ -10,6 +10,7 @@ use App\Http\Controllers\Customer\OrderHistoryController as CustomerOrderHistory
 use App\Http\Controllers\Customer\OrderLinkController as CustomerOrderLinkController;
 use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
+use App\Http\Controllers\Customer\AddressController as CustomerAddressController;
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
 use App\Http\Controllers\Auth\UnifiedLoginController;
 use App\Http\Controllers\EmailUnsubscribeController;
@@ -229,6 +230,11 @@ Route::prefix('account')->name('customer.')->group(function (): void {
 
         Route::get('/profile', [CustomerProfileController::class, 'edit'])->name('profile.edit');
         Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
+
+        // دفتر العناوين المُسمّى (M12): تعيين افتراضيّ/حذف. الإضافة تتمّ من الدفع.
+        // التفويض خادميّ في المتحكّم (العنوان يجب أن يخصّ العميلة نفسها).
+        Route::post('/addresses/{address}/default', [CustomerAddressController::class, 'setDefault'])->name('addresses.default');
+        Route::delete('/addresses/{address}', [CustomerAddressController::class, 'destroy'])->name('addresses.destroy');
 
         // تأكيد البريد بكود (M9). القناة بريد اليوم، وتتبدّل إلى OTP جوال لاحقًا.
         Route::get('/verify-email', [CustomerEmailVerificationController::class, 'show'])->name('verify.show');

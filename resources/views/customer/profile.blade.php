@@ -71,6 +71,39 @@
                 <p>{{ __('account.profile.lead') }}</p>
             </div>
 
+            {{-- دفتر العناوين المُسمّى: عرض/تعيين افتراضيّ/حذف. الإضافة تتمّ من الدفع.
+                 خارج نموذج الملف لأنّ لكلّ فعل نموذجه (POST/DELETE) ومساره. --}}
+            <div class="co-card">
+                <h2><span class="n" aria-hidden="true">📍</span>{{ __('account.address.section') }}</h2>
+                <p class="co-hint" style="margin-bottom:14px">{{ __('account.address.section_hint') }}</p>
+
+                @forelse ($customer->addresses as $addr)
+                    <div class="acc-addr">
+                        <div class="acc-addr-main">
+                            <div class="ttl"><b>{{ $addr->label }}</b>@if ($addr->is_default)<span class="acc-addr-def">{{ __('account.address.default_badge') }}</span>@endif</div>
+                            <div class="sub">{{ $addr->name }} · <span dir="ltr">{{ $addr->phone }}</span></div>
+                            <div class="sub">{{ collect([$addr->governorate, $addr->state_province, $addr->city, $addr->address_line])->filter()->implode('، ') }}</div>
+                        </div>
+                        <div class="acc-addr-actions">
+                            @unless ($addr->is_default)
+                                <form method="POST" action="{{ route('customer.addresses.default', ['address' => $addr->id]) }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-ghost" style="font-size:12.5px">{{ __('account.address.set_default') }}</button>
+                                </form>
+                            @endunless
+                            <form method="POST" action="{{ route('customer.addresses.destroy', ['address' => $addr->id]) }}"
+                                onsubmit="return confirm('{{ __('account.address.delete_confirm') }}')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-ghost acc-addr-del" style="font-size:12.5px">{{ __('account.address.delete') }}</button>
+                            </form>
+                        </div>
+                    </div>
+                @empty
+                    <p class="co-hint">{{ __('account.address.empty') }}</p>
+                @endforelse
+            </div>
+
             <form id="profileForm" method="POST" action="{{ route('customer.profile.update') }}">
                 @csrf
                 @method('PUT')

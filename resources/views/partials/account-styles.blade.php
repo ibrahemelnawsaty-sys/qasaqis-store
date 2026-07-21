@@ -16,6 +16,17 @@
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .acc-idbar span{ display:block; font-size:.74rem; color:var(--ink-soft); }
 
+        /* دفتر العناوين المُسمّى في الملف */
+        .acc-addr{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
+            flex-wrap:wrap; border:1px solid var(--line); border-radius:var(--r-md); padding:12px 14px; margin-bottom:10px; }
+        .acc-addr .acc-addr-main{ min-width:0; flex:1; }
+        .acc-addr .ttl{ font-weight:900; }
+        .acc-addr .acc-addr-def{ font-size:11px; font-weight:800; color:var(--purple); background:var(--purple-soft);
+            border-radius:var(--r-pill); padding:1px 9px; margin-inline-start:8px; }
+        .acc-addr .sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+        .acc-addr .acc-addr-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+        .acc-addr .acc-addr-del{ color:var(--pink); }
+
         /* زرّ الرجوع — حبّة أنيقة عند نهاية السطر (يسار في RTL) بخاصية منطقية لا
            left الصلبة (بند 6.2)، ومساحة لمس ≥44px (بند 6.3) بسهم يومئ لليسار. */
         .acc-backwrap{ text-align:end; margin-bottom:12px; }
