@@ -11,7 +11,9 @@ use App\Models\User;
 use App\Support\Ops\OpsKpi;
 use Database\Factories\OrderFactory;
 use Database\Seeders\RolePermissionSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -202,6 +204,59 @@ final class KpiDetailTest extends TestCase
         $response->assertOk();
         $response->assertSee('أسوان', false);                 // القيمة في العنوان
         $response->assertSee($order->order_number, false);     // الصفّ الأساسي
+    }
+
+    // ── الفرز والتصدير والأعمدة (كل شئ) ────────────────────────────────────
+
+    public function test_the_detail_page_has_sortable_headers_and_an_export_button(): void
+    {
+        OrderFactory::new()->create(['status' => 'pending', 'whatsapp_confirmed_at' => null]);
+
+        $response = $this->actingAs($this->admin('super_admin'))
+            ->get(KpiDetail::getUrl(['kpi' => 'confirm']));
+
+        $response->assertOk();
+        $response->assertSee('wire:click="sort(', false);     // عناوين قابلة للفرز
+        $response->assertSee('wire:click="export"', false);   // زر التصدير
+        $response->assertSee('المحافظة', false);              // عمود إضافي
+    }
+
+    public function test_the_order_sortable_columns_are_whitelisted(): void
+    {
+        $page = new KpiDetail;
+        $cols = $page->sortableColumns(OpsKpi::get('confirm'));
+
+        $this->assertContains('grand_total', $cols);
+        $this->assertContains('governorate', $cols);
+        $this->assertNotContains('customer_phone', $cols);   // ليس ضمن البيضاء
+        $this->assertNotContains('evil; DROP', $cols);
+    }
+
+    public function test_sorting_toggles_direction_and_ignores_unlisted_columns(): void
+    {
+        OrderFactory::new()->create(['status' => 'pending', 'whatsapp_confirmed_at' => null]);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::withQueryParams(['kpi' => 'confirm'])
+            ->test(KpiDetail::class)
+            ->call('sort', 'grand_total')->assertSet('sortCol', 'grand_total')->assertSet('sortDir', 'asc')
+            ->call('sort', 'grand_total')->assertSet('sortDir', 'desc')   // نقر ثانٍ يبدّل
+            ->call('sort', 'evil_col; DROP')->assertSet('sortCol', 'grand_total'); // غير مسموح → يُتجاهَل
+    }
+
+    public function test_export_streams_a_csv_download(): void
+    {
+        OrderFactory::new()->create(['status' => 'pending', 'whatsapp_confirmed_at' => null]);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::withQueryParams(['kpi' => 'confirm'])
+            ->test(KpiDetail::class)
+            ->call('export')
+            ->assertFileDownloaded();
     }
 
     public function test_an_unknown_kpi_key_is_not_found(): void
