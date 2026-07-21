@@ -24,6 +24,7 @@ use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
+use App\Http\Controllers\Storefront\PaymentCallbackController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\ReviewController;
@@ -159,6 +160,15 @@ Route::post('/orders/{order}/proof', [OrderController::class, 'proofStore'])
 Route::get('/orders/{order}/thank-you', [OrderController::class, 'thankyou'])
     ->middleware('signed')
     ->name('orders.thankyou');
+
+// ردّ بوابة كاشير — عودة المتصفّح: لا signed middleware (المصدر طرف ثالث)، الأمان
+// عبر التحقّق من توقيع كاشير (HMAC بمفتاح الدفع) داخل المتحكّم.
+Route::get('/payments/kashier/callback', [PaymentCallbackController::class, 'kashierCallback'])
+    ->name('payments.kashier.callback');
+
+// webhook كاشير (خادم-لخادم): POST بلا CSRF (مُعفى في bootstrap/app.php)، التحقّق بالتوقيع.
+Route::post('/payments/kashier/webhook', [PaymentCallbackController::class, 'kashierWebhook'])
+    ->name('payments.kashier.webhook');
 
 // تبنّي الطلب من صفحة الشكر بعد التسجيل/الدخول (M8) — موقّع + مطابقة الجوال داخليًا.
 Route::post('/orders/{order}/claim', [CustomerOrderLinkController::class, 'claim'])

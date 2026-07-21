@@ -33,10 +33,19 @@ return [
         ],
 
         'kashier' => [
-            // Kashier يستخدم api_key كمفتاح التفعيل الأساسي للكشف عن التوفّر.
+            // Kashier يستخدم api_key (مفتاح الدفع) لتوليد هاش الطلب والتحقّق من التوقيع،
+            // وهو أيضًا مفتاح التفعيل الأساسي للكشف عن التوفّر.
             'api_key' => env('KASHIER_API_KEY'),
             'merchant_id' => env('KASHIER_MERCHANT_ID'),
+            // secret_key: لنداءات REST على api.kashier.io (استرداد/استعلام) — غير مستخدَم
+            // في تدفّق الصفحة المستضافة الحالي، لكنه مقروء من .env للاستعمال المستقبلي.
             'secret_key' => env('KASHIER_SECRET_KEY'),
+            // وضع البوابة: test (افتراضي) أو live.
+            'mode' => env('KASHIER_MODE', 'test'),
+            // أصل الصفحة المستضافة — قابل للتهيئة تحسّبًا لأي تغيير في نطاق كاشير.
+            'hpp_url' => env('KASHIER_HPP_URL', 'https://checkout.kashier.io'),
+            // طرق الدفع المسموح بها على الصفحة المستضافة (card,wallet,bank_installments).
+            'allowed_methods' => env('KASHIER_ALLOWED_METHODS', 'card,wallet'),
         ],
 
     ],
