@@ -32,6 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'email/unsubscribe/*',
         ]);
+
+        // بديل cron ذاتيّ: كل طلب يدقّ المُجدول بعد إرسال الرد (terminate)، مرّة كل
+        // ~دقيقة عبر قفل ذرّي، فيعمل الطابور تلقائيًا بلا cron/خدمة خارجية اعتمادًا
+        // على زيارات الموقع ونشاط اللوحة. عالميّ ليغطّي المتجر واللوحة معًا.
+        $middleware->append(\App\Http\Middleware\KeepQueueAlive::class);
     })
     /*
      | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة:
