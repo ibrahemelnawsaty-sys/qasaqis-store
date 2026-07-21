@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\BookResource;
+use App\Filament\Resources\ExpenseResource;
+use App\Filament\Resources\OrderResource;
 use App\Models\PaymentMethod;
 use App\Services\Finance\FinanceReportService;
 use Carbon\CarbonImmutable;
@@ -14,6 +17,11 @@ use Filament\Widgets\Widget;
  * لوحة المؤشّرات المالية — تُصيَّر كقصّة مقروءة لا كجدار بطاقات: ثلاثة مؤشّرات
  * «نجم» في الأعلى، ثم نطاقات مجمّعة (إيراد / تكلفة وربح / شحن ومساهمة)، ثم جسر
  * يوضّح كيف تتحوّل المساهمة إلى صافي ربح، ثم تقسيم الإيراد حسب طريقة الدفع.
+ *
+ * قابلية النقر: كل بطاقة مقياس رابطٌ إلى موضع إدخال/تعديل مصدرها — الطلبات
+ * (تكلفة الشحن/المرتجعات/الحالة)، الكتب (سعر الشراء)، المصروفات (إضافة). اللوحة
+ * تقريرٌ يعكس المصدر لا نموذجُ إدخال: لا يُحرَّر الرقم المحسوب مباشرةً (الدستور
+ * 3.5)، بل مدخلاته. الروابط مُقيّدة بالإذن (canViewAny) فلا يظهر رابط بلا صلاحية.
  *
  * صدق السكان (الدستور 1.4): كل نطاق يحمل شارة تُبيّن على أي مجموعة طلبات حُسب —
  * فلا نخلط إيراد كل الطلبات بتكلفة مجموعة فرعية. لهذا لا يوجد «شلال» يطرح COGS
@@ -52,15 +60,23 @@ class FinanceStatsWidget extends Widget
         $sh = $service->shipping($from, $to);      // م٣ — الشحن والمساهمة
         $np = $service->netProfit($from, $to);     // م٤ — صافي ربح النشاط
 
+        // روابط الإدخال/التعديل — مسارات موارد Filament مُتحقَّق منها، مُقيّدة
+        // بالإذن (canViewAny) فلا يظهر رابط لا يملك المستخدم صلاحيته (4.4).
+        $toOrders = OrderResource::canViewAny() ? OrderResource::getUrl('index') : null;
+        $toBooks = BookResource::canViewAny() ? BookResource::getUrl('index') : null;
+        $toExpense = ExpenseResource::canViewAny() ? ExpenseResource::getUrl('create') : null;
+
         return [
             'hero' => [
                 $this->m('صافي ربح النشاط', $np['net_profit'], [
                     'tone' => $this->sign($np['net_profit']),
                     'sub' => 'المساهمة − مرتجعات − رسوم − مصروفات',
+                    'href' => $toOrders, 'cta' => 'أكمِل بيانات الطلبات',
                 ]),
                 $this->m('الإيراد المحقّق', $s['net_sales'], [
                     'tone' => 'accent',
                     'sub' => number_format($s['orders']).' طلب · '.number_format($s['units']).' وحدة',
+                    'href' => $toOrders, 'cta' => 'إدارة الطلبات',
                 ]),
                 $this->m('هامش الربح', $p['margin_pct'], [
                     'unit' => '٪',
@@ -68,6 +84,7 @@ class FinanceStatsWidget extends Widget
                     // فيجب أن يظهر أحمر لا أخضر كي لا يكذّب اللونُ الإشارةَ.
                     'tone' => $this->sign($p['margin_pct']),
                     'sub' => 'مجمل الربح ÷ صافي المبيعات معروف التكلفة',
+                    'href' => $toBooks, 'cta' => 'أسعار الشراء',
                 ]),
             ],
 
@@ -77,13 +94,13 @@ class FinanceStatsWidget extends Widget
                     'badge' => 'على كل الطلبات المحقّقة في المدى',
                     'badge_tone' => 'neutral',
                     'cards' => [
-                        $this->m('إجمالي المبيعات', $s['gross_revenue']),
-                        $this->m('الخصومات', $s['discounts'], ['tone' => (float) $s['discounts'] > 0 ? 'neg' : 'neutral']),
-                        $this->m('صافي المبيعات', $s['net_sales'], ['tone' => 'pos']),
-                        $this->m('الشحن المحصَّل', $s['shipping']),
-                        $this->m('عدد الطلبات', (string) $s['orders'], ['unit' => '', 'tone' => 'accent']),
-                        $this->m('الوحدات المباعة', (string) $s['units'], ['unit' => '']),
-                        $this->m('متوسط قيمة الطلب', $s['aov'], ['sub' => 'صافي ÷ عدد الطلبات']),
+                        $this->m('إجمالي المبيعات', $s['gross_revenue'], ['href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('الخصومات', $s['discounts'], ['tone' => (float) $s['discounts'] > 0 ? 'neg' : 'neutral', 'href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('صافي المبيعات', $s['net_sales'], ['tone' => 'pos', 'href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('الشحن المحصَّل', $s['shipping'], ['href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('عدد الطلبات', (string) $s['orders'], ['unit' => '', 'tone' => 'accent', 'href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('الوحدات المباعة', (string) $s['units'], ['unit' => '', 'href' => $toOrders, 'cta' => 'الطلبات']),
+                        $this->m('متوسط قيمة الطلب', $s['aov'], ['sub' => 'صافي ÷ عدد الطلبات', 'href' => $toOrders, 'cta' => 'الطلبات']),
                     ],
                 ],
                 [
@@ -93,9 +110,9 @@ class FinanceStatsWidget extends Widget
                         : 'على '.number_format($p['orders_costed']).' طلب معروف التكلفة بالكامل',
                     'badge_tone' => $p['orders_unknown_cost'] > 0 ? 'warn' : 'neutral',
                     'cards' => [
-                        $this->m('تكلفة البضاعة (COGS)', $p['cogs'], ['tone' => (float) $p['cogs'] > 0 ? 'neg' : 'neutral']),
-                        $this->m('مجمل الربح', $p['gross_profit'], ['tone' => $this->sign($p['gross_profit'])]),
-                        $this->m('هامش الربح', $p['margin_pct'], ['unit' => '٪', 'tone' => $this->sign($p['margin_pct'])]),
+                        $this->m('تكلفة البضاعة (COGS)', $p['cogs'], ['tone' => (float) $p['cogs'] > 0 ? 'neg' : 'neutral', 'href' => $toBooks, 'cta' => 'أسعار الشراء']),
+                        $this->m('مجمل الربح', $p['gross_profit'], ['tone' => $this->sign($p['gross_profit']), 'href' => $toBooks, 'cta' => 'أسعار الشراء']),
+                        $this->m('هامش الربح', $p['margin_pct'], ['unit' => '٪', 'tone' => $this->sign($p['margin_pct']), 'href' => $toBooks, 'cta' => 'أسعار الشراء']),
                     ],
                 ],
                 [
@@ -107,21 +124,22 @@ class FinanceStatsWidget extends Widget
                     },
                     'badge_tone' => $sh['orders_carrier_unknown'] > 0 ? 'warn' : 'neutral',
                     'cards' => [
-                        $this->m('تكلفة شركة الشحن', $sh['carrier_cost'], ['tone' => (float) $sh['carrier_cost'] > 0 ? 'neg' : 'neutral']),
-                        $this->m('هامش الشحن', $sh['shipping_margin'], ['tone' => $this->sign($sh['shipping_margin'])]),
+                        $this->m('تكلفة شركة الشحن', $sh['carrier_cost'], ['tone' => (float) $sh['carrier_cost'] > 0 ? 'neg' : 'neutral', 'href' => $toOrders, 'cta' => 'تكلفة الشحن في الطلب']),
+                        $this->m('هامش الشحن', $sh['shipping_margin'], ['tone' => $this->sign($sh['shipping_margin']), 'href' => $toOrders, 'cta' => 'تكلفة الشحن في الطلب']),
                         $this->m('ربح المساهمة', $sh['contribution'], [
                             'tone' => $this->sign($sh['contribution']),
                             'sub' => 'على '.number_format($sh['orders_contribution']).' طلب مكتمل البيانات',
+                            'href' => $toOrders, 'cta' => 'الطلبات',
                         ]),
                     ],
                 ],
             ],
 
-            'bridge' => $this->bridge($sh, $np),
+            'bridge' => $this->bridge($sh, $np, $toOrders, $toExpense),
             'breakdown' => $this->breakdown($service, $from, $to, $s['net_sales']),
             // قيد التحصيل خارج نطاق الإيراد المحقّق (سكان مغاير: طلبات لم تُحقَّق
             // بعد)، فيُعرض بطاقةً مستقلّة لا ضمن نطاق يدّعي «كل الطلبات المحقّقة».
-            'pipeline' => $this->m('قيد التحصيل', $s['pipeline'], ['tone' => 'warn']),
+            'pipeline' => $this->m('قيد التحصيل', $s['pipeline'], ['tone' => 'warn', 'href' => $toOrders, 'cta' => 'الطلبات المعلّقة']),
         ];
     }
 
@@ -135,7 +153,7 @@ class FinanceStatsWidget extends Widget
      * @param  array<string, mixed>  $np
      * @return array<string, mixed>|null
      */
-    private function bridge(array $sh, array $np): ?array
+    private function bridge(array $sh, array $np, ?string $toOrders, ?string $toExpense): ?array
     {
         $contribution = $sh['contribution'];
         if ($contribution === null) {
@@ -155,14 +173,14 @@ class FinanceStatsWidget extends Widget
         $pct = fn (float $v): float => min(100.0, abs($v) / $scale * 100);
 
         return [
-            'contribution' => $this->m('ربح المساهمة', $contribution, ['tone' => $this->sign($contribution)]),
+            'contribution' => $this->m('ربح المساهمة', $contribution, ['tone' => $this->sign($contribution), 'href' => $toOrders]),
             'contribution_width' => $pct((float) $contribution),
             'steps' => [
-                ['label' => 'المرتجعات', 'value' => $np['refunds'], 'width' => $pct($refunds)],
-                ['label' => 'رسوم المعالجة', 'value' => $np['fees'], 'width' => $pct($fees)],
-                ['label' => 'المصروفات', 'value' => $np['expenses'], 'width' => $pct($expenses), 'note' => 'على مستوى الفترة'],
+                ['label' => 'المرتجعات', 'value' => $np['refunds'], 'width' => $pct($refunds), 'href' => $toOrders],
+                ['label' => 'رسوم المعالجة', 'value' => $np['fees'], 'width' => $pct($fees), 'href' => $toOrders],
+                ['label' => 'المصروفات', 'value' => $np['expenses'], 'width' => $pct($expenses), 'note' => 'على مستوى الفترة', 'href' => $toExpense],
             ],
-            'net' => $this->m('صافي ربح النشاط', $np['net_profit'], ['tone' => $this->sign($np['net_profit'])]),
+            'net' => $this->m('صافي ربح النشاط', $np['net_profit'], ['tone' => $this->sign($np['net_profit']), 'href' => $toOrders]),
             'net_width' => $pct($net),
             'net_negative' => $np['net_profit'] !== null && $net < 0,
         ];
@@ -198,6 +216,7 @@ class FinanceStatsWidget extends Widget
 
     /**
      * يبني بطاقة مقياس منسّقة. القيمة null تعني «غير متاح» (لا صفر مضلِّل — 1.4).
+     * href اختياري: رابط موضع إدخال/تعديل المصدر (null = لا رابط).
      *
      * @param  array<string, mixed>  $o
      * @return array<string, mixed>
@@ -214,6 +233,8 @@ class FinanceStatsWidget extends Widget
             'unit' => $unit,
             'tone' => $o['tone'] ?? 'neutral',
             'sub' => $o['sub'] ?? '',
+            'href' => $o['href'] ?? null,
+            'cta' => $o['cta'] ?? null,
         ];
     }
 

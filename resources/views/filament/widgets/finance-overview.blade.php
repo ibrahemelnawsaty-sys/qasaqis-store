@@ -5,7 +5,8 @@
         {{-- ===== المؤشّرات النجمة ===== --}}
         <div class="fin-hero">
             @foreach ($r['hero'] as $h)
-                <div class="fin-hero-card fin-t-{{ $h['tone'] }}">
+                @php($tag = $h['href'] ? 'a' : 'div')
+                <{{ $tag }} @if ($h['href']) href="{{ $h['href'] }}" @endif class="fin-hero-card fin-t-{{ $h['tone'] }}{{ $h['href'] ? ' fin-link' : '' }}">
                     <div class="fin-hero-label">{{ $h['label'] }}</div>
                     <div class="fin-hero-value">
                         @if ($h['na'])
@@ -15,7 +16,8 @@
                         @endif
                     </div>
                     <div class="fin-hero-sub">{{ $h['sub'] }}</div>
-                </div>
+                    @if ($h['href'] && $h['cta'])<div class="fin-cta">{{ $h['cta'] }}</div>@endif
+                </{{ $tag }}>
             @endforeach
         </div>
 
@@ -28,7 +30,8 @@
                 </header>
                 <div class="fin-grid">
                     @foreach ($band['cards'] as $c)
-                        <div class="fin-card fin-t-{{ $c['tone'] }}">
+                        @php($tag = $c['href'] ? 'a' : 'div')
+                        <{{ $tag }} @if ($c['href']) href="{{ $c['href'] }}" @endif class="fin-card fin-t-{{ $c['tone'] }}{{ $c['href'] ? ' fin-link' : '' }}">
                             <div class="fin-card-label">{{ $c['label'] }}</div>
                             <div class="fin-card-value">
                                 @if ($c['na'])
@@ -40,24 +43,27 @@
                             @if ($c['sub'])
                                 <div class="fin-card-sub">{{ $c['sub'] }}</div>
                             @endif
-                        </div>
+                            @if ($c['href'] && $c['cta'])<div class="fin-cta">{{ $c['cta'] }}</div>@endif
+                        </{{ $tag }}>
                     @endforeach
                 </div>
             </section>
         @endforeach
 
         {{-- ===== قيد التحصيل — سكان مغاير، بطاقة مستقلّة خارج الإيراد المحقّق ===== --}}
-        <div class="fin-note fin-t-warn">
+        @php($pl = $r['pipeline'])
+        @php($pltag = $pl['href'] ? 'a' : 'div')
+        <{{ $pltag }} @if ($pl['href']) href="{{ $pl['href'] }}" @endif class="fin-note fin-t-warn{{ $pl['href'] ? ' fin-link' : '' }}">
             <span class="fin-note-label">قيد التحصيل</span>
             <span class="fin-note-val">
-                @if ($r['pipeline']['na'])
+                @if ($pl['na'])
                     <span class="fin-na">غير متاح</span>
                 @else
-                    <span class="fin-num" dir="ltr">{{ $r['pipeline']['num'] }}</span> <span class="fin-unit">{{ $r['pipeline']['unit'] }}</span>
+                    <span class="fin-num" dir="ltr">{{ $pl['num'] }}</span> <span class="fin-unit">{{ $pl['unit'] }}</span>
                 @endif
             </span>
             <span class="fin-note-sub">طلبات مؤكّدة لم تُحقَّق بعد — خارج الإيراد المحقّق</span>
-        </div>
+        </{{ $pltag }}>
 
         {{-- ===== جسر الربح: من المساهمة إلى صافي الربح ===== --}}
         @if ($r['bridge'])
@@ -68,16 +74,18 @@
                     <span class="fin-badge fin-badge-neutral">على الطلبات مكتملة البيانات</span>
                 </header>
 
-                <div class="fin-bridge-row fin-bridge-start">
+                @php($ctag = $b['contribution']['href'] ? 'a' : 'div')
+                <{{ $ctag }} @if ($b['contribution']['href']) href="{{ $b['contribution']['href'] }}" @endif class="fin-bridge-row fin-bridge-start{{ $b['contribution']['href'] ? ' fin-link' : '' }}">
                     <span class="fin-bridge-label">{{ $b['contribution']['label'] }}</span>
                     <span class="fin-bridge-bar"><i style="inline-size:{{ $b['contribution_width'] }}%"></i></span>
                     <span class="fin-bridge-amt fin-t-{{ $b['contribution']['tone'] }}">
                         <span class="fin-num" dir="ltr">{{ $b['contribution']['num'] }}</span> <span class="fin-unit">{{ $b['contribution']['unit'] }}</span>
                     </span>
-                </div>
+                </{{ $ctag }}>
 
                 @foreach ($b['steps'] as $st)
-                    <div class="fin-bridge-row">
+                    @php($stag = $st['href'] ? 'a' : 'div')
+                    <{{ $stag }} @if ($st['href']) href="{{ $st['href'] }}" @endif class="fin-bridge-row{{ $st['href'] ? ' fin-link' : '' }}">
                         <span class="fin-bridge-label">
                             {{ $st['label'] }}
                             @if (!empty($st['note']))<em class="fin-bridge-note">{{ $st['note'] }}</em>@endif
@@ -86,10 +94,11 @@
                         <span class="fin-bridge-amt fin-t-neg">
                             <span class="fin-num" dir="ltr">@if ((float) $st['value'] > 0)−@endif{{ number_format((float) $st['value'], 2) }}</span> <span class="fin-unit">ج.م</span>
                         </span>
-                    </div>
+                    </{{ $stag }}>
                 @endforeach
 
-                <div class="fin-bridge-row fin-bridge-end">
+                @php($ntag = $b['net']['href'] ? 'a' : 'div')
+                <{{ $ntag }} @if ($b['net']['href']) href="{{ $b['net']['href'] }}" @endif class="fin-bridge-row fin-bridge-end{{ $b['net']['href'] ? ' fin-link' : '' }}">
                     <span class="fin-bridge-label">{{ $b['net']['label'] }}</span>
                     <span class="fin-bridge-bar {{ $b['net_negative'] ? 'fin-bridge-bar-neg' : 'fin-bridge-bar-pos' }}"><i style="inline-size:{{ $b['net_width'] }}%"></i></span>
                     <span class="fin-bridge-amt fin-t-{{ $b['net']['tone'] }}">
@@ -99,7 +108,7 @@
                             <span class="fin-num" dir="ltr">{{ $b['net']['num'] }}</span> <span class="fin-unit">{{ $b['net']['unit'] }}</span>
                         @endif
                     </span>
-                </div>
+                </{{ $ntag }}>
             </section>
         @endif
 

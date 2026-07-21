@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\BookResource;
+use App\Filament\Resources\ExpenseResource;
+use App\Filament\Resources\OrderResource;
 use App\Filament\Widgets\FinanceDailyWidget;
 use App\Filament\Widgets\FinanceRange;
 use App\Filament\Widgets\FinanceStatsWidget;
@@ -88,6 +91,30 @@ class FinanceDashboard extends Page
     protected function getHeaderActions(): array
     {
         return [
+            // أزرار إدخال/تعديل صريحة — كلٌّ مُقيّد بإذن الموردة نفسها (canViewAny)،
+            // فلا يظهر زرّ لا يملك المستخدم صلاحية وجهته (4.4). اللوحة تقرير يعكس
+            // المصدر: نُدخل المدخلات (تكلفة/شحن/مصروف) فتُعاد الأرقام، لا العكس.
+            Action::make('addExpense')
+                ->label('إضافة مصروف')
+                ->icon('heroicon-o-plus')
+                ->color('primary')
+                ->url(fn (): string => ExpenseResource::getUrl('create'))
+                ->visible(fn (): bool => ExpenseResource::canViewAny()),
+
+            Action::make('bookCosts')
+                ->label('أسعار شراء الكتب')
+                ->icon('heroicon-o-book-open')
+                ->color('gray')
+                ->url(fn (): string => BookResource::getUrl('index'))
+                ->visible(fn (): bool => BookResource::canViewAny()),
+
+            Action::make('manageOrders')
+                ->label('إدارة الطلبات')
+                ->icon('heroicon-o-shopping-bag')
+                ->color('gray')
+                ->url(fn (): string => OrderResource::getUrl('index'))
+                ->visible(fn (): bool => OrderResource::canViewAny()),
+
             Action::make('exportCsv')
                 ->label('تصدير CSV')
                 ->icon('heroicon-o-arrow-down-tray')

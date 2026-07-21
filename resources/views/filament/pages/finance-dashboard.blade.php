@@ -26,13 +26,22 @@
         .fin-t-warn .fin-num{color:var(--warn)}
         .fin-t-accent .fin-num{color:var(--accent)}
 
+        /* روابط النقر: كل بطاقة تنقل لموضع إدخال/تعديل مصدرها */
+        .fin-link{text-decoration:none; color:inherit; cursor:pointer}
+        .fin-card.fin-link:hover, .fin-hero-card.fin-link:hover, .fin-note.fin-link:hover{border-color:var(--accent)}
+        .fin-bridge-row.fin-link{border-radius:.5rem; transition:background .15s ease}
+        .fin-bridge-row.fin-link:hover{background:var(--band)}
+        .fin-link:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+        .fin-cta{font-size:.66rem; font-weight:700; color:var(--accent); margin-block-start:.45rem}
+        .fin-card.fin-link:hover .fin-cta, .fin-hero-card.fin-link:hover .fin-cta{text-decoration:underline}
+
         /* ألوان الفترة/الأبطال */
         .fin-hero{display:grid; grid-template-columns:repeat(3,1fr); gap:.9rem}
         @media (max-width:900px){.fin-hero{grid-template-columns:1fr}}
         .fin-hero-card{
-            position:relative; background:var(--card); border:1px solid var(--ring);
+            position:relative; display:block; background:var(--card); border:1px solid var(--ring);
             border-radius:1rem; padding:1.1rem 1.2rem; overflow:hidden;
-            box-shadow:0 1px 2px rgba(17,24,39,.04);
+            box-shadow:0 1px 2px rgba(17,24,39,.04); transition:border-color .15s ease;
         }
         .fin-hero-card::before{content:""; position:absolute; inset-block:0; inset-inline-start:0; inline-size:4px; background:var(--muted); opacity:.5}
         .fin-hero-card.fin-t-pos::before{background:var(--pos); opacity:1}
@@ -51,7 +60,7 @@
 
         .fin-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:.65rem}
         @media (max-width:900px){.fin-grid{grid-template-columns:repeat(2,1fr)}}
-        .fin-card{background:var(--band); border:1px solid var(--ring); border-radius:.8rem; padding:.7rem .8rem}
+        .fin-card{display:block; background:var(--band); border:1px solid var(--ring); border-radius:.8rem; padding:.7rem .8rem; transition:border-color .15s ease}
         .fin-card-label{font-size:.75rem; color:var(--muted); font-weight:600; margin-block-end:.35rem}
         .fin-card-value{font-size:1.15rem; line-height:1.15; display:flex; align-items:baseline; gap:.05rem; flex-wrap:wrap}
         .fin-card-sub{font-size:.68rem; color:var(--muted); margin-block-start:.35rem}
