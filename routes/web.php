@@ -231,9 +231,10 @@ Route::prefix('account')->name('customer.')->group(function (): void {
         Route::get('/profile', [CustomerProfileController::class, 'edit'])->name('profile.edit');
         Route::put('/profile', [CustomerProfileController::class, 'update'])->name('profile.update');
 
-        // دفتر العناوين المُسمّى (M12): تعيين افتراضيّ/حذف. الإضافة تتمّ من الدفع.
+        // دفتر العناوين المُسمّى (M12): تعيين افتراضيّ/إعادة تسمية/حذف. الإضافة من الدفع.
         // التفويض خادميّ في المتحكّم (العنوان يجب أن يخصّ العميلة نفسها).
         Route::post('/addresses/{address}/default', [CustomerAddressController::class, 'setDefault'])->name('addresses.default');
+        Route::post('/addresses/{address}/rename', [CustomerAddressController::class, 'rename'])->name('addresses.rename');
         Route::delete('/addresses/{address}', [CustomerAddressController::class, 'destroy'])->name('addresses.destroy');
 
         // تأكيد البريد بكود (M9). القناة بريد اليوم، وتتبدّل إلى OTP جوال لاحقًا.

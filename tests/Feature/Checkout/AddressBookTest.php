@@ -64,8 +64,23 @@ final class AddressBookTest extends TestCase
         $this->assertTrue($address->is_default);
         $this->assertSame('الإسكندرية', $address->governorate);
         $this->assertSame('شارع فوزي معاذ 12', $address->address_line);
-        $this->assertSame('الإسكندرية', $address->label);   // تسمية تلقائية من المحافظة
+        $this->assertSame('الإسكندرية · سموحة', $address->label);   // تسمية تلقائية: المحافظة · المدينة
         $this->assertSame(1, $customer->addresses()->count());
+    }
+
+    public function test_the_same_location_for_a_different_recipient_is_a_new_entry(): void
+    {
+        // توصيل لقريب في نفس المبنى: نفس السطر/المحافظة/المدينة لكن مستلِم مختلف.
+        // يجب ألّا يُطمَس المستلِم الأول (لا update فوق سجلّه) بل يُنشأ عنوان ثانٍ.
+        $customer = Customer::factory()->withPhone('01011224488')->create();
+
+        $this->placeAs($customer, $book = $this->book(), ['name' => 'أم منى', 'phone' => '01011224488']);
+        $this->placeAs($customer, $book, ['name' => 'خالتي هدى', 'phone' => '01099887766']);
+
+        $this->assertSame(2, $customer->addresses()->count());
+        // المستلِم الأول باقٍ لم يُكتب فوقه.
+        $this->assertTrue($customer->addresses()->where('name', 'أم منى')->exists());
+        $this->assertTrue($customer->addresses()->where('name', 'خالتي هدى')->exists());
     }
 
     public function test_a_second_order_with_the_same_address_does_not_duplicate(): void

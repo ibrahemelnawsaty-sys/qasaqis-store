@@ -66,15 +66,15 @@
                                 .addr-pick .ap-sub{ font-size:12.5px; color:var(--ink-soft); }
                             </style>
                             <div class="co-card">
-                                <h2><span class="n" aria-hidden="true">📍</span>عناويني المحفوظة</h2>
-                                <p class="co-hint" style="margin-bottom:12px">اختاري عنوانًا محفوظًا ليُملأ تلقائيًّا، أو «عنوان جديد».</p>
+                                <h2><span class="n" aria-hidden="true">📍</span>{{ __('account.address.section') }}</h2>
+                                <p class="co-hint" style="margin-bottom:12px">{{ __('account.address.pick_hint') }}</p>
                                 <div class="addr-picks">
                                     @foreach ($addresses as $addr)
                                         <label class="addr-pick">
                                             <input type="radio" name="__addr_pick" value="{{ $addr->id }}"
                                                 @checked($addr->is_default) onchange="fillCheckoutAddress('{{ $addr->id }}')">
                                             <span class="ap-body">
-                                                <span><b>{{ $addr->label }}</b>@if ($addr->is_default)<span class="ap-def">الافتراضيّ</span>@endif</span>
+                                                <span><b>{{ $addr->label }}</b>@if ($addr->is_default)<span class="ap-def">{{ __('account.address.default_badge') }}</span>@endif</span>
                                                 <span class="ap-sub">{{ $addr->name }} · <span dir="ltr">{{ $addr->phone }}</span></span>
                                                 <span class="ap-sub">{{ collect([$addr->governorate, $addr->state_province, $addr->city, $addr->address_line])->filter()->implode('، ') }}</span>
                                             </span>
@@ -82,7 +82,7 @@
                                     @endforeach
                                     <label class="addr-pick">
                                         <input type="radio" name="__addr_pick" value="new" onchange="fillCheckoutAddress('new')">
-                                        <span class="ap-body"><b>➕ عنوان جديد</b><span class="ap-sub">أدخلي بيانات عنوان جديد أدناه.</span></span>
+                                        <span class="ap-body"><b>➕ {{ __('account.address.new') }}</b><span class="ap-sub">{{ __('account.address.new_hint') }}</span></span>
                                     </label>
                                 </div>
                             </div>
@@ -98,7 +98,9 @@
                             <script>
                                 window.CHECKOUT_ADDR = @json($addrMap);
                                 function fillCheckoutAddress(id) {
-                                    var a = (id === 'new') ? {} : (window.CHECKOUT_ADDR[id] || {});
+                                    // «عنوان جديد» يُفرّغ النموذج لكن يُبقي الدولة مصر (لئلا ينقلب
+                                    // إلى نموذج دوليّ بلا محافظة على الأم المصرية).
+                                    var a = (id === 'new') ? { 'f-country': 'EG' } : (window.CHECKOUT_ADDR[id] || {});
                                     ['f-name', 'f-phone', 'f-phone-alt', 'f-country', 'f-gov', 'f-state', 'f-city', 'f-address', 'f-anotes'].forEach(function (fid) {
                                         var el = document.getElementById(fid);
                                         if (! el) { return; }

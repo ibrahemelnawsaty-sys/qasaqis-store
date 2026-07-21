@@ -53,6 +53,30 @@ final class AddressManagementTest extends TestCase
         $this->assertFalse($home->fresh()->is_default);   // عنوان افتراضيّ واحد فقط
     }
 
+    public function test_a_customer_can_rename_an_address(): void
+    {
+        $customer = Customer::factory()->create();
+        $addr = $this->address($customer, ['label' => 'القاهرة · المعادي']);
+
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.addresses.rename', ['address' => $addr->id]), ['label' => 'بيت ماما'])
+            ->assertRedirect();
+
+        $this->assertSame('بيت ماما', $addr->fresh()->label);
+    }
+
+    public function test_renaming_requires_a_label(): void
+    {
+        $customer = Customer::factory()->create();
+        $addr = $this->address($customer, ['label' => 'المنزل']);
+
+        $this->actingAs($customer, 'customer')
+            ->post(route('customer.addresses.rename', ['address' => $addr->id]), ['label' => ''])
+            ->assertSessionHasErrors('label');
+
+        $this->assertSame('المنزل', $addr->fresh()->label);   // لم يتغيّر
+    }
+
     public function test_deleting_the_default_promotes_another_address(): void
     {
         $customer = Customer::factory()->create();
@@ -81,7 +105,11 @@ final class AddressManagementTest extends TestCase
             ->delete(route('customer.addresses.destroy', ['address' => $herAddress->id]))
             ->assertNotFound();
 
-        // لم يُمَسّ عنوانها.
-        $this->assertDatabaseHas('customer_addresses', ['id' => $herAddress->id, 'is_default' => true]);
+        $this->actingAs($me, 'customer')
+            ->post(route('customer.addresses.rename', ['address' => $herAddress->id]), ['label' => 'مخترَق'])
+            ->assertNotFound();
+
+        // لم يُمَسّ عنوانها (لا حذف ولا إعادة تسمية).
+        $this->assertDatabaseHas('customer_addresses', ['id' => $herAddress->id, 'is_default' => true, 'label' => 'المنزل']);
     }
 }

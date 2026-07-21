@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Customer;
 
 use App\Models\Customer;
+use Illuminate\Support\Facades\DB;
 
 /**
  * يحفظ عنوان الدفع في دفتر عناوين العميلة (M12): يُحدّث عنوانًا مطابقًا إن وُجد أو
@@ -24,7 +25,7 @@ final class RememberCheckoutAddress
             'name' => $data['name'] ?? '',
             'phone' => $data['phone'] ?? '',
             'phone_alt' => $data['phone_alt'] ?? null,
-            'country_code' => $data['country_code'] ?: 'EG',
+            'country_code' => ($data['country_code'] ?? null) ?: 'EG',
             'governorate' => $data['governorate'] ?? null,
             'state_province' => $data['state_province'] ?? null,
             'city' => $data['city'] ?? null,
@@ -32,33 +33,44 @@ final class RememberCheckoutAddress
             'address_notes' => $data['address_notes'] ?? null,
         ];
 
-        // مطابقة عنوان قائم بنفس السطر/المحافظة/المدينة (null تُطابَق null في Eloquent).
+        // مطابقة عنوان قائم بنفس **المستلِم** (الاسم/الجوال) و**الموقع** (السطر/المحافظة/
+        // المدينة). إدراج الاسم/الجوال يمنع طمس مستلِم مختلف يُشحن لنفس المبنى (توصيل
+        // لقريب): بيانات مختلفة → عنوان جديد، لا تحديث فوق القديم. (null تُطابَق null.)
         $existing = $customer->addresses()
+            ->where('name', $fields['name'])
+            ->where('phone', $fields['phone'])
             ->where('address_line', $fields['address_line'])
             ->where('governorate', $fields['governorate'])
             ->where('city', $fields['city'])
             ->first();
 
-        // عنوان افتراضيّ واحد فقط: نُلغيه عن الكلّ ثم نُثبّت المختار.
-        $customer->addresses()->update(['is_default' => false]);
+        // «عنوان واحد افتراضيّ» + الكتابة على عنوانين (تصفير الكلّ ثم تثبيت المختار)
+        // في معاملة واحدة: إمّا أن ينجح الحفظ كاملًا أو لا يترك العميلة بلا افتراضيّ.
+        DB::transaction(function () use ($customer, $fields, $existing): void {
+            $customer->addresses()->update(['is_default' => false]);
 
-        if ($existing !== null) {
-            $existing->update($fields + ['is_default' => true]);
+            if ($existing !== null) {
+                $existing->update($fields + ['is_default' => true]);
 
-            return;
-        }
+                return;
+            }
 
-        $customer->addresses()->create($fields + [
-            'label' => $this->autoLabel($customer, $fields),
-            'is_default' => true,
-        ]);
+            $customer->addresses()->create($fields + [
+                'label' => $this->autoLabel($customer, $fields),
+                'is_default' => true,
+            ]);
+        });
     }
 
-    /** تسمية تلقائية من المحافظة/المدينة، وإلا «عنوان N». تُعدَّل لاحقًا من الملف. */
+    /**
+     * تسمية تلقائية مبدئية: المحافظة والمدينة معًا لتمييز عنوانين بنفس المحافظة
+     * (بيتها وبيت أمّها بالقاهرة)، وإلا «عنوان N». تُعيد الأم تسميتها من الملف.
+     */
     private function autoLabel(Customer $customer, array $fields): string
     {
-        $base = $fields['governorate'] ?: ($fields['city'] ?: ('عنوان '.($customer->addresses()->count() + 1)));
+        $parts = array_filter([$fields['governorate'] ?? null, $fields['city'] ?? null]);
+        $base = $parts === [] ? ('عنوان '.($customer->addresses()->count() + 1)) : implode(' · ', $parts);
 
-        return mb_substr((string) $base, 0, 60);
+        return mb_substr($base, 0, 60);
     }
 }

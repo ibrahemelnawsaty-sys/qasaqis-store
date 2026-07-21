@@ -76,7 +76,9 @@ class CheckoutController extends Controller
             return [];
         }
 
-        $default = $customer->addresses()->where('is_default', true)->first();
+        // من المجموعة المُحمّلة نفسها (تُقرأ أيضًا لمحدِّد العرض) لا باستعلام ثانٍ؛
+        // العلاقة مرتّبة is_default ثم id تنازليًّا فالاختيار حتميّ ولو تعدّد الافتراضيّ.
+        $default = $customer->addresses->firstWhere('is_default', true);
 
         return [
             'name' => (string) ($default->name ?? $customer->name),
