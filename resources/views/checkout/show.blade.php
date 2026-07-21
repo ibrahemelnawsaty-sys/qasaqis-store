@@ -56,7 +56,7 @@
 
                             <div class="co-field">
                                 <label class="co-label" for="f-name">{{ __('checkout.form.name') }}</label>
-                                <input id="f-name" type="text" name="name" value="{{ old('name') }}" maxlength="150"
+                                <input id="f-name" type="text" name="name" value="{{ old('name', $prefill['name'] ?? '') }}" maxlength="150"
                                     class="co-input @error('name') err @enderror" placeholder="{{ __('checkout.form.name_ph') }}"
                                     autocomplete="name" required>
                                 @error('name') <p class="co-err">{{ $message }}</p> @enderror
@@ -65,7 +65,7 @@
                             <div class="co-grid2">
                                 <div class="co-field half">
                                     <label class="co-label" for="f-phone">{{ __('checkout.form.phone') }}</label>
-                                    <input id="f-phone" type="tel" name="phone" value="{{ old('phone') }}" maxlength="20"
+                                    <input id="f-phone" type="tel" name="phone" value="{{ old('phone', $prefill['phone'] ?? '') }}" maxlength="20"
                                         class="co-input @error('phone') err @enderror" placeholder="{{ __('checkout.form.phone_ph') }}"
                                         inputmode="tel" autocomplete="tel" dir="ltr" required>
                                     @error('phone') <p class="co-err">{{ $message }}</p> @enderror
@@ -80,14 +80,14 @@
 
                             <div class="co-field">
                                 <label class="co-label" for="f-email">{{ __('checkout.form.email') }}</label>
-                                <input id="f-email" type="email" name="email" value="{{ old('email') }}" maxlength="191"
+                                <input id="f-email" type="email" name="email" value="{{ old('email', $prefill['email'] ?? '') }}" maxlength="191"
                                     class="co-input @error('email') err @enderror" dir="ltr" autocomplete="email" required>
                                 @error('email') <p class="co-err">{{ $message }}</p> @enderror
                             </div>
                         </div>
 
                         {{-- عنوان الشحن --}}
-                        <div class="co-card" x-data="{ country: '{{ old('country_code', 'EG') }}' }">
+                        <div class="co-card" x-data="{ country: '{{ old('country_code', $prefill['country_code'] ?? 'EG') }}' }">
                             <h2><span class="n" aria-hidden="true">2</span>{{ __('checkout.form.section_shipping') }}</h2>
 
                             <div class="co-field">
@@ -95,7 +95,7 @@
                                 <select id="f-country" name="country_code" x-model="country"
                                     class="co-select @error('country_code') err @enderror" required>
                                     @foreach ($countries as $c)
-                                        <option value="{{ $c->iso_code }}" @selected(old('country_code', 'EG') === $c->iso_code)>{{ $c->name_ar }}</option>
+                                        <option value="{{ $c->iso_code }}" @selected(old('country_code', $prefill['country_code'] ?? 'EG') === $c->iso_code)>{{ $c->name_ar }}</option>
                                     @endforeach
                                 </select>
                                 @error('country_code') <p class="co-err">{{ $message }}</p> @enderror
@@ -106,9 +106,9 @@
                                 <div class="co-field half" x-show="country === 'EG'" x-cloak>
                                     <label class="co-label" for="f-gov">{{ __('checkout.form.governorate') }}</label>
                                     <select id="f-gov" name="governorate" class="co-select @error('governorate') err @enderror" :required="country === 'EG'">
-                                        <option value="" disabled @selected(! old('governorate'))>{{ __('checkout.form.governorate_ph') }}</option>
+                                        <option value="" disabled @selected(! old('governorate', $prefill['governorate'] ?? ''))>{{ __('checkout.form.governorate_ph') }}</option>
                                         @foreach ($governorates as $gov)
-                                            <option value="{{ $gov }}" @selected(old('governorate') === $gov)>{{ $gov }}</option>
+                                            <option value="{{ $gov }}" @selected(old('governorate', $prefill['governorate'] ?? '') === $gov)>{{ $gov }}</option>
                                         @endforeach
                                     </select>
                                     @error('governorate') <p class="co-err">{{ $message }}</p> @enderror
@@ -122,7 +122,7 @@
                                 </div>
                                 <div class="co-field half">
                                     <label class="co-label" for="f-city">{{ __('checkout.form.city') }} <span class="opt">{{ __('checkout.form.optional') }}</span></label>
-                                    <input id="f-city" type="text" name="city" value="{{ old('city') }}" maxlength="80"
+                                    <input id="f-city" type="text" name="city" value="{{ old('city', $prefill['city'] ?? '') }}" maxlength="80"
                                         class="co-input @error('city') err @enderror">
                                     @error('city') <p class="co-err">{{ $message }}</p> @enderror
                                 </div>
@@ -131,7 +131,7 @@
                             <div class="co-field">
                                 <label class="co-label" for="f-address">{{ __('checkout.form.address') }}</label>
                                 <textarea id="f-address" name="address" maxlength="300" class="co-textarea @error('address') err @enderror"
-                                    placeholder="{{ __('checkout.form.address_ph') }}" autocomplete="street-address" required>{{ old('address') }}</textarea>
+                                    placeholder="{{ __('checkout.form.address_ph') }}" autocomplete="street-address" required>{{ old('address', $prefill['address'] ?? '') }}</textarea>
                                 @error('address') <p class="co-err">{{ $message }}</p> @enderror
                             </div>
 

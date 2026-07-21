@@ -53,7 +53,69 @@ class CheckoutController extends Controller
             'onlineDisabledMessageKey' => $resolver->onlineDisabledMessageKey(),
             'governorates' => config('egypt.governorates'),
             'countries' => Country::shippable()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
+            // ملء مسبق للعميلة المسجّلة من حسابها وآخر عنوان استخدمته، كي لا تُعيد
+            // إدخال كل شيء في كل طلب. القالب يفضّل old() عند ارتداد خطأ تحقّق.
+            'prefill' => $this->prefill(),
         ]);
+    }
+
+    /**
+     * بيانات الملء المسبق للعميلة المسجّلة فقط (الاسم/الجوال/الإيميل + آخر عنوان).
+     * الجوال يُعرض بصيغة محلية (0 + الهوية المطبّعة). للزائرة مصفوفة فارغة.
+     *
+     * @return array<string, string>
+     */
+    private function prefill(): array
+    {
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return [];
+        }
+
+        return [
+            'name' => (string) $customer->name,
+            'phone' => filled($customer->phone_normalized) ? '0'.$customer->phone_normalized : '',
+            'email' => (string) $customer->email,
+            'governorate' => (string) $customer->last_governorate,
+            'city' => (string) $customer->last_city,
+            'address' => (string) $customer->last_address_line,
+            'country_code' => (string) ($customer->last_country_code ?: 'EG'),
+        ];
+    }
+
+    /**
+     * يحفظ آخر عنوان استخدمته العميلة المسجّلة على حسابها (للملء التلقائي لاحقًا).
+     *
+     * **حفظ العنوان رفاهيّة best-effort ويجب ألّا يكسر استجابة طلبٍ اكتمل**: الطلب
+     * أُنشئ والسلة أُفرِغت قبل هذا السطر، فأيّ خطأ DB (توقّف مؤقّت/تزاحم/طول زائد) هنا
+     * يُسجَّل ويُبتلَع كي تصل العميلة لبوابة الدفع لا لخطأ 500. + قصّ دفاعيّ لأطوال
+     * الأعمدة (تحقّق governorate الدولي يسمح بـ100 بينما last_governorate عموده 50).
+     */
+    private function rememberAddressFor(CheckoutRequest $request): void
+    {
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return;
+        }
+
+        try {
+            $customer->update([
+                'last_governorate' => $this->clip($request->input('governorate'), 50),
+                'last_city' => $this->clip($request->input('city'), 80),
+                'last_address_line' => $this->clip($request->input('address'), 300),
+                'last_country_code' => $request->input('country_code') ?: 'EG',
+            ]);
+        } catch (\Throwable $e) {
+            report($e); // لا يُسقط استجابة طلبٍ اكتمل
+        }
+    }
+
+    /** قصّ آمن على طول العمود (متعدد البايت)، مع تمرير null كما هو. */
+    private function clip(?string $value, int $max): ?string
+    {
+        return $value === null ? null : mb_substr($value, 0, $max);
     }
 
     public function place(CheckoutRequest $request, PlaceOrderAction $action): RedirectResponse
@@ -68,6 +130,10 @@ class CheckoutController extends Controller
         }
 
         $this->forgetSessionCart($request);
+
+        // حفظ آخر عنوان للعميلة المسجّلة كي يُملأ تلقائيًّا في الطلب القادم (لا تُعيد
+        // إدخاله). لا يمسّ الطلب نفسه، وللزائرة لا شيء.
+        $this->rememberAddressFor($request);
 
         // المفتاح لا يُنسى هنا عمدًا — انظر CheckoutSession: نسيانه يفتح ثغرة
         // إعادة إرسال النموذج بعد اكتمال الطلب. يُستبدل عند العرض التالي للصفحة.
