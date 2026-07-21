@@ -12,8 +12,10 @@ use App\Filament\Widgets\FinanceRange;
 use App\Filament\Widgets\FinanceStatsWidget;
 use App\Filament\Widgets\FinanceTrendWidget;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Services\Finance\CostBackfillService;
 use App\Services\Finance\FinanceReportService;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
@@ -114,6 +116,29 @@ class FinanceDashboard extends Page
                 ->color('gray')
                 ->url(fn (): string => OrderResource::getUrl('index'))
                 ->visible(fn (): bool => OrderResource::canViewAny()),
+
+            // ترحيل تكلفة الطلبات القديمة — مؤثّر في البيانات، فبتأكيد + إذن
+            // products.cost.update (أضيق من الوصول للوحة) + تحقّق خادميّ عند الفعل.
+            Action::make('backfillCosts')
+                ->label('ترحيل تكاليف الطلبات القديمة')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->visible(fn (): bool => auth()->user()?->can('products.cost.update') === true)
+                ->requiresConfirmation()
+                ->modalHeading('ترحيل تكاليف الطلبات القديمة')
+                ->modalDescription('يملأ تكلفة الطلبات التي أُنشئت قبل إدخال أسعار الشراء، مستعملًا سعر الشراء الحالي لكل كتاب. لا يلمس الطلبات التي لها تكلفة محفوظة. تنبيه: يستخدم السعر الحالي لا سعر وقت البيع.')
+                ->modalSubmitActionLabel('نفّذ الترحيل')
+                ->action(function (): void {
+                    abort_unless(auth()->user()?->can('products.cost.update') === true, 403);
+
+                    $r = app(CostBackfillService::class)->run();
+
+                    Notification::make()
+                        ->title('اكتمل ترحيل التكاليف')
+                        ->body("مُلئت {$r['filled']} سطرًا في {$r['orders']} طلب. سطور بلا سعر شراء: {$r['skipped_no_cost']}.")
+                        ->success()
+                        ->send();
+                }),
 
             Action::make('exportCsv')
                 ->label('تصدير CSV')
