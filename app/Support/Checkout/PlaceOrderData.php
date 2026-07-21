@@ -43,6 +43,9 @@ final readonly class PlaceOrderData
         public ?string $userAgent = null,
         public ?string $eventSourceUrl = null,
         public bool $adsConsent = false,
+        // حساب العميلة المسجّلة (حارس customer) لربط الطلب بحسابها فيظهر في «طلباتي»
+        // بلا مطالبة يدوية. null للزائرة. مستقل عن userId (المرتبط بمستخدمي اللوحة).
+        public ?int $customerId = null,
     ) {
     }
 }

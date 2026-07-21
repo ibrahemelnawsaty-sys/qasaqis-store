@@ -244,6 +244,8 @@ class PlaceOrderAction
                 'order_number' => $this->generateOrderNumber(),
                 'idempotency_key' => $data->idempotencyKey,
                 'user_id' => $data->userId,
+                // ربط الطلب بحساب العميلة المسجّلة (يظهر في «طلباتي» بلا مطالبة يدوية).
+                'customer_id' => $data->customerId,
                 'status' => $status,
                 'customer_name' => $data->customerName,
                 'customer_phone' => $data->customerPhone,

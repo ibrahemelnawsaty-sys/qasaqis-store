@@ -151,6 +151,9 @@ class CheckoutRequest extends FormRequest
             userAgent: mb_substr((string) $this->userAgent(), 0, 512) ?: null,
             eventSourceUrl: mb_substr((string) $this->headers->get('referer'), 0, 2000) ?: null,
             adsConsent: $this->boolean('ads_consent'),
+            // حارس customer صراحةً (مستقل عن الحارس الافتراضي): يربط الطلب بحساب
+            // العميلة المسجّلة فيظهر في «طلباتي» تلقائيًّا. null للزائرة.
+            customerId: auth('customer')->id(),
         );
     }
 }
