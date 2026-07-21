@@ -11,7 +11,9 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
 
 /**
@@ -50,7 +52,11 @@ class AbandonedOrders extends Page
 
     public const COUPON_DAYS = 7;
 
-    /** أكواد الخصم المُولَّدة في هذا العرض: order_id => code (لتضمينها في الرسالة). */
+    /**
+     * أكواد الخصم المُولَّدة في هذا العرض: order_id => code (لتضمينها في الرسالة).
+     * #[Locked] فلا يحقن العميل أكوادًا وهمية عبر تحديث Livewire — تُضبط خادميًّا فقط.
+     */
+    #[Locked]
     public array $coupons = [];
 
     public static function canAccess(): bool
@@ -119,24 +125,31 @@ class AbandonedOrders extends Page
             return; // معرّف خارج القائمة — يُتجاهَل بصمت
         }
 
-        // كود فريد بأحرف لاتينية سهلة الكتابة على العميل.
-        do {
-            $code = 'BACK'.strtoupper(Str::random(5));
-        } while (Coupon::query()->where('code', $code)->exists());
+        $description = 'خصم استعادة طلب متروك رقم '.$order->order_number;
 
-        Coupon::query()->create([
-            'code' => $code,
-            'description' => 'خصم استعادة طلب متروك رقم '.$order->order_number,
-            'type' => 'percentage',
-            'value' => self::DISCOUNT_PERCENT,
-            'starts_at' => now(),
-            'expires_at' => now()->addDays(self::COUPON_DAYS),
-            'usage_limit' => 1,
-            'usage_limit_per_user' => 1,
-            'applies_to' => 'all',
-            'is_active' => true,
-            'free_shipping' => false,
-        ]);
+        // idempotent: إن سبق توليد كوبون استعادة لهذا الطلب ولا يزال نشطًا وغير
+        // مستهلك وغير منتهٍ، نعيد كوده بدل إنشاء ثانٍ (منع تكرار عند تحديث الصفحة).
+        $existing = Coupon::query()
+            ->where('description', $description)
+            ->where('is_active', true)
+            ->where('used_count', 0)
+            ->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->value('code');
+
+        if ($existing !== null) {
+            $this->coupons[$orderId] = $existing;
+            Notification::make()->title('كود الخصم الحالي لهذا الطلب: '.$existing)->success()->send();
+
+            return;
+        }
+
+        $code = $this->createRecoveryCoupon($description);
+
+        if ($code === null) {
+            Notification::make()->title('تعذّر توليد كود فريد، حاول مجددًا.')->danger()->send();
+
+            return;
+        }
 
         $this->coupons[$orderId] = $code;
 
@@ -145,5 +158,41 @@ class AbandonedOrders extends Page
             ->body('خصم '.self::DISCOUNT_PERCENT.'% صالح '.self::COUPON_DAYS.' أيام. أرسله للعميل عبر واتساب أو الإيميل.')
             ->success()
             ->send();
+    }
+
+    /**
+     * ينشئ كوبون استعادة بكود فريد. حلقة إعادة محاولة تلتقط تصادم القيد الفريد
+     * (سباق TOCTOU نادر) فلا يُسقط الصفحة بـ 500؛ الأخطاء الأخرى تُرمى كما هي.
+     */
+    private function createRecoveryCoupon(string $description): ?string
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $code = 'BACK'.strtoupper(Str::random(5));
+
+            try {
+                Coupon::query()->create([
+                    'code' => $code,
+                    'description' => $description,
+                    'type' => 'percentage',
+                    'value' => self::DISCOUNT_PERCENT,
+                    'starts_at' => now(),
+                    'expires_at' => now()->addDays(self::COUPON_DAYS),
+                    'usage_limit' => 1,
+                    'usage_limit_per_user' => 1,
+                    'applies_to' => 'all',
+                    'is_active' => true,
+                    'free_shipping' => false,
+                ]);
+
+                return $code;
+            } catch (QueryException $e) {
+                // 23000 = انتهاك قيد سلامة (تصادم unique) → جرّب كودًا آخر. غيره يُرمى.
+                if ((string) $e->getCode() !== '23000') {
+                    throw $e;
+                }
+            }
+        }
+
+        return null;
     }
 }

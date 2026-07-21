@@ -99,6 +99,31 @@ final class AbandonedOrdersTest extends TestCase
         $this->assertDatabaseHas('coupons', ['type' => 'percentage', 'value' => '10.00', 'is_active' => 1, 'usage_limit_per_user' => 1]);
     }
 
+    public function test_generating_a_coupon_twice_reuses_the_same_code(): void
+    {
+        $order = $this->abandonedOrder();
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $component = Livewire::test(AbandonedOrders::class)->call('generateCoupon', $order->id);
+        $first = $component->get('coupons')[$order->id];
+
+        $component->call('generateCoupon', $order->id);
+        $second = $component->get('coupons')[$order->id];
+
+        $this->assertSame($first, $second);          // نفس الكود
+        $this->assertDatabaseCount('coupons', 1);     // لم يُنشأ كوبون ثانٍ
+    }
+
+    public function test_a_user_without_orders_view_is_forbidden(): void
+    {
+        // «التسويق» يملك coupons.manage لا orders.view → يُمنع عند بوابة الصفحة.
+        $this->actingAs($this->admin('marketing'))
+            ->get(AbandonedOrders::getUrl())
+            ->assertForbidden();
+    }
+
     public function test_generating_a_coupon_requires_the_coupons_manage_permission(): void
     {
         // «الدعم» يملك orders.view (يرى الصفحة) لا coupons.manage.
