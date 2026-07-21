@@ -59,7 +59,8 @@
             </div>
             <p class="hint">{{ $def['hint'] }}</p>
 
-            @if (! empty($breakdown))
+            {{-- التفصيل يُعرض فقط حين يضيف معلومة تتجاوز الرقم الرئيسي (أكثر من فئة). --}}
+            @if (count($breakdown) > 1)
                 <div class="kpid-break">
                     @foreach ($breakdown as $b)
                         <span class="b">{{ $b['label'] }}: <b>{{ number_format($b['value']) }}</b></span>
@@ -110,13 +111,14 @@
             @else
                 <table class="kpid-table">
                     <thead><tr>
-                        <th>رقم الطلب</th><th>العميل</th><th>الحالة</th><th>الدفع</th><th class="num">الإجمالي</th><th>التاريخ</th><th></th>
+                        <th>رقم الطلب</th><th>العميل</th><th>الهاتف</th><th>الحالة</th><th>الدفع</th><th class="num">الإجمالي</th><th>التاريخ</th><th></th>
                     </tr></thead>
                     <tbody>
                         @foreach ($rows as $order)
                             <tr>
                                 <td class="num">{{ $order->order_number }}</td>
                                 <td>{{ $order->customer_name }}</td>
+                                <td class="num" dir="ltr" style="text-align:start">{{ $order->customer_phone }}</td>
                                 <td><span class="kpid-pill">{{ \App\Filament\Resources\OrderResource::STATUS_LABELS[$order->status] ?? $order->status }}</span></td>
                                 <td>{{ \App\Filament\Resources\OrderResource::PAYMENT_STATUS_LABELS[$order->payment_status] ?? $order->payment_status }}</td>
                                 <td class="num">{{ $money($order->grand_total) }} ج.م</td>

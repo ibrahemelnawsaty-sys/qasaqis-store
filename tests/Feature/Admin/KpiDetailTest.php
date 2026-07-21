@@ -80,7 +80,28 @@ final class KpiDetailTest extends TestCase
         $this->assertSame(350.0, OpsKpi::metricValue(OpsKpi::get('revenue_realized')));
     }
 
+    public function test_the_aov_kpi_averages_realized_order_totals(): void
+    {
+        OrderFactory::new()->create(['status' => 'delivered', 'grand_total' => '100.00']);
+        OrderFactory::new()->create(['status' => 'completed', 'grand_total' => '300.00']);
+        OrderFactory::new()->create(['status' => 'cancelled', 'grand_total' => '999.00']); // غير محقَّق
+
+        $this->assertSame(200.0, OpsKpi::metricValue(OpsKpi::get('aov')));
+    }
+
     // ── العرض + التفويض ────────────────────────────────────────────────────
+
+    public function test_the_kpi_property_is_locked_against_client_tampering(): void
+    {
+        // #[Locked] يمنع تبديل المؤشّر عبر تحديث Livewire — مسار تسريب الأرقام المالية
+        // (مستخدم غير ماليّ يفتح مؤشّرًا عاديًّا ثم يبدّله إلى ماليّ). حارس ضدّ التراجع.
+        $property = new \ReflectionProperty(KpiDetail::class, 'kpi');
+
+        $this->assertNotEmpty(
+            $property->getAttributes(\Livewire\Attributes\Locked::class),
+            'خاصية kpi يجب أن تحمل #[Locked] كي لا تُبدَّل من العميل بعد mount.'
+        );
+    }
 
     public function test_the_detail_page_renders_the_kpi_and_its_underlying_rows(): void
     {

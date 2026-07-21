@@ -10,6 +10,7 @@ use App\Models\PaymentProof;
 use App\Support\Ops\OpsKpi;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
 
 /**
@@ -32,7 +33,13 @@ class KpiDetail extends Page
     /** صفوف لكل صفحة — لوائح تشغيلية، 50 كافية وخفيفة على الشبكة. */
     public const PER_PAGE = 50;
 
-    /** مفتاح المؤشّر الحالي (عام كي يبقى عبر تحديثات ترقيم Livewire). */
+    /**
+     * مفتاح المؤشّر الحالي. #[Locked] حاسم أمنيًّا: يُضبط في mount() من الرابط بعد
+     * التحقّق، ثم **يمنع Livewire أيّ تعديل من العميل** بعدها. بدونه كان مستخدمٌ بلا
+     * صلاحية مالية يفتح مؤشّرًا غير ماليّ ثم يبدّل الخاصية إلى مؤشّر ماليّ عبر تحديث
+     * Livewire (لا يُعيد mount) فيرى أرقامًا محجوبة (الممنوع 13 / بند 4.4).
+     */
+    #[Locked]
     public string $kpi = '';
 
     public static function shouldRegisterNavigation(): bool
@@ -52,23 +59,33 @@ class KpiDetail extends Page
 
     public function mount(): void
     {
+        $this->kpi = (string) request()->query('kpi', '');
+
+        $this->authorizedDef();
+    }
+
+    /**
+     * التفويض الحاكم — يُستدعى في mount() **وفي كل عرض** (getViewData) دفاعًا في
+     * العمق (بند 4.4): مفتاح مجهول = 404 (لا نكشف قائمة المفاتيح)، ومؤشّر مالي بلا
+     * صلاحية مالية = 403. لا يُكتفى بفحص mount مرّة (الممنوع 13).
+     *
+     * @return array<string, mixed>
+     */
+    private function authorizedDef(): array
+    {
         abort_unless(static::canAccess(), 403);
 
-        $key = (string) request()->query('kpi', '');
-        $def = OpsKpi::get($key);
-
-        // مفتاح مجهول = 404 (لا نكشف قائمة المفاتيح لمخمِّن)، ومؤشّر مالي بلا صلاحية
-        // مالية = 403 (الحجب خادمي لا واجهي فقط، بند 4.4).
+        $def = OpsKpi::get($this->kpi);
         abort_if($def === null, 404);
         abort_if($def['financial'] && ! auth()->user()?->can('orders.view_financials'), 403);
 
-        $this->kpi = $key;
+        return $def;
     }
 
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
-        $def = OpsKpi::get($this->kpi);
+        $def = $this->authorizedDef();
 
         return [
             'def' => $def,

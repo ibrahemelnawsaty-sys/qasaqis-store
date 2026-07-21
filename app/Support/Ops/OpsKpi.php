@@ -17,7 +17,8 @@ use Illuminate\Database\Eloquent\Builder;
  * اللوحة + الصفوف الكاملة خلفه، فلا ينحرف رقم التفاصيل عن رقم البطاقة (بند 1.1).
  *
  * قيود النافذة الزمنية تُطابق OpsDashboard/ScopesRevenue حرفيًّا (TREND_DAYS=30).
- * اختبار OpsKpiParityTest يحرس هذا التطابق ضدّ الانحراف مستقبلًا.
+ * اختبارات KpiDetailTest تؤكّد أن metricValue واستعلام كل مؤشّر يطابقان العدّ/المجموع
+ * المباشر المطابق لتعريف اللوحة (حارس ضدّ الانحراف).
  */
 final class OpsKpi
 {
@@ -56,15 +57,6 @@ final class OpsKpi
                 'financial' => false,
                 'metric' => 'count',
                 'query' => static fn (): Builder => Order::query()->whereDate('created_at', Carbon::today()),
-            ],
-            'orders_week' => [
-                'label' => 'طلبات آخر 7 أيام',
-                'icon' => '🗓️',
-                'hint' => 'الطلبات المُنشأة خلال آخر سبعة أيام.',
-                'model' => Order::class,
-                'financial' => false,
-                'metric' => 'count',
-                'query' => static fn (): Builder => Order::query()->where('created_at', '>=', Carbon::now()->subDays(7)),
             ],
             'orders_month' => [
                 'label' => 'طلبات آخر 30 يومًا',
