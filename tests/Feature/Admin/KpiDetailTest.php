@@ -101,14 +101,18 @@ final class KpiDetailTest extends TestCase
         $this->assertSame(2.0, OpsKpi::metricValue(OpsKpi::get('governorate'), 'القاهرة'));
     }
 
-    public function test_the_book_kpi_finds_orders_that_contain_the_book(): void
+    public function test_the_book_kpi_finds_realized_orders_that_contain_the_book(): void
     {
         $bookA = Book::factory()->create();
         $bookB = Book::factory()->create();
 
-        $orderA = OrderFactory::new()->create();
+        $orderA = OrderFactory::new()->create(['status' => 'delivered']);
         $orderA->items()->create(['book_id' => $bookA->id, 'book_title' => $bookA->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
-        $orderB = OrderFactory::new()->create();
+        // طلب ملغى يحتوي الكتاب نفسه — يجب أن يُستبعَد (نطاق الإيراد، كبطاقة اللوحة).
+        $cancelled = OrderFactory::new()->create(['status' => 'cancelled']);
+        $cancelled->items()->create(['book_id' => $bookA->id, 'book_title' => $bookA->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
+        // طلب لكتاب آخر.
+        $orderB = OrderFactory::new()->create(['status' => 'delivered']);
         $orderB->items()->create(['book_id' => $bookB->id, 'book_title' => $bookB->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
 
         $ids = (OpsKpi::get('book')['query'])((string) $bookA->id)->pluck('id')->all();
@@ -121,8 +125,11 @@ final class KpiDetailTest extends TestCase
         $this->assertNotNull(OpsKpi::parseMonth('2026-07'));
         $this->assertNull(OpsKpi::parseMonth('garbage'));
         $this->assertNull(OpsKpi::parseMonth("2026-07'; DROP TABLE orders; --"));
+        // Carbon يتدحرّج بصمت خارج 01-12؛ يجب رفضها لا قبول شهر آخر.
+        $this->assertNull(OpsKpi::parseMonth('2026-13'));
+        $this->assertNull(OpsKpi::parseMonth('2026-00'));
 
-        OrderFactory::new()->create(); // طلب هذا الشهر
+        OrderFactory::new()->create(['status' => 'delivered']); // طلب محقَّق هذا الشهر
 
         $thisMonth = now()->format('Y-m');
         $this->assertGreaterThanOrEqual(1.0, OpsKpi::metricValue(OpsKpi::get('month'), $thisMonth));
