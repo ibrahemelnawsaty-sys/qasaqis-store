@@ -427,10 +427,15 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('sort_order')
+                // عمود «الترتيب» قابل للكتابة مباشرةً (بديل عن السحب حين تكون الكتب
+                // كثيرة). الأصغر يظهر أولًا. للمحرّرين فقط؛ لغيرهم للقراءة.
+                Tables\Columns\TextInputColumn::make('sort_order')
                     ->label('الترتيب')
+                    ->type('number')
+                    ->rules(['integer', 'min:0'])
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->disabled(fn (): bool => ! static::userCan('update'))
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('reviews_count')
                     ->label('المراجعات')
@@ -438,6 +443,11 @@ class BookResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('sort_order')
+            // سحب وإفلات لضبط ترتيب ظهور الكتب (يؤثّر على أقسام الرئيسية التي ترتّب
+            // بـsort_order: مختارات/قسم/عروض). تصاعدي = الأعلى أولًا. للمحرّرين فقط.
+            ->reorderable('sort_order', fn (): bool => static::userCan('update'))
+            ->defaultPaginationPageOption(25)
+            ->paginated([25, 50, 100, 'all'])
             ->filters([
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('القسم')

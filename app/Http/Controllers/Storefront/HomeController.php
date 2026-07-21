@@ -7,9 +7,10 @@ namespace App\Http\Controllers\Storefront;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Storefront\Concerns\FiltersBooks;
 use App\Models\Article;
-use App\Models\Book;
 use App\Models\HomepageBlock;
+use App\Models\HomepageSection;
 use App\Models\Review;
+use App\Services\Cms\HomepageSectionResolver;
 use Illuminate\Contracts\View\View;
 
 class HomeController extends Controller
@@ -18,11 +19,6 @@ class HomeController extends Controller
 
     public function __invoke(): View
     {
-        $cardWith = [
-            'category:id,name,slug,color_hex,icon',
-            'publisher:id,name,slug',
-        ];
-
         // Editable CMS blocks for the homepage (constitution 0.8). One query,
         // partitioned in memory (no N+1): banners/sliders feed the top carousel,
         // the rest render as ordered editable content sections.
@@ -36,49 +32,26 @@ class HomeController extends Controller
         $slides = $homepageBlocks->whereIn('type', ['slider', 'banner'])->values();
         $blocks = $homepageBlocks->whereIn('type', ['text', 'html', 'image', 'cta'])->values();
 
-        $featured = Book::query()
-            ->published()
-            ->featured()
-            ->select($this->cardColumns)
-            ->with($cardWith)
-            ->orderByDesc('sort_order')
-            ->orderByDesc('published_at')
-            ->take(8)
-            ->get();
-
-        // «الأكثر مبيعًا» — books the admin flagged via is_bestseller. If none are
-        // flagged yet, fall back to the most-viewed then newest published books so
-        // the homepage section is never empty for the user (constitution 1.6).
-        $bestsellers = Book::query()
-            ->published()
-            ->where('is_bestseller', true)
-            ->select($this->cardColumns)
-            ->with($cardWith)
-            ->orderByDesc('sort_order')
-            ->orderByDesc('views_count')
-            ->take(8)
-            ->get();
-
-        if ($bestsellers->isEmpty()) {
-            $bestsellers = Book::query()
-                ->published()
-                ->select($this->cardColumns)
-                ->with($cardWith)
-                ->orderByDesc('views_count')
-                ->orderByDesc('published_at')
-                ->orderByDesc('id')
-                ->take(8)
-                ->get();
-        }
-
-        $latest = Book::query()
-            ->published()
-            ->select($this->cardColumns)
-            ->with($cardWith)
-            ->orderByDesc('published_at')
-            ->orderByDesc('id')
-            ->take(8)
-            ->get();
+        // أقسام كتب الرئيسية (كاروسيلات) يديرها الأدمن: يضيف/يحذف/يرتّب، وكل قسم
+        // تلقائي بقاعدة مع تعديل يدوي. rescue تُبقي الرئيسية تعمل قبل الهجرة/الزرع،
+        // والأقسام الفارغة (بلا كتب) لا تظهر. كل قسم = استعلام واحد خفيف (بلا N+1).
+        $resolver = app(HomepageSectionResolver::class);
+        $bookSections = rescue(
+            fn () => HomepageSection::query()
+                ->active()
+                ->with('category:id,name,slug')
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (HomepageSection $section): array => [
+                    'section' => $section,
+                    'books' => $resolver->resolve($section),
+                ])
+                ->filter(fn (array $row): bool => $row['books']->isNotEmpty())
+                ->values(),
+            collect(),
+            report: false,
+        );
 
         // Real testimonials only — never fabricate reviews (constitution 0.4 / 11.4).
         $reviews = Review::query()
@@ -107,9 +80,7 @@ class HomeController extends Controller
             'slides' => $slides,
             'blocks' => $blocks,
             'categories' => $this->categoriesWithCounts(),
-            'featured' => $featured,
-            'bestsellers' => $bestsellers,
-            'latest' => $latest,
+            'bookSections' => $bookSections,
             'reviews' => $reviews,
             'articles' => $articles,
         ]);
