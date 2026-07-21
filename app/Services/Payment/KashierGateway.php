@@ -111,10 +111,10 @@ class KashierGateway implements PaymentGateway
     /**
      * التحقّق من توقيع ردّ **إعادة التوجيه** (عودة المتصفّح، merchantRedirect).
      *
-     * يُبنى نصّ الاستعلام من كل المعطيات عدا signature و mode بترتيب ورودها، ثم
-     * HMAC بمفتاح الدفع، ومقارنة زمنيًّا-ثابتة (hash_equals) — مطابقٌ حرفيًّا لعرض
-     * كاشير الرسمي (hppCallback.php). ملاحظة: signatureKeys نفسها ضمن الحقول
-     * الموقَّعة هنا (كالعرض)، فلا نميّز عليها.
+     * يُقارَن التوقيع المُستلَم بعدّة صيغ محتملة (انظر redirectSignatureCandidates)
+     * لأن صيغة كاشير الفعلية قد تختلف عن العرض الرسمي؛ كلّها HMAC بمفتاح الدفع
+     * ومقارنة زمنيًّا-ثابتة (hash_equals). لا تُضعف تجربةُ الصيغ الأمانَ (لا تزوير
+     * دون معرفة المفتاح).
      *
      * @param  array<string, mixed>  $payload
      */
@@ -126,15 +126,79 @@ class KashierGateway implements PaymentGateway
             return false;
         }
 
-        $parts = [];
+        foreach ($this->redirectSignatureCandidates($payload) as $candidate) {
+            if (hash_equals($this->sign($candidate), $received)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * مرشّحات نصّ توقيع ردّ إعادة التوجيه — تغطّي اختلاف صيغة كاشير الفعلية عن العرض
+     * الرسمي: (1) كلّ المعطيات عدا signature/mode بترتيب ورودها (hpp/iframe الرسمي)؛
+     * (2) حقول signatureKeys فقط بترتيب ورودها؛ (3) حقول signatureKeys مرتّبة أبجديًّا
+     * (صيغة الـwebhook). جميعها تتطلّب api_key، فتجربة أكثر من صيغة لا تُضعف الأمان.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<int, string>
+     */
+    private function redirectSignatureCandidates(array $payload): array
+    {
+        $candidates = [];
+
+        // (1) كل المعطيات عدا signature و mode، بترتيب ورودها.
+        $all = [];
         foreach ($payload as $key => $value) {
             if ($key === 'signature' || $key === 'mode' || ! is_scalar($value)) {
                 continue;
             }
-            $parts[] = $key.'='.$value;
+            $all[] = $key.'='.$value;
+        }
+        if ($all !== []) {
+            $candidates[] = implode('&', $all);
         }
 
-        return hash_equals($this->sign(implode('&', $parts)), $received);
+        // (2)+(3) مجموعة signatureKeys فقط — بترتيب ورودها، ثم مرتّبة أبجديًّا.
+        // fail-closed (كالـwebhook): لا نقبل مجموعةً جزئية إلّا إذا كانت تُوقّع
+        // merchantOrderId و amount معًا، وإلّا أمكن إعادة توجيه توقيع صحيح لطلب آخر
+        // بنفس المبلغ. حين لا تربطهما، نسقط لمرشّح (1) كامل-المعطيات الذي يوقّع كلّ شيء.
+        if (isset($payload['signatureKeys'])) {
+            $keys = is_array($payload['signatureKeys'])
+                ? $payload['signatureKeys']
+                : explode(',', (string) $payload['signatureKeys']);
+            $keys = array_values(array_filter($keys, 'is_string'));
+
+            $bindsOrder = in_array('merchantOrderId', $keys, true) && in_array('amount', $keys, true);
+
+            if ($bindsOrder) {
+                $build = static function (array $ks) use ($payload): ?string {
+                    $parts = [];
+                    foreach ($ks as $k) {
+                        if (array_key_exists($k, $payload) && is_scalar($payload[$k])) {
+                            $parts[] = $k.'='.$payload[$k];
+                        }
+                    }
+
+                    return $parts === [] ? null : implode('&', $parts);
+                };
+
+                $listed = $build($keys);
+                if ($listed !== null) {
+                    $candidates[] = $listed;
+                }
+
+                $sorted = $keys;
+                sort($sorted);
+                $alpha = $build($sorted);
+                if ($alpha !== null && $alpha !== $listed) {
+                    $candidates[] = $alpha;
+                }
+            }
+        }
+
+        return $candidates;
     }
 
     /**

@@ -41,7 +41,19 @@ class PaymentCallbackController extends Controller
         $gateway = $this->gateways->make('kashier');
 
         if (! $gateway->verify($params)) {
-            Log::warning('kashier.callback.bad_signature', ['ip' => $request->ip()]);
+            // تشخيص: بنية الردّ وحقوله الآمنة فقط لمطابقة صيغة التوقيع عند فشل كل
+            // المرشّحات. نستبعد التوقيع و cardDataToken (رمز بطاقة قابل لإعادة الاستخدام)
+            // فلا أسرار في اللوقات (الدستور). تُزال لاحقًا بعد ثبات التكامل.
+            Log::warning('kashier.callback.bad_signature', [
+                'ip' => $request->ip(),
+                'method' => $request->method(),
+                'keys' => array_keys($params),
+                'signatureKeys' => is_scalar($params['signatureKeys'] ?? null) ? $params['signatureKeys'] : null,
+                'safe' => \Illuminate\Support\Arr::only($params, [
+                    'paymentStatus', 'status', 'merchantOrderId', 'orderId',
+                    'amount', 'currency', 'transactionId', 'mode',
+                ]),
+            ]);
 
             // صفحة تتبّع الطلب تعرض رسالة error وتتيح للعميلة العثور على طلبها.
             return redirect()->route('orders.track.show')->with('error', __('payment.gateway.verify_failed'));
