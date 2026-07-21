@@ -7,6 +7,7 @@ namespace Tests\Feature\Checkout;
 use App\Models\Book;
 use App\Models\Customer;
 use App\Models\Order;
+use Database\Factories\OrderFactory;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -67,6 +68,29 @@ final class OrderCustomerLinkTest extends TestCase
             ->get(route('customer.orders.index'))
             ->assertOk()
             ->assertSee($order->order_number, false);
+    }
+
+    public function test_the_account_link_survives_a_conflicting_idempotency_key(): void
+    {
+        // مفتاح منع التكرار نفسه بطريقة دفع أخرى يُفعّل إعادة بناء الـDTO
+        // (withoutConflictingKey). الربط بحساب العميلة يجب أن ينجو (لا يُنسى الحقل).
+        $customer = Customer::factory()->withPhone('01066554433')->create();
+        $book = $this->book();
+
+        $this->be($customer, 'customer');
+        Auth::shouldUse('web');
+        $this->withSession(['cart' => [$book->id => 1]])->get(route('checkout.show'))->assertOk();
+
+        // طلب سابق بنفس المفتاح لكن طريقة دفع مختلفة (cod) — يخلق التعارض.
+        OrderFactory::new()->create([
+            'idempotency_key' => session('checkout.idempotency_key'),
+            'payment_method' => 'cod',
+        ]);
+
+        $this->post(route('checkout.place'), $this->payload($book))->assertStatus(302); // instapay
+
+        $order = Order::query()->where('payment_method', 'instapay')->latest('id')->firstOrFail();
+        $this->assertSame($customer->id, $order->customer_id); // الربط نجا رغم التعارض
     }
 
     public function test_a_guest_order_is_not_linked_to_any_account(): void

@@ -188,6 +188,8 @@ class PlaceOrderAction
             userAgent: $data->userAgent,
             eventSourceUrl: $data->eventSourceUrl,
             adsConsent: $data->adsConsent,
+            // يجب نسخه صراحةً وإلا سقط الربط بحساب العميلة في حالة تعارض المفتاح.
+            customerId: $data->customerId,
         );
     }
 
