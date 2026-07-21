@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Mail\CampaignMail;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Filament\Support\FlushQueueAction;
 use App\Services\Email\CampaignDispatcher;
 use App\Support\Email\CampaignAudience;
 use App\Support\Email\CampaignHtml;
@@ -147,6 +148,7 @@ class SendEmailCampaign extends Page implements HasForms
                 ->requiresConfirmation()
                 ->modalDescription(fn () => 'سيُرسَل نموذج من الرسالة إلى بريدك: ' . (string) auth()->user()?->email)
                 ->action(fn () => $this->sendTest()),
+            FlushQueueAction::make(),
         ];
     }
 

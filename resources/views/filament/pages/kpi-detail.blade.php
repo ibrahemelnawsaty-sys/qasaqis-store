@@ -43,6 +43,16 @@
         .kpid-pg:hover { border-color:var(--accent); color:var(--accent); }
         .kpid-pg.is-off { opacity:.45; cursor:default; }
         .kpid-pg-info { font-size:12.5px; color:var(--soft); font-variant-numeric:tabular-nums; }
+        /* شريط أدوات الجدول + التصدير */
+        .kpid-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:6px 8px 10px; }
+        .kpid-count { font-size:12.5px; color:var(--soft); font-variant-numeric:tabular-nums; }
+        .kpid-export { display:inline-flex; align-items:center; gap:6px; background:var(--accent); color:#fff; border:0; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:800; cursor:pointer; }
+        .kpid-export:hover { filter:brightness(1.06); }
+        .kpid-export:disabled { opacity:.6; cursor:default; }
+        /* عناوين قابلة للفرز */
+        .kpid-th { cursor:pointer; user-select:none; white-space:nowrap; }
+        .kpid-th:hover { color:var(--accent); }
+        .kpid-th.on { color:var(--accent); }
     </style>
 
     <div class="kpid">
@@ -52,7 +62,7 @@
         <div class="kpid-hero">
             <div class="top">
                 <span class="ic" aria-hidden="true">{{ $def['icon'] }}</span>
-                <h2>{{ $def['label'] }}</h2>
+                <h2>{{ $def['label'] }}@if (! is_null($valueLabel ?? null)): <span style="color:var(--soft)">{{ $valueLabel }}</span>@endif</h2>
             </div>
             <div class="val">
                 {{ $money($metric) }}@if ($isMoney) <small>ج.م</small>@endif
@@ -70,13 +80,34 @@
         </div>
 
         {{-- الصفوف الأساسية خلف الرقم --}}
+        @php
+            // عنوان عمود قابل للفرز (النقر يفرز/يبدّل الاتجاه). التسمية والعمود ثابتان
+            // في القالب فالإخراج الخام آمن؛ الفرز نفسه موثّق بقائمة بيضاء خادميًّا.
+            $sc = $this->sortCol; $sd = $this->sortDir;
+            $th = function (string $col, string $label, string $cls = '') use ($sc, $sd): string {
+                $arrow = $sc === $col ? ($sd === 'asc' ? ' ▲' : ' ▼') : '';
+                $on = $sc === $col ? ' on' : '';
+                return '<th class="kpid-th'.$on.($cls ? ' '.$cls : '').'" wire:click="sort(\''.$col.'\')">'.$label.$arrow.'</th>';
+            };
+        @endphp
+
+        @unless ($rows->isEmpty())
+            <div class="kpid-toolbar">
+                <span class="kpid-count">{{ number_format($rows->total()) }} سجلّ · صفحة {{ $rows->currentPage() }}/{{ $rows->lastPage() }}</span>
+                <button type="button" class="kpid-export" wire:click="export" wire:loading.attr="disabled" wire:target="export">
+                    <span wire:loading.remove wire:target="export">⬇ تصدير CSV</span>
+                    <span wire:loading wire:target="export">…يُصدّر</span>
+                </button>
+            </div>
+        @endunless
+
         <div class="kpid-tablewrap">
             @if ($rows->isEmpty())
                 <p class="kpid-empty">لا توجد سجلّات مطابقة لهذا المؤشّر الآن. 🎉</p>
             @elseif ($def['model'] === \App\Models\Book::class)
                 <table class="kpid-table">
                     <thead><tr>
-                        <th>الكتاب</th><th>الكود</th><th>المخزون</th><th>الحالة</th><th></th>
+                        {!! $th('title', 'الكتاب') !!}<th>الكود</th>{!! $th('stock_quantity', 'المخزون', 'num') !!}{!! $th('stock_status', 'الحالة') !!}<th></th>
                     </tr></thead>
                     <tbody>
                         @foreach ($rows as $book)
@@ -93,7 +124,7 @@
             @elseif ($def['model'] === \App\Models\PaymentProof::class)
                 <table class="kpid-table">
                     <thead><tr>
-                        <th>الطلب</th><th>العميل</th><th class="num">الإجمالي</th><th>حالة المراجعة</th><th>التاريخ</th><th></th>
+                        <th>الطلب</th><th>العميل</th><th class="num">الإجمالي</th>{!! $th('review_status', 'حالة المراجعة') !!}{!! $th('created_at', 'التاريخ') !!}<th></th>
                     </tr></thead>
                     <tbody>
                         @foreach ($rows as $proof)
@@ -111,7 +142,7 @@
             @else
                 <table class="kpid-table">
                     <thead><tr>
-                        <th>رقم الطلب</th><th>العميل</th><th>الهاتف</th><th>الحالة</th><th>الدفع</th><th class="num">الإجمالي</th><th>التاريخ</th><th></th>
+                        {!! $th('order_number', 'رقم الطلب', 'num') !!}{!! $th('customer_name', 'العميل') !!}<th>الهاتف</th>{!! $th('governorate', 'المحافظة') !!}{!! $th('status', 'الحالة') !!}{!! $th('payment_status', 'الدفع') !!}{!! $th('grand_total', 'الإجمالي', 'num') !!}{!! $th('created_at', 'التاريخ') !!}<th></th>
                     </tr></thead>
                     <tbody>
                         @foreach ($rows as $order)
@@ -119,6 +150,7 @@
                                 <td class="num">{{ $order->order_number }}</td>
                                 <td>{{ $order->customer_name }}</td>
                                 <td class="num" dir="ltr" style="text-align:start">{{ $order->customer_phone }}</td>
+                                <td>{{ $order->governorate ?: '—' }}</td>
                                 <td><span class="kpid-pill">{{ \App\Filament\Resources\OrderResource::STATUS_LABELS[$order->status] ?? $order->status }}</span></td>
                                 <td>{{ \App\Filament\Resources\OrderResource::PAYMENT_STATUS_LABELS[$order->payment_status] ?? $order->payment_status }}</td>
                                 <td class="num">{{ $money($order->grand_total) }} ج.م</td>
