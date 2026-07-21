@@ -22,6 +22,13 @@
         .opsd-dot { width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 0 0 rgba(30,158,106,.5); animation:opsdPulse 1.8s infinite; }
         @keyframes opsdPulse { 0%{ box-shadow:0 0 0 0 rgba(30,158,106,.5);} 70%{ box-shadow:0 0 0 7px rgba(30,158,106,0);} 100%{ box-shadow:0 0 0 0 rgba(30,158,106,0);} }
         .opsd-q { background:var(--card); border:1px solid var(--line); border-inline-start:4px solid var(--c); border-radius:14px; padding:14px 16px; }
+        /* بطاقات قابلة للنقر → صفحة تفاصيل المؤشّر */
+        a.opsd-card, a.opsd-q { text-decoration:none; color:inherit; display:block; cursor:pointer;
+            transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+        a.opsd-card:hover, a.opsd-q:hover { transform:translateY(-2px); box-shadow:0 10px 24px -12px rgba(84,34,138,.34); border-color:var(--faint); }
+        a.opsd-card::after { content:"‹"; position:absolute; inset-block-start:12px; inset-inline-start:12px; color:var(--faint); font-size:15px; }
+        a.opsd-card { position:relative; }
+        @media (prefers-reduced-motion: reduce){ a.opsd-card, a.opsd-q { transition:none; } }
         .opsd-q .t { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .opsd-q .t b { font-size:14px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; }
         .opsd-q .n { font-size:21px; font-weight:800; color:var(--c); font-variant-numeric:tabular-nums; }
@@ -63,11 +70,11 @@
         <section class="opsd-sec">
             <div class="opsd-grid g5">
                 @livewire('ops-live-browsers')
-                <div class="opsd-card opsd-stat"><div class="l">طلبات اليوم</div><div class="v">{{ $overview['today'] ?? 0 }}</div><div class="s">هذا الأسبوع: {{ $overview['week'] ?? 0 }}</div></div>
-                <div class="opsd-card opsd-stat"><div class="l">طلبات آخر 30 يومًا</div><div class="v">{{ $overview['month'] ?? 0 }}</div></div>
+                <a class="opsd-card opsd-stat" href="{{ \App\Filament\Pages\KpiDetail::getUrl(['kpi' => 'orders_today']) }}"><div class="l">طلبات اليوم</div><div class="v">{{ $overview['today'] ?? 0 }}</div><div class="s">هذا الأسبوع: {{ $overview['week'] ?? 0 }}</div></a>
+                <a class="opsd-card opsd-stat" href="{{ \App\Filament\Pages\KpiDetail::getUrl(['kpi' => 'orders_month']) }}"><div class="l">طلبات آخر 30 يومًا</div><div class="v">{{ $overview['month'] ?? 0 }}</div></a>
                 @if ($canFin)
-                    <div class="opsd-card opsd-stat"><div class="l">الإيراد المحقَّق (30ي)</div><div class="v v-success">{{ number_format($overview['revenue'] ?? 0) }} <small style="font-size:14px;color:var(--soft)">ج.م</small></div><div class="s">مسلَّم/مكتمل</div></div>
-                    <div class="opsd-card opsd-stat"><div class="l">متوسّط قيمة الطلب</div><div class="v v-success">{{ number_format($overview['aov'] ?? 0) }} <small style="font-size:14px;color:var(--soft)">ج.م</small></div><div class="s">{{ $overview['realized_n'] ?? 0 }} طلب محقَّق</div></div>
+                    <a class="opsd-card opsd-stat" href="{{ \App\Filament\Pages\KpiDetail::getUrl(['kpi' => 'revenue_realized']) }}"><div class="l">الإيراد المحقَّق (30ي)</div><div class="v v-success">{{ number_format($overview['revenue'] ?? 0) }} <small style="font-size:14px;color:var(--soft)">ج.م</small></div><div class="s">مسلَّم/مكتمل</div></a>
+                    <a class="opsd-card opsd-stat" href="{{ \App\Filament\Pages\KpiDetail::getUrl(['kpi' => 'aov']) }}"><div class="l">متوسّط قيمة الطلب</div><div class="v v-success">{{ number_format($overview['aov'] ?? 0) }} <small style="font-size:14px;color:var(--soft)">ج.م</small></div><div class="s">{{ $overview['realized_n'] ?? 0 }} طلب محقَّق</div></a>
                 @else
                     <div class="opsd-card opsd-stat" style="border-style:dashed"><div class="s" style="margin-top:14px">الأرقام المالية لمن يملك صلاحية «عرض الماليات».</div></div>
                 @endif
@@ -79,17 +86,17 @@
             <h2><span style="font-size:16px">⚡</span> تحتاج إجراءً الآن</h2>
             <div class="opsd-grid g3">
                 @foreach ([
-                    ['تنتظر تأكيد واتساب', $queues['confirm'] ?? 0, '📞', 'danger', 'pending بلا تأكيد'],
-                    ['إثباتات تنتظر المراجعة', $queues['proofs'] ?? 0, '🧾', 'warning', 'العميل حوّل وينتظر'],
-                    ['مؤكّد بلا رقم تتبّع', $queues['no_tracking'] ?? 0, '📦', 'warning', 'جاهز ولم يُشحن'],
-                    ['مشحون ولم يُسلَّم', $queues['shipped'] ?? 0, '🚚', 'primary', 'شحنات جارية'],
-                    ['دفع يدوي معلّق', number_format($queues['manual_sum'] ?? 0).' ج.م', '💵', 'success', ($queues['manual_n'] ?? 0).' طلب لم يُؤكَّد'],
-                    ['مخزون منخفض/نافد', $queues['low_stock'] ?? 0, '📉', 'danger', 'كتب تحتاج تعبئة'],
-                ] as [$t, $c, $ic, $tone, $note])
-                    <div class="opsd-q" style="--c:var(--{{ $tone }})">
+                    ['تنتظر تأكيد واتساب', $queues['confirm'] ?? 0, '📞', 'danger', 'pending بلا تأكيد', 'confirm'],
+                    ['إثباتات تنتظر المراجعة', $queues['proofs'] ?? 0, '🧾', 'warning', 'العميل حوّل وينتظر', 'proofs'],
+                    ['مؤكّد بلا رقم تتبّع', $queues['no_tracking'] ?? 0, '📦', 'warning', 'جاهز ولم يُشحن', 'no_tracking'],
+                    ['مشحون ولم يُسلَّم', $queues['shipped'] ?? 0, '🚚', 'primary', 'شحنات جارية', 'shipped'],
+                    ['دفع يدوي معلّق', number_format($queues['manual_sum'] ?? 0).' ج.م', '💵', 'success', ($queues['manual_n'] ?? 0).' طلب لم يُؤكَّد', 'manual_pending'],
+                    ['مخزون منخفض/نافد', $queues['low_stock'] ?? 0, '📉', 'danger', 'كتب تحتاج تعبئة', 'low_stock'],
+                ] as [$t, $c, $ic, $tone, $note, $key])
+                    <a class="opsd-q" style="--c:var(--{{ $tone }})" href="{{ \App\Filament\Pages\KpiDetail::getUrl(['kpi' => $key]) }}">
                         <div class="t"><b><span style="font-size:16px">{{ $ic }}</span>{{ $t }}</b><span class="n">{{ $c }}</span></div>
                         <p class="note">{{ $note }}</p>
-                    </div>
+                    </a>
                 @endforeach
             </div>
         </section>
