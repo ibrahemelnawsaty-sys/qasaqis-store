@@ -168,6 +168,16 @@ class PublisherResource extends Resource
                     ->label('الترتيب')
                     ->sortable(),
 
+                // تحرير مباشر من الجدول: يضبط المالك نسبة كل دار بسرعة بلا فتحها.
+                // مُقيّد بإذن التعديل (4.4): يُعطَّل لمن لا يملك canEdit، والتحقّق
+                // النهائي خادميّ في مسار الحفظ. فارغ = الافتراضي العام (config).
+                Tables\Columns\TextInputColumn::make('cost_discount_percent')
+                    ->label('خصم الشراء ٪')
+                    ->type('number')
+                    ->rules(['numeric', 'min:0', 'max:100'])
+                    ->extraInputAttributes(['placeholder' => 'افتراضي '.(int) config('finance.default_cost_discount_percent', 25).'٪'])
+                    ->disabled(fn ($record): bool => ! static::canEdit($record)),
+
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('مُفعّلة')
                     ->boolean()
