@@ -84,7 +84,14 @@ class CheckoutController extends Controller
         ];
     }
 
-    /** يحفظ آخر عنوان استخدمته العميلة المسجّلة على حسابها (للملء التلقائي لاحقًا). */
+    /**
+     * يحفظ آخر عنوان استخدمته العميلة المسجّلة على حسابها (للملء التلقائي لاحقًا).
+     *
+     * **حفظ العنوان رفاهيّة best-effort ويجب ألّا يكسر استجابة طلبٍ اكتمل**: الطلب
+     * أُنشئ والسلة أُفرِغت قبل هذا السطر، فأيّ خطأ DB (توقّف مؤقّت/تزاحم/طول زائد) هنا
+     * يُسجَّل ويُبتلَع كي تصل العميلة لبوابة الدفع لا لخطأ 500. + قصّ دفاعيّ لأطوال
+     * الأعمدة (تحقّق governorate الدولي يسمح بـ100 بينما last_governorate عموده 50).
+     */
     private function rememberAddressFor(CheckoutRequest $request): void
     {
         $customer = auth('customer')->user();
@@ -93,13 +100,22 @@ class CheckoutController extends Controller
             return;
         }
 
-        // الحقول ضمن last_* في $fillable؛ القيم مرّت تحقّق CheckoutRequest.
-        $customer->update([
-            'last_governorate' => $request->input('governorate'),
-            'last_city' => $request->input('city'),
-            'last_address_line' => $request->input('address'),
-            'last_country_code' => $request->input('country_code') ?: 'EG',
-        ]);
+        try {
+            $customer->update([
+                'last_governorate' => $this->clip($request->input('governorate'), 50),
+                'last_city' => $this->clip($request->input('city'), 80),
+                'last_address_line' => $this->clip($request->input('address'), 300),
+                'last_country_code' => $request->input('country_code') ?: 'EG',
+            ]);
+        } catch (\Throwable $e) {
+            report($e); // لا يُسقط استجابة طلبٍ اكتمل
+        }
+    }
+
+    /** قصّ آمن على طول العمود (متعدد البايت)، مع تمرير null كما هو. */
+    private function clip(?string $value, int $max): ?string
+    {
+        return $value === null ? null : mb_substr($value, 0, $max);
     }
 
     public function place(CheckoutRequest $request, PlaceOrderAction $action): RedirectResponse

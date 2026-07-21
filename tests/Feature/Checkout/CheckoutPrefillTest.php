@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature\Checkout;
 
 use App\Models\Book;
+use App\Models\Country;
 use App\Models\Customer;
+use App\Models\ShippingZone;
+use Database\Seeders\CountrySeeder;
 use Database\Seeders\PaymentMethodSeeder;
+use Database\Seeders\ShippingZoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 /**
@@ -93,5 +98,33 @@ final class CheckoutPrefillTest extends TestCase
         $this->assertSame('الجيزة', $customer->last_governorate);
         $this->assertSame('الدقي', $customer->last_city);
         $this->assertSame('شارع النصر رقم 20', $customer->last_address_line);
+    }
+
+    public function test_a_long_governorate_does_not_break_checkout_completion(): void
+    {
+        // نطاق دوليّ يقبل governorate حرًّا (max:100) بينما عمود last_governorate(50):
+        // القصّ + try/catch يضمنان وصول العميلة لبوابة الدفع (302) لا خطأ 500.
+        $this->seed(ShippingZoneSeeder::class);
+        $this->seed(CountrySeeder::class);
+        ShippingZone::query()->where('code', 'GULF')->update(['flat_cost' => '100.00', 'is_active' => true]);
+        Country::query()->where('iso_code', 'SA')->update(['is_active' => true]);
+
+        $customer = Customer::factory()->withPhone('01044556677')->create();
+        $book = $this->book();
+        $longGovernorate = str_repeat('ولاية طويلة جدًّا ', 6); // أطول من 50 حرفًا
+
+        $this->be($customer, 'customer');
+        Auth::shouldUse('web');
+        $this->withSession(['cart' => [$book->id => 1]])->get(route('checkout.show'))->assertOk();
+
+        $this->post(route('checkout.place'), [
+            'name' => 'أم ليان', 'phone' => '01044556677', 'email' => 'layan@example.com',
+            'country_code' => 'SA', 'governorate' => $longGovernorate, 'state_province' => 'الرياض',
+            'address' => 'حي النخيل', 'payment_method' => 'instapay',
+            'items' => [['book_id' => $book->id, 'qty' => 1]],
+        ])->assertStatus(302); // اكتمل الطلب ووصلت للدفع، لا 500
+
+        // العنوان حُفظ مقصوصًا على طول العمود (لا فيض).
+        $this->assertLessThanOrEqual(50, mb_strlen((string) $customer->refresh()->last_governorate));
     }
 }
