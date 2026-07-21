@@ -75,6 +75,24 @@ class HomepageSectionResourceTest extends TestCase
         $this->assertTrue($a->fresh()->sort_order < $b->fresh()->sort_order);
     }
 
+    public function test_attach_action_pins_a_book_to_the_section(): void
+    {
+        $this->asRole('super_admin');
+        $cat = Category::factory()->create();
+        $section = HomepageSection::create(['title' => 'x', 'source_type' => 'manual', 'item_limit' => 8, 'is_active' => true]);
+        $book = Book::factory()->create(['title' => 'Attachable', 'category_id' => $cat->id]);
+
+        // يغطّي كامل الدورة (mount + إرسال) — كان mount يسقط بـ500 لغياب العلاقة العكسية.
+        Livewire::test(BooksRelationManager::class, ['ownerRecord' => $section, 'pageClass' => EditHomepageSection::class])
+            ->callTableAction('attach', data: ['recordId' => $book->id])
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('homepage_section_book', [
+            'homepage_section_id' => $section->id,
+            'book_id' => $book->id,
+        ]);
+    }
+
     public function test_relation_manager_reorder_writes_pivot_position(): void
     {
         $this->asRole('super_admin');

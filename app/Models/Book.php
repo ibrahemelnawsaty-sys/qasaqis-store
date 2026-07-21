@@ -110,6 +110,18 @@ class Book extends Model
         return $this->belongsToMany(Category::class, 'book_category');
     }
 
+    /**
+     * أقسام كتب الرئيسية التي ثُبّت فيها هذا الكتاب (عكس HomepageSection::books()).
+     * لازمة لعمل زر «إضافة كتاب» (AttachAction) في مدير الكتب المثبّتة.
+     *
+     * @return BelongsToMany<HomepageSection>
+     */
+    public function homepageSections(): BelongsToMany
+    {
+        return $this->belongsToMany(HomepageSection::class, 'homepage_section_book')
+            ->withPivot('position');
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(BookImage::class)->orderBy('sort_order');
