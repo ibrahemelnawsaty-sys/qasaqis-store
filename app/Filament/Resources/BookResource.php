@@ -438,6 +438,11 @@ class BookResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('sort_order')
+            // سحب وإفلات لضبط ترتيب ظهور الكتب للعميل (عمود sort_order، تصاعدي: الأعلى
+            // في القائمة = الأول في كل مكان). مقصور على من يملك صلاحية التعديل.
+            ->reorderable('sort_order', fn (): bool => static::userCan('update'))
+            ->defaultPaginationPageOption(25)
+            ->paginated([25, 50, 100, 'all'])
             ->filters([
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('القسم')

@@ -104,7 +104,9 @@ trait FiltersBooks
             $query->where('stock_status', 'in_stock');
         }
 
-        $this->applySort($query, (string) $request->input('sort', 'newest'));
+        // الافتراضي «ترتيب المتجر» (sort_order اليدوي) لا الأحدث — كي يتحكّم الأدمن
+        // بترتيب الظهور في الأقسام وصفحة كل الكتب والبحث من مكان واحد بالسحب.
+        $this->applySort($query, (string) $request->input('sort', 'curated'));
 
         return $query->paginate(12)->withQueryString();
     }
@@ -190,11 +192,14 @@ trait FiltersBooks
     protected function applySort(Builder $query, string $sort): void
     {
         match ($sort) {
+            'newest' => $query->orderByDesc('published_at')->orderByDesc('id'),
             'price_asc' => $query->orderByRaw('price IS NULL')->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
             'rating' => $query->orderByDesc('avg_rating'),
             'popular' => $query->orderByDesc('views_count'),
-            default => $query->orderByDesc('published_at')->orderByDesc('id'),
+            // «ترتيب المتجر» والافتراضي: الترتيب اليدوي (sort_order تصاعدي) الذي يضبطه
+            // الأدمن بالسحب في لوحة الكتب، فيظهر نفسه في كل القوائم.
+            default => $query->orderBy('sort_order')->orderBy('id'),
         };
     }
 

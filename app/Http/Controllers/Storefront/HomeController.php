@@ -41,8 +41,9 @@ class HomeController extends Controller
             ->featured()
             ->select($this->cardColumns)
             ->with($cardWith)
-            ->orderByDesc('sort_order')
-            ->orderByDesc('published_at')
+            // ترتيب المتجر اليدوي (sort_order تصاعدي) — نفس ما يضبطه الأدمن بالسحب.
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->take(8)
             ->get();
 
@@ -54,8 +55,9 @@ class HomeController extends Controller
             ->where('is_bestseller', true)
             ->select($this->cardColumns)
             ->with($cardWith)
-            ->orderByDesc('sort_order')
+            // «الأكثر مبيعًا» يبقى تلقائيًا بالأكثر مشاهدة (طابعه الطبيعي، لا الترتيب اليدوي).
             ->orderByDesc('views_count')
+            ->orderByDesc('id')
             ->take(8)
             ->get();
 
