@@ -53,6 +53,52 @@ class CheckoutController extends Controller
             'onlineDisabledMessageKey' => $resolver->onlineDisabledMessageKey(),
             'governorates' => config('egypt.governorates'),
             'countries' => Country::shippable()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
+            // ملء مسبق للعميلة المسجّلة من حسابها وآخر عنوان استخدمته، كي لا تُعيد
+            // إدخال كل شيء في كل طلب. القالب يفضّل old() عند ارتداد خطأ تحقّق.
+            'prefill' => $this->prefill(),
+        ]);
+    }
+
+    /**
+     * بيانات الملء المسبق للعميلة المسجّلة فقط (الاسم/الجوال/الإيميل + آخر عنوان).
+     * الجوال يُعرض بصيغة محلية (0 + الهوية المطبّعة). للزائرة مصفوفة فارغة.
+     *
+     * @return array<string, string>
+     */
+    private function prefill(): array
+    {
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return [];
+        }
+
+        return [
+            'name' => (string) $customer->name,
+            'phone' => filled($customer->phone_normalized) ? '0'.$customer->phone_normalized : '',
+            'email' => (string) $customer->email,
+            'governorate' => (string) $customer->last_governorate,
+            'city' => (string) $customer->last_city,
+            'address' => (string) $customer->last_address_line,
+            'country_code' => (string) ($customer->last_country_code ?: 'EG'),
+        ];
+    }
+
+    /** يحفظ آخر عنوان استخدمته العميلة المسجّلة على حسابها (للملء التلقائي لاحقًا). */
+    private function rememberAddressFor(CheckoutRequest $request): void
+    {
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return;
+        }
+
+        // الحقول ضمن last_* في $fillable؛ القيم مرّت تحقّق CheckoutRequest.
+        $customer->update([
+            'last_governorate' => $request->input('governorate'),
+            'last_city' => $request->input('city'),
+            'last_address_line' => $request->input('address'),
+            'last_country_code' => $request->input('country_code') ?: 'EG',
         ]);
     }
 
@@ -68,6 +114,10 @@ class CheckoutController extends Controller
         }
 
         $this->forgetSessionCart($request);
+
+        // حفظ آخر عنوان للعميلة المسجّلة كي يُملأ تلقائيًّا في الطلب القادم (لا تُعيد
+        // إدخاله). لا يمسّ الطلب نفسه، وللزائرة لا شيء.
+        $this->rememberAddressFor($request);
 
         // المفتاح لا يُنسى هنا عمدًا — انظر CheckoutSession: نسيانه يفتح ثغرة
         // إعادة إرسال النموذج بعد اكتمال الطلب. يُستبدل عند العرض التالي للصفحة.
