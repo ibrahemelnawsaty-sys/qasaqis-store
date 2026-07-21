@@ -180,52 +180,11 @@
         <path d="M0,40 C240,90 480,90 720,55 C960,20 1200,20 1440,50 L1440,90 L0,90 Z" fill="var(--purple-soft)"/>
     </svg>
 
-    {{-- FEATURED --}}
-    @if ($featured->isNotEmpty())
-        <x-section-band :pattern="$sectionPatterns['featured'] ?? ''">
-        <section class="sec" aria-labelledby="feat-title">
-            <div class="wrap">
-                <div class="sec-top">
-                    <span class="sec-eyebrow">{{ __('home.featured_eyebrow') }}</span>
-                    <h2 class="sec-title" id="feat-title">{{ __('home.featured_title') }}</h2>
-                    <p class="sec-desc">{{ __('home.featured_desc') }}</p>
-                </div>
-                <div class="shelf">
-                    @foreach ($featured as $book)
-                        <x-book-card :book="$book" />
-                    @endforeach
-                </div>
-                <div style="text-align:center;margin-top:32px">
-                    <a class="btn btn-ghost" href="{{ route('books.index') }}">{{ __('home.view_all') }}</a>
-                </div>
-            </div>
-        </section>
-        </x-section-band>
-    @endif
-
-    {{-- BESTSELLERS «الأكثر مبيعًا» — يظهر فقط عند وجود كتب (المتحكّم يوفّر رجوعًا
-         للأكثر مشاهدة/الأحدث فلا يكون القسم فارغًا). شبكة بطاقات مثل المميّزة. --}}
-    @if ($bestsellers->isNotEmpty())
-        <x-section-band :pattern="$sectionPatterns['bestsellers'] ?? ''">
-        <section class="sec" style="padding-top:6px" aria-labelledby="best-title">
-            <div class="wrap">
-                <div class="sec-top">
-                    <span class="sec-eyebrow">{{ __('home.bestsellers_eyebrow') }}</span>
-                    <h2 class="sec-title" id="best-title">{{ __('home.bestsellers_title') }}</h2>
-                    <p class="sec-desc">{{ __('home.bestsellers_desc') }}</p>
-                </div>
-                <div class="shelf">
-                    @foreach ($bestsellers as $book)
-                        <x-book-card :book="$book" />
-                    @endforeach
-                </div>
-                <div style="text-align:center;margin-top:32px">
-                    <a class="btn btn-ghost" href="{{ route('books.index') }}">{{ __('home.view_all') }}</a>
-                </div>
-            </div>
-        </section>
-        </x-section-band>
-    @endif
+    {{-- أقسام كتب الرئيسية (كاروسيلات) — يديرها الأدمن من «أقسام كتب الرئيسية»:
+         يضيف/يحذف/يرتّب، وكل قسم تلقائي بقاعدة مع تعديل يدوي. الفارغ لا يظهر. --}}
+    @foreach ($bookSections as $row)
+        @include('partials.home.book-section', ['section' => $row['section'], 'books' => $row['books']])
+    @endforeach
 
     {{-- بلوكات CMS القابلة للتحرير (نصوص/صور/بانرات عرض) بالترتيب.
          عند غيابها نعرض بانر العرض الافتراضي المبهج (لا فراغ). --}}
@@ -256,26 +215,6 @@
         </section>
         </x-section-band>
     @endforelse
-
-    {{-- LATEST --}}
-    @if ($latest->isNotEmpty())
-        <x-section-band :pattern="$sectionPatterns['latest'] ?? ''">
-        <section class="sec" aria-labelledby="latest-title">
-            <div class="wrap">
-                <div class="sec-top">
-                    <span class="sec-eyebrow">{{ __('home.latest_eyebrow') }}</span>
-                    <h2 class="sec-title" id="latest-title">{{ __('home.latest_title') }}</h2>
-                    <p class="sec-desc">{{ __('home.latest_desc') }}</p>
-                </div>
-                <div class="shelf">
-                    @foreach ($latest as $book)
-                        <x-book-card :book="$book" />
-                    @endforeach
-                </div>
-            </div>
-        </section>
-        </x-section-band>
-    @endif
 
     {{-- WHY MOMS — بطاقات من قاعدة البيانات (جدول why_items). rescue تُرجع null قبل
          الهجرة فنرجع لقيم ملف اللغة؛ ومصفوفة فارغة تعني حذف الأدمن كلَّها فنخفي القسم. --}}

@@ -36,6 +36,8 @@ class DatabaseSeeder extends Seeder
             // menu items reference the seeded pages by polymorphic linkable.
             PageSeeder::class,
             HomepageBlockSeeder::class,
+            // أقسام كتب الرئيسية (كاروسيلات) — بعد BookSeeder لأنها قد تثبّت كتبًا.
+            HomepageSectionSeeder::class,
             MenuSeeder::class,
         ]);
     }

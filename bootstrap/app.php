@@ -31,6 +31,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // في الرابط هو السرّ غير القابل للتخمين، والفعل يقتصر على حظر البريد نفسه.
         $middleware->validateCsrfTokens(except: [
             'email/unsubscribe/*',
+            // webhook كاشير: POST خادم-لخادم بلا توكن CSRF ولا جلسة. الأمان عبر
+            // التحقّق من توقيع كاشير (HMAC بمفتاح الدفع) في المتحكّم لا عبر CSRF.
+            'payments/kashier/webhook',
         ]);
 
         // بديل cron ذاتيّ: كل طلب يدقّ المُجدول بعد إرسال الرد (terminate)، مرّة كل

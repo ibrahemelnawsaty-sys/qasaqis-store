@@ -99,13 +99,18 @@ final class BackgroundPatternCmsTest extends TestCase
 
     public function test_a_homepage_section_renders_a_band_only_when_configured(): void
     {
-        // قسم «المميّزة» يُعرض فقط عند وجود كتب مميّزة (@if $featured->isNotEmpty)،
-        // فننشئها مميّزة كي يظهر القسم ويُلَفّ بالشريط.
-        Book::factory()->featured()->count(3)->create();
+        // نقش الخلفية صار لكل قسم كتب على حدة (عمود homepage_sections.background_pattern،
+        // يضبطه الأدمن من «أقسام كتب الرئيسية») بدل إعداد عامّ واحد — أدقّ وأوضح.
+        // القسم يُعرض فقط عند وجود كتب، ويُلَفّ بالشريط فقط إذا ضُبط له نقش.
+        Book::factory()->count(3)->create(['is_published' => true, 'published_at' => now()]);
+        $section = \App\Models\HomepageSection::create([
+            'title' => 'قسم كتب', 'source_type' => 'latest', 'item_limit' => 8,
+            'is_active' => true, 'sort_order' => 1,
+        ]);
 
         $this->get(route('home'))->assertOk()->assertDontSee('sec-band');
 
-        $this->setPattern(PatternSurface::SectionFeatured, BackgroundPattern::BookFans->value);
+        $section->update(['background_pattern' => BackgroundPattern::BookFans->value]);
 
         $this->get(route('home'))
             ->assertOk()
