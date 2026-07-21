@@ -157,6 +157,11 @@ Route::post('/orders/{order}/proof', [OrderController::class, 'proofStore'])
     ->middleware(['signed', 'throttle:6,1'])
     ->name('orders.proof.store');
 
+// صفحة الدفع الأونلاين المدمجة (كاشير iframe) داخل تصميم المتجر — موقّعة.
+Route::get('/orders/{order}/pay', [OrderController::class, 'pay'])
+    ->middleware('signed')
+    ->name('orders.pay');
+
 Route::get('/orders/{order}/thank-you', [OrderController::class, 'thankyou'])
     ->middleware('signed')
     ->name('orders.thankyou');

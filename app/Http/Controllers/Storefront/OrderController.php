@@ -11,6 +11,8 @@ use App\Http\Requests\TrackOrderRequest;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\Notifications\OrderNotifier;
+use App\Services\Payment\KashierGateway;
+use App\Services\Payment\PaymentGatewayFactory;
 use App\Support\Order\OrderLinks;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -47,6 +49,40 @@ class OrderController extends Controller
                 now()->addMinutes((int) config('orders.proof_link_ttl_minutes', 10080)),
                 ['order' => $order->id],
             ),
+        ]);
+    }
+
+    /**
+     * صفحة الدفع الأونلاين المدمجة: تعرض نموذج كاشير (iframe) داخل تصميم المتجر بدل
+     * الانتقال لموقع خارجي. الوصول عبر رابط موقّع فقط (لا تعداد طلبات).
+     */
+    public function pay(Order $order, PaymentGatewayFactory $gateways): View|RedirectResponse
+    {
+        $thankyou = fn (): string => URL::signedRoute('orders.thankyou', ['order' => $order->id]);
+
+        // مدفوع أصلًا → صفحة الشكر (لا تُعاد صفحة الدفع لطلب اكتمل).
+        if ($order->payment_status === 'paid') {
+            return redirect()->to($thankyou());
+        }
+
+        $gateway = $gateways->make('kashier');
+
+        // ليست بوابة أونلاين، أو الطلب غير قابل للدفع (ملغى/غير pending)، أو البوابة
+        // غير مهيّأة → صفحة الشكر برسالة (لا نزعم توفّر دفع غير متاح، بند 1.3).
+        if ($order->payment_method !== 'online_gateway'
+            || $order->status !== 'pending'
+            || ! $gateway instanceof KashierGateway
+            || ! $gateway->isConfigured()) {
+            return redirect()->to($thankyou())->with('warning', __('payment.gateway.unavailable'));
+        }
+
+        $order->load('items');
+
+        return view('orders.pay', [
+            'order' => $order,
+            'params' => $gateway->hostedPaymentParams($order),
+            'scriptUrl' => $gateway->scriptUrl(),
+            'storeName' => __('common.brand'),
         ]);
     }
 

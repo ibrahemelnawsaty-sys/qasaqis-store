@@ -42,7 +42,10 @@ return [
             'secret_key' => env('KASHIER_SECRET_KEY'),
             // وضع البوابة: test (افتراضي) أو live.
             'mode' => env('KASHIER_MODE', 'test'),
-            // أصل الصفحة المستضافة — قابل للتهيئة تحسّبًا لأي تغيير في نطاق كاشير.
+            // التضمين: true (افتراضي) يعرض نموذج الدفع مدمجًا داخل المتجر (iframe)؛
+            // false يوجّه العميلة للصفحة المستضافة الخارجية.
+            'embed' => (bool) env('KASHIER_EMBED', true),
+            // أصل الصفحة المستضافة (وسكربت التضمين) — قابل للتهيئة تحسّبًا لتغيّر النطاق.
             'hpp_url' => env('KASHIER_HPP_URL', 'https://checkout.kashier.io'),
             // طرق الدفع المسموح بها على الصفحة المستضافة (card,wallet,bank_installments).
             'allowed_methods' => env('KASHIER_ALLOWED_METHODS', 'card,wallet'),

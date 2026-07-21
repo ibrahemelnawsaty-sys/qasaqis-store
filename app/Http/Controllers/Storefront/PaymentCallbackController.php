@@ -58,7 +58,10 @@ class PaymentCallbackController extends Controller
 
             return redirect()
                 ->to(URL::signedRoute('orders.thankyou', ['order' => $order->id]))
-                ->with('status', __('payment.gateway.success'));
+                ->with('status', __('payment.gateway.success'))
+                // تُفرِّغ سلة localStorage في صفحة الشكر بعد اكتمال الدفع فعلًا (شارة
+                // السلة في الترويسة كانت تبقى تعرض الكتب المشتراة طوال رحلة الدفع).
+                ->with('cart_placed', true);
         }
 
         // فشل/إلغاء الدفع: الطلب يبقى pending (يلغيه orders:cancel-expired لاحقًا)،

@@ -7,6 +7,7 @@ namespace App\Services\Payment;
 use App\Models\Order;
 use App\Services\Payment\Contracts\PaymentGateway;
 use App\Support\Payment\PaymentInitiation;
+use Illuminate\Support\Facades\URL;
 
 /**
  * بوابة Kashier — الصفحة المستضافة (Hosted Payment Page) بتدفّق إعادة توجيه.
@@ -49,40 +50,62 @@ class KashierGateway implements PaymentGateway
             return PaymentInitiation::failed('payment.gateway.unavailable');
         }
 
+        // افتراضيًّا (embed): نرسل العميلة إلى صفحة دفع **داخل المتجر** تعرض نموذج كاشير
+        // مدمجًا (iframe) بتصميمنا فلا تغادر الموقع. عند تعطيل التضمين: توجيه مباشر
+        // للصفحة المستضافة الخارجية (رابط مبنيّ من نفس المعطيات).
+        $redirectUrl = $this->embedEnabled()
+            ? URL::signedRoute('orders.pay', ['order' => $order->id])
+            : rtrim((string) ($this->config['hpp_url'] ?? 'https://checkout.kashier.io'), '/')
+                .'/?'.http_build_query($this->hostedPaymentParams($order));
+
+        return new PaymentInitiation(
+            success: true,
+            redirectUrl: $redirectUrl,
+            reference: (string) $order->order_number,
+            // لا نخزّن السرّ ولا الهاش — فقط ما يفيد التتبّع.
+            raw: ['gateway' => 'kashier', 'mode' => $this->mode()],
+        );
+    }
+
+    /**
+     * معطيات الدفع لصفحة كاشير — تُرسَل كسمات data-* لسكربت التضمين، أو معاملاتِ
+     * رابطِ الصفحة المستضافة. الهاش محسوب على نفس القيم الحرفية المُرسَلة (المبلغ
+     * بخانتين) بمفتاح الدفع. أسماء المفاتيح مطابقة حرفيًّا لعرض كاشير الرسمي.
+     *
+     * @return array<string, string>
+     */
+    public function hostedPaymentParams(Order $order): array
+    {
         $merchantId = (string) $this->config['merchant_id'];
         $orderId = (string) $order->order_number;
-        // المبلغ نصًّا بخانتين — يجب أن يطابق حرفيًّا قيمة الهاش وقيمة الرابط.
         $amount = number_format((float) $order->grand_total, 2, '.', '');
-        $mode = $this->mode();
 
-        // هاش الطلب: HMAC-SHA256 على المسار، بمفتاح الدفع (بالضبط كعرض كاشير الرسمي:
-        // hash_hmac('sha256', "/?payment=mid.orderId.amount.currency", apiKey)).
         $path = "/?payment={$merchantId}.{$orderId}.{$amount}.".self::CURRENCY;
-        $hash = $this->sign($path);
 
-        $params = [
+        return [
             'merchantId' => $merchantId,
             'orderId' => $orderId,
             'amount' => $amount,
             'currency' => self::CURRENCY,
-            'hash' => $hash,
-            'mode' => $mode,
+            'hash' => $this->sign($path),
+            'mode' => $this->mode(),
             'merchantRedirect' => route('payments.kashier.callback'),
             'serverWebhook' => route('payments.kashier.webhook'),
             'allowedMethods' => (string) ($this->config['allowed_methods'] ?? 'card,wallet'),
             'display' => 'ar',
         ];
+    }
 
-        $base = rtrim((string) ($this->config['hpp_url'] ?? 'https://checkout.kashier.io'), '/');
-        $redirectUrl = $base.'/?'.http_build_query($params);
+    /** مصدر سكربت التضمين kashier-checkout.js (على أصل الصفحة المستضافة). */
+    public function scriptUrl(): string
+    {
+        return rtrim((string) ($this->config['hpp_url'] ?? 'https://checkout.kashier.io'), '/').'/kashier-checkout.js';
+    }
 
-        return new PaymentInitiation(
-            success: true,
-            redirectUrl: $redirectUrl,
-            reference: $orderId,
-            // لا نخزّن السرّ ولا الهاش نفسه — فقط ما يفيد التتبّع.
-            raw: ['gateway' => 'kashier', 'mode' => $mode],
-        );
+    /** هل نعرض نموذج الدفع مدمجًا داخل المتجر (افتراضي) أم نوجّه خارجيًّا؟ */
+    private function embedEnabled(): bool
+    {
+        return (bool) ($this->config['embed'] ?? true);
     }
 
     /**
