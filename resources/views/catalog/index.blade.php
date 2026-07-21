@@ -76,8 +76,8 @@
             $clearUrl = route('books.index');
         }
 
-        $sortOptions = ['curated', 'newest', 'price_asc', 'price_desc', 'rating', 'popular'];
-        $currentSort = request('sort', 'curated');
+        $sortOptions = ['newest', 'price_asc', 'price_desc', 'rating', 'popular'];
+        $currentSort = request('sort', 'newest');
     @endphp
 
     <div class="wrap" style="padding-block:clamp(20px,4vw,34px)">

@@ -20,7 +20,6 @@ return [
 
     'sort_label' => 'ترتيب',
     'sort' => [
-        'curated' => 'ترتيب المتجر',
         'newest' => 'الأحدث',
         'price_asc' => 'السعر: من الأقل',
         'price_desc' => 'السعر: من الأعلى',

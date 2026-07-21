@@ -102,9 +102,8 @@ class BookController extends Controller
                 'category:id,name,slug,color_hex,icon',
                 'publisher:id,name,slug',
             ])
-            // ترتيب المتجر اليدوي (sort_order) — نفس ترتيب الظهور في باقي القوائم.
-            ->orderBy('sort_order')
-            ->orderBy('id')
+            ->orderByDesc('is_featured')
+            ->orderByDesc('published_at')
             ->take(4)
             ->get();
 
