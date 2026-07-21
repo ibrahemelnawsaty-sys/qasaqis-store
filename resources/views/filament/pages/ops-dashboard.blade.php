@@ -28,7 +28,12 @@
         a.opsd-card:hover, a.opsd-q:hover { transform:translateY(-2px); box-shadow:0 10px 24px -12px rgba(84,34,138,.34); border-color:var(--faint); }
         a.opsd-card::after { content:"‹"; position:absolute; inset-block-start:12px; inset-inline-start:12px; color:var(--faint); font-size:15px; }
         a.opsd-card { position:relative; }
-        @media (prefers-reduced-motion: reduce){ a.opsd-card, a.opsd-q { transition:none; } }
+        @media (prefers-reduced-motion: reduce){ a.opsd-card, a.opsd-q, .opsd-rowlink { transition:none; } }
+        /* صفوف تحليلية قابلة للنقر (قُمع/كتب/أشهر) + روابط جدولية (محافظة/قسم/دفع) */
+        .opsd-rowlink { text-decoration:none; color:inherit; cursor:pointer; border-radius:8px; transition:background .12s ease; }
+        .opsd-rowlink:hover { background:var(--bg); }
+        .opsd-tlink { color:inherit; text-decoration:none; cursor:pointer; font-weight:700; }
+        .opsd-tlink:hover { text-decoration:underline; }
         .opsd-q .t { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .opsd-q .t b { font-size:14px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; }
         .opsd-q .n { font-size:21px; font-weight:800; color:var(--c); font-variant-numeric:tabular-nums; }
@@ -65,6 +70,12 @@
     {{-- لا wire:poll على الحاوية: كان يعيد تنفيذ getViewData كلّه (‏~16 استعلامًا) كلّ 30
          ثانية. التحديث اللحظي محصور الآن في مكوّن «المتصفّحون الآن» المعزول أدناه. --}}
     <div class="opsd">
+        @php
+            // رابط صفحة تفاصيل مؤشّر (اختياريًّا بمعامِل v). يُبنى مرّة ويُعاد استعماله.
+            $kpiUrl = static fn (string $k, ?string $v = null): string => \App\Filament\Pages\KpiDetail::getUrl(
+                ($v === null || $v === '') ? ['kpi' => $k] : ['kpi' => $k, 'v' => $v]
+            );
+        @endphp
 
         {{-- ══ 1 · نظرة عامة ══ --}}
         <section class="opsd-sec">
@@ -107,13 +118,13 @@
                 {{-- قُمع --}}
                 <div class="opsd-card">
                     <h3>قُمع حالات الطلب — آخر 30 يومًا</h3>
-                    @php $ft = $funnel['total'] ?? 0; $steps = [['وارد',$ft,'#7C3AED'],['مؤكّد',$funnel['confirmed']??0,'#EC4899'],['قيد التجهيز',$funnel['processing']??0,'#F59E0B'],['مشحون',$funnel['shipped']??0,'#EAB308'],['مسلَّم',$funnel['delivered']??0,'#12B3A6'],['ملغى/مرفوض',$funnel['lost']??0,'#EF4444']]; @endphp
+                    @php $ft = $funnel['total'] ?? 0; $steps = [['وارد',$ft,'#7C3AED','orders_month'],['مؤكّد',$funnel['confirmed']??0,'#EC4899','funnel_confirmed'],['قيد التجهيز',$funnel['processing']??0,'#F59E0B','funnel_processing'],['مشحون',$funnel['shipped']??0,'#EAB308','funnel_shipped'],['مسلَّم',$funnel['delivered']??0,'#12B3A6','funnel_delivered'],['ملغى/مرفوض',$funnel['lost']??0,'#EF4444','funnel_lost']]; @endphp
                     @if ($ft === 0)
                         <p class="s" style="color:var(--faint)">لا طلبات في آخر 30 يومًا بعد.</p>
                     @else
                         <div class="fn">
-                            @foreach ($steps as [$nm, $n, $col])
-                                <div class="fn-row"><span>{{ $nm }}</span><div class="fn-bar" style="width:{{ $ft>0?max(6,round($n/$ft*100)):6 }}%;background:{{ $col }}">{{ $n }}</div><span class="num" style="text-align:start">{{ $ft>0?round($n/$ft*100):0 }}%</span></div>
+                            @foreach ($steps as [$nm, $n, $col, $fkey])
+                                <a class="fn-row opsd-rowlink" href="{{ $kpiUrl($fkey) }}"><span>{{ $nm }}</span><div class="fn-bar" style="width:{{ $ft>0?max(6,round($n/$ft*100)):6 }}%;background:{{ $col }}">{{ $n }}</div><span class="num" style="text-align:start">{{ $ft>0?round($n/$ft*100):0 }}%</span></a>
                             @endforeach
                         </div>
                     @endif
@@ -138,16 +149,16 @@
                                 </svg>
                                 <div class="opsd-legend">
                                     @foreach ($payments as $pm => $n)
-                                        <span><i style="background:{{ $pmC[$pm]??'#999' }}"></i>{{ $pmN[$pm]??$pm }} · {{ round($n/$pt*100) }}%</span>
+                                        <a class="opsd-tlink" href="{{ $kpiUrl('payment', $pm) }}"><i style="background:{{ $pmC[$pm]??'#999' }}"></i>{{ $pmN[$pm]??$pm }} · {{ round($n/$pt*100) }}%</a>
                                     @endforeach
                                 </div>
                             </div>
                         @endif
                     </div>
                     <div class="opsd-grid g3">
-                        <div class="opsd-card opsd-stat"><div class="l">زمن التأكيد</div><div class="v">{{ $timing['confirm_n']>0?round(($timing['confirm_min']??0)/60,1).' س':'—' }}</div><div class="s">n={{ $timing['confirm_n'] }}</div></div>
-                        <div class="opsd-card opsd-stat"><div class="l">مراجعة الإثبات</div><div class="v">{{ $timing['proof_n']>0?round(($timing['proof_min']??0)/60,1).' س':'—' }}</div><div class="s">n={{ $timing['proof_n'] }}</div></div>
-                        <div class="opsd-card opsd-stat"><div class="l">معدّل الإلغاء</div><div class="v {{ $timing['cancel_pct']>=20?'v-warning':'' }}">{{ $timing['cancel_pct'] }}%</div><div class="s">{{ $timing['cancel_lost'] }} من {{ $timing['cancel_total'] }}</div></div>
+                        <a class="opsd-card opsd-stat" href="{{ $kpiUrl('timing_confirm') }}"><div class="l">زمن التأكيد</div><div class="v">{{ $timing['confirm_n']>0?round(($timing['confirm_min']??0)/60,1).' س':'—' }}</div><div class="s">n={{ $timing['confirm_n'] }}</div></a>
+                        <a class="opsd-card opsd-stat" href="{{ $kpiUrl('timing_proof') }}"><div class="l">مراجعة الإثبات</div><div class="v">{{ $timing['proof_n']>0?round(($timing['proof_min']??0)/60,1).' س':'—' }}</div><div class="s">n={{ $timing['proof_n'] }}</div></a>
+                        <a class="opsd-card opsd-stat" href="{{ $kpiUrl('funnel_lost') }}"><div class="l">معدّل الإلغاء</div><div class="v {{ $timing['cancel_pct']>=20?'v-warning':'' }}">{{ $timing['cancel_pct'] }}%</div><div class="s">{{ $timing['cancel_lost'] }} من {{ $timing['cancel_total'] }}</div></a>
                     </div>
                 </div>
                 {{-- محافظات --}}
@@ -158,7 +169,7 @@
                             <thead><tr><th>المحافظة</th><th>طلبات</th>@if ($canFin)<th>إيراد</th>@endif<th>مرتجع</th></tr></thead>
                             <tbody>
                                 @foreach ($governorates as $g)
-                                    <tr><td>{{ $g['name'] }}</td><td class="num">{{ $g['orders'] }}</td>@if ($canFin)<td class="num">{{ number_format($g['revenue']) }}</td>@endif<td><span class="badge {{ $g['lost_pct']>=25?'b-danger':($g['lost_pct']>=15?'b-warning':'b-success') }}">{{ $g['lost_pct'] }}%</span></td></tr>
+                                    <tr><td>@if (filled($g['name']))<a class="opsd-tlink" href="{{ $kpiUrl('governorate', $g['name']) }}">{{ $g['name'] }}</a>@else — @endif</td><td class="num">{{ $g['orders'] }}</td>@if ($canFin)<td class="num">{{ number_format($g['revenue']) }}</td>@endif<td><span class="badge {{ $g['lost_pct']>=25?'b-danger':($g['lost_pct']>=15?'b-warning':'b-success') }}">{{ $g['lost_pct'] }}%</span></td></tr>
                                 @endforeach
                             </tbody>
                         </table></div>
@@ -178,7 +189,7 @@
                         @php $mq = max(array_map(fn($r)=>$r['qty'],$topBooks))?:1; @endphp
                         <div style="display:flex;flex-direction:column;gap:10px">
                             @foreach ($topBooks as $i => $b)
-                                <div class="mrow"><span class="rank">{{ $i+1 }}</span><div style="flex:1;min-width:0"><div class="top"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $b['title'] }}</span><span class="num" style="flex:none">{{ $b['qty'] }}@if ($canFin) · <b style="color:var(--primary)">{{ number_format($b['revenue']) }} ج.م</b>@endif</span></div><div class="bar-track"><div class="bar-fill" style="width:{{ max(4,round($b['qty']/$mq*100)) }}%"></div></div></div></div>
+                                <a class="mrow opsd-rowlink" href="{{ $kpiUrl('book', (string) $b['id']) }}"><span class="rank">{{ $i+1 }}</span><div style="flex:1;min-width:0"><div class="top"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $b['title'] }}</span><span class="num" style="flex:none">{{ $b['qty'] }}@if ($canFin) · <b style="color:var(--primary)">{{ number_format($b['revenue']) }} ج.م</b>@endif</span></div><div class="bar-track"><div class="bar-fill" style="width:{{ max(4,round($b['qty']/$mq*100)) }}%"></div></div></div></a>
                             @endforeach
                         </div>
                     @endif
@@ -193,7 +204,7 @@
                             <tbody>
                                 @foreach ($coverage as $c)
                                     @php if($c['out']){$lb='نفد';$to='danger';}elseif($c['cover']===null){$lb='راكد';$to='gray';}elseif($c['cover']<=7){$lb='حرج';$to='danger';}elseif($c['cover']<=14){$lb='منخفض';$to='warning';}else{$lb='كافٍ';$to='success';} @endphp
-                                    <tr><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $c['title'] }}</td><td class="num">{{ $c['stock'] }}</td><td class="num">{{ $c['sold'] }}</td><td class="num">{{ $c['cover']===null?'—':$c['cover'].' يوم' }}</td><td><span class="badge b-{{ $to }}">{{ $lb }}</span></td></tr>
+                                    <tr><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a class="opsd-tlink" href="{{ $kpiUrl('book', (string) $c['id']) }}">{{ $c['title'] }}</a></td><td class="num">{{ $c['stock'] }}</td><td class="num">{{ $c['sold'] }}</td><td class="num">{{ $c['cover']===null?'—':$c['cover'].' يوم' }}</td><td><span class="badge b-{{ $to }}">{{ $lb }}</span></td></tr>
                                 @endforeach
                             </tbody>
                         </table></div>
@@ -205,7 +216,7 @@
                         @php $cm = ($canFin?max(array_map(fn($r)=>$r['revenue'],$categories)):max(array_map(fn($r)=>$r['qty'],$categories)))?:1; @endphp
                         <div style="display:flex;flex-direction:column;gap:10px">
                             @foreach ($categories as $c)
-                                <div><div class="top"><span style="font-weight:600">{{ $c['name'] }}</span><span class="num">{{ $c['qty'] }} نسخة@if ($canFin) · <b style="color:var(--primary)">{{ number_format($c['revenue']) }} ج.م</b>@endif</span></div><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:{{ max(3,round(($canFin?$c['revenue']:$c['qty'])/$cm*100)) }}%"></div></div></div>
+                                <div><div class="top"><span style="font-weight:600">@if (! is_null($c['id'] ?? null))<a class="opsd-tlink" href="{{ $kpiUrl('category', (string) $c['id']) }}">{{ $c['name'] }}</a>@else{{ $c['name'] }}@endif</span><span class="num">{{ $c['qty'] }} نسخة@if ($canFin) · <b style="color:var(--primary)">{{ number_format($c['revenue']) }} ج.م</b>@endif</span></div><div class="bar-track" style="height:8px"><div class="bar-fill" style="width:{{ max(3,round(($canFin?$c['revenue']:$c['qty'])/$cm*100)) }}%"></div></div></div>
                             @endforeach
                         </div>
                     </div>
@@ -225,7 +236,7 @@
                     <div class="mbar">
                         @foreach ($monthly as $m)
                             @php [$y,$mo]=explode('-',$m['ym']); @endphp
-                            <div class="col"><small>{{ $m['orders'] }}</small><div class="b" style="height:{{ max(4,round($m['orders']/$mm*100)) }}%"></div><small>{{ $mN[(int)$mo]??$mo }}</small></div>
+                            <a class="col opsd-rowlink" href="{{ $kpiUrl('month', $m['ym']) }}"><small>{{ $m['orders'] }}</small><div class="b" style="height:{{ max(4,round($m['orders']/$mm*100)) }}%"></div><small>{{ $mN[(int)$mo]??$mo }}</small></a>
                         @endforeach
                     </div>
                 @endif

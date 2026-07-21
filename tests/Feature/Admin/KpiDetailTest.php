@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Filament\Pages\KpiDetail;
+use App\Models\Book;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\Ops\OpsKpi;
@@ -89,6 +90,70 @@ final class KpiDetailTest extends TestCase
         $this->assertSame(200.0, OpsKpi::metricValue(OpsKpi::get('aov')));
     }
 
+    // ── المؤشّرات المُعامَلة بقيمة (محافظة/كتاب/شهر) ────────────────────────
+
+    public function test_the_governorate_kpi_filters_orders_by_value(): void
+    {
+        OrderFactory::new()->create(['governorate' => 'القاهرة']);
+        OrderFactory::new()->create(['governorate' => 'القاهرة']);
+        OrderFactory::new()->create(['governorate' => 'الجيزة']);
+
+        $this->assertSame(2.0, OpsKpi::metricValue(OpsKpi::get('governorate'), 'القاهرة'));
+    }
+
+    public function test_the_book_kpi_finds_realized_orders_that_contain_the_book(): void
+    {
+        $bookA = Book::factory()->create();
+        $bookB = Book::factory()->create();
+
+        $orderA = OrderFactory::new()->create(['status' => 'delivered']);
+        $orderA->items()->create(['book_id' => $bookA->id, 'book_title' => $bookA->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
+        // طلب ملغى يحتوي الكتاب نفسه — يجب أن يُستبعَد (نطاق الإيراد، كبطاقة اللوحة).
+        $cancelled = OrderFactory::new()->create(['status' => 'cancelled']);
+        $cancelled->items()->create(['book_id' => $bookA->id, 'book_title' => $bookA->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
+        // طلب لكتاب آخر.
+        $orderB = OrderFactory::new()->create(['status' => 'delivered']);
+        $orderB->items()->create(['book_id' => $bookB->id, 'book_title' => $bookB->title, 'unit_price' => '50.00', 'quantity' => 1, 'line_total' => '50.00']);
+
+        $ids = (OpsKpi::get('book')['query'])((string) $bookA->id)->pluck('id')->all();
+
+        $this->assertSame([$orderA->id], $ids);
+    }
+
+    public function test_the_month_value_is_whitelisted_and_invalid_yields_no_rows(): void
+    {
+        $this->assertNotNull(OpsKpi::parseMonth('2026-07'));
+        $this->assertNull(OpsKpi::parseMonth('garbage'));
+        $this->assertNull(OpsKpi::parseMonth("2026-07'; DROP TABLE orders; --"));
+        // Carbon يتدحرّج بصمت خارج 01-12؛ يجب رفضها لا قبول شهر آخر.
+        $this->assertNull(OpsKpi::parseMonth('2026-13'));
+        $this->assertNull(OpsKpi::parseMonth('2026-00'));
+
+        OrderFactory::new()->create(['status' => 'delivered']); // طلب محقَّق هذا الشهر
+
+        $thisMonth = now()->format('Y-m');
+        $this->assertGreaterThanOrEqual(1.0, OpsKpi::metricValue(OpsKpi::get('month'), $thisMonth));
+        // قيمة غير صالحة → لا صفوف (whereRaw 1=0)، لا كشف كل الطلبات.
+        $this->assertSame(0.0, OpsKpi::metricValue(OpsKpi::get('month'), 'garbage'));
+    }
+
+    public function test_a_parametrized_kpi_without_a_value_is_not_found(): void
+    {
+        $this->actingAs($this->admin('super_admin'))
+            ->get(KpiDetail::getUrl(['kpi' => 'governorate']))   // بلا v
+            ->assertNotFound();
+    }
+
+    public function test_the_value_property_is_locked_against_client_tampering(): void
+    {
+        $property = new \ReflectionProperty(KpiDetail::class, 'value');
+
+        $this->assertNotEmpty(
+            $property->getAttributes(\Livewire\Attributes\Locked::class),
+            'خاصية value يجب أن تحمل #[Locked] كبقية معاملات المؤشّر.'
+        );
+    }
+
     // ── العرض + التفويض ────────────────────────────────────────────────────
 
     public function test_the_kpi_property_is_locked_against_client_tampering(): void
@@ -125,6 +190,18 @@ final class KpiDetailTest extends TestCase
         // البطاقة صارت رابطًا إلى صفحة تفاصيل المؤشّر (لا div ساكن).
         $response->assertSee(KpiDetail::getUrl(['kpi' => 'confirm']), false);
         $response->assertSee(KpiDetail::getUrl(['kpi' => 'orders_today']), false);
+    }
+
+    public function test_a_parametrized_detail_page_renders_with_its_value(): void
+    {
+        $order = OrderFactory::new()->create(['governorate' => 'أسوان']);
+
+        $response = $this->actingAs($this->admin('super_admin'))
+            ->get(KpiDetail::getUrl(['kpi' => 'governorate', 'v' => 'أسوان']));
+
+        $response->assertOk();
+        $response->assertSee('أسوان', false);                 // القيمة في العنوان
+        $response->assertSee($order->order_number, false);     // الصفّ الأساسي
     }
 
     public function test_an_unknown_kpi_key_is_not_found(): void
