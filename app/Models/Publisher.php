@@ -25,6 +25,7 @@ class Publisher extends Model
         'logo_path',
         'is_active',
         'sort_order',
+        'cost_discount_percent',
     ];
 
     /**
@@ -34,6 +35,7 @@ class Publisher extends Model
     {
         return [
             'is_active' => 'boolean',
+            'cost_discount_percent' => 'decimal:2',
         ];
     }
 

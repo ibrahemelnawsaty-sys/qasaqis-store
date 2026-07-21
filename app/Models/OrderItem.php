@@ -15,6 +15,7 @@ class OrderItem extends Model
         'book_title',
         'unit_price',
         'unit_cost',
+        'cost_is_estimated',
         'quantity',
         'line_total',
         'line_cost',
@@ -29,6 +30,7 @@ class OrderItem extends Model
             'unit_price' => 'decimal:2',
             // التكلفة تبقى nullable-safe: الصبّ لا يحوّل null إلى 0 (الدستور 0.4).
             'unit_cost' => 'decimal:2',
+            'cost_is_estimated' => 'boolean',
             'line_total' => 'decimal:2',
             'line_cost' => 'decimal:2',
         ];

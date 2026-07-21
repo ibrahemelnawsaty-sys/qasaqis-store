@@ -8,6 +8,7 @@ use App\Models\Book;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PaymentMethod;
+use App\Models\Publisher;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -68,14 +69,21 @@ final class CostSnapshotTest extends TestCase
         $this->assertSame('120.00', OrderItem::firstOrFail()->unit_cost);
     }
 
-    public function test_a_book_without_cost_snapshots_null_not_zero(): void
+    public function test_a_book_without_manual_cost_snapshots_an_estimate_from_publisher_discount(): void
     {
-        $book = $this->book(price: '200.00', cost: null);
+        // سلوك جديد: كتاب بلا سعر شراء مُدخَل تُقدَّر تكلفته من خصم دار نشره
+        // (لا NULL)، وتُعلَّم cost_is_estimated=true تمييزًا لها عن المؤكّدة.
+        $publisher = Publisher::factory()->create(['cost_discount_percent' => '40.00']);
+        $book = Book::factory()->create([
+            'price' => '200.00', 'cost_price' => null, 'publisher_id' => $publisher->id,
+            'stock_status' => 'in_stock', 'stock_quantity' => 50, 'manage_stock' => true,
+        ]);
         $this->placeOrder($book, 2);
 
         $item = OrderItem::firstOrFail();
-        $this->assertNull($item->unit_cost, 'كتاب بلا تكلفة: NULL لا صفر مخترع');
-        $this->assertNull($item->line_cost);
+        $this->assertSame('120.00', $item->unit_cost, 'تقدير = 200 × (1 − 0.40)');
+        $this->assertSame('240.00', $item->line_cost); // 120 × 2
+        $this->assertTrue((bool) $item->cost_is_estimated);
     }
 
     public function test_snapshot_survives_hard_book_deletion(): void

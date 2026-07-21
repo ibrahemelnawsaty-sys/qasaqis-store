@@ -112,7 +112,7 @@ class FinanceReportService
      *
      * @return array{
      *   cogs:string, gross_profit:?string, margin_pct:?string, net_costed:string,
-     *   orders_costed:int, orders_unknown_cost:int
+     *   orders_costed:int, orders_unknown_cost:int, orders_estimated:int
      * }
      */
     public function profit(CarbonImmutable $from, CarbonImmutable $to): array
@@ -149,6 +149,14 @@ class FinanceReportService
                 ->whereHas('items', fn ($q) => $q->whereNull('unit_cost'))
                 ->count();
 
+            // طلبات مُدرَجة في الحساب (معروفة التكلفة بالكامل) فيها سطر تقديري —
+            // تنبيه أمانة أن جزءًا من الربح مبنيّ على تقدير (1.4). نقيّده بنفس سكان
+            // costedOrders كي يبقى orders_estimated ⊆ orders_costed دائمًا، فلا
+            // يُحتسب تقديرُ طلبٍ مستبعدٍ أصلًا من الربح (سطرٌ آخر فيه بلا تكلفة).
+            $estimatedOrders = $costedOrders()
+                ->whereHas('items', fn ($q) => $q->where('cost_is_estimated', true))
+                ->count();
+
             $net = (string) ($agg->net ?? '0');
             $orders = (int) ($agg->orders ?? 0);
             $cogs = $this->money($cogs);
@@ -165,10 +173,12 @@ class FinanceReportService
                 'net_costed' => $this->money($net),
                 'orders_costed' => $orders,
                 'orders_unknown_cost' => $unknown,
+                'orders_estimated' => $estimatedOrders,
             ];
         }, [
             'cogs' => '0.00', 'gross_profit' => null, 'margin_pct' => null,
             'net_costed' => '0.00', 'orders_costed' => 0, 'orders_unknown_cost' => 0,
+            'orders_estimated' => 0,
         ]);
     }
 

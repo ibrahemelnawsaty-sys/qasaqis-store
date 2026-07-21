@@ -105,10 +105,8 @@ class FinanceStatsWidget extends Widget
                 ],
                 [
                     'title' => 'التكلفة والربح',
-                    'badge' => $p['orders_unknown_cost'] > 0
-                        ? number_format($p['orders_unknown_cost']).' طلب بلا تكلفة محفوظة — مستبعد من الحساب'
-                        : 'على '.number_format($p['orders_costed']).' طلب معروف التكلفة بالكامل',
-                    'badge_tone' => $p['orders_unknown_cost'] > 0 ? 'warn' : 'neutral',
+                    'badge' => $this->costBadge($p),
+                    'badge_tone' => ($p['orders_unknown_cost'] > 0 || $p['orders_estimated'] > 0) ? 'warn' : 'neutral',
                     'cards' => [
                         $this->m('تكلفة البضاعة (COGS)', $p['cogs'], ['tone' => (float) $p['cogs'] > 0 ? 'neg' : 'neutral', 'href' => $toBooks, 'cta' => 'أسعار الشراء']),
                         $this->m('مجمل الربح', $p['gross_profit'], ['tone' => $this->sign($p['gross_profit']), 'href' => $toBooks, 'cta' => 'أسعار الشراء']),
@@ -242,5 +240,26 @@ class FinanceStatsWidget extends Widget
     private function sign(?string $value): string
     {
         return $value === null ? 'neutral' : ((float) $value < 0 ? 'neg' : 'pos');
+    }
+
+    /**
+     * شارة نطاق «التكلفة والربح»: تُبيّن السكان المحسوب عليه، وتُنبّه صراحةً إن
+     * شمل الحساب تكلفةً تقديرية (من خصم الدار لا سعرًا مُدخَلًا) — أمانة (1.4).
+     *
+     * @param  array<string, mixed>  $p
+     */
+    private function costBadge(array $p): string
+    {
+        // الجملة تنتهي دائمًا بعدد الطلبات المُدرَجة في الحساب (معروفة التكلفة)،
+        // كي يشير «منها … تقديرية» لمرجعٍ صحيح (orders_estimated ⊆ orders_costed).
+        $badge = $p['orders_unknown_cost'] > 0
+            ? number_format($p['orders_unknown_cost']).' طلب بلا تكلفة محفوظة مستبعد؛ حُسب على '.number_format($p['orders_costed']).' معروف التكلفة'
+            : 'على '.number_format($p['orders_costed']).' طلب معروف التكلفة';
+
+        if ($p['orders_estimated'] > 0) {
+            $badge .= ' · منها '.number_format($p['orders_estimated']).' بتكلفة تقديرية';
+        }
+
+        return $badge;
     }
 }

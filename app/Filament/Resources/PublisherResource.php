@@ -112,6 +112,14 @@ class PublisherResource extends Resource
                         ->default(0)
                         ->required(),
 
+                    Forms\Components\TextInput::make('cost_discount_percent')
+                        ->label('نسبة خصم الشراء (٪)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->suffix('٪')
+                        ->helperText('خصمك عن سعر البيع عند الشراء من هذه الدار. تُقدَّر تكلفة كتابٍ بلا سعر شراء مُدخَل = السعر × (١ − النسبة). اتركها فارغة لاستعمال الافتراضي العام (٢٥٪).'),
+
                     Forms\Components\Toggle::make('is_active')
                         ->label('مُفعّلة')
                         ->default(true),

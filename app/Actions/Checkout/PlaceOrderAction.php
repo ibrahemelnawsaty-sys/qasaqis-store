@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\Cart\CartService;
 use App\Services\Coupon\CouponService;
+use App\Services\Finance\BookCostResolver;
 use App\Services\Notifications\OrderNotifier;
 use App\Services\Payment\PaymentGatewayFactory;
 use App\Services\Payment\PaymentMethodResolver;
@@ -20,6 +21,7 @@ use App\Support\Checkout\OrderPlacementResult;
 use App\Support\Checkout\PlaceOrderData;
 use App\Support\Coupon\CouponResult;
 use App\Support\Money;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -267,13 +269,23 @@ class PlaceOrderAction
             ]);
 
             // Snapshot each line (price taken from the DB, not the client).
+            $costResolver = app(BookCostResolver::class);
+
+            // حمّل الناشر مسبقًا لكل كتب السلة كي لا يستعلم resolver عن الناشر لكل
+            // سطر على حدة (N+1) — تماثلًا مع مسار الترحيل. الكائنات نفسها المُشار
+            // إليها في الحلقة، فتصلها العلاقة محمّلة.
+            $cartBooks = [];
             foreach ($cart->items as $item) {
-                // لقطة التكلفة وقت البيع (المرحلة ٢): من books.cost_price المُحمّل في
-                // السلة. تبقى NULL حين لا تكلفة مُدخلة (BOOK1) فلا نخترع صفرًا، وسطرها
-                // يُستبعد لاحقًا من COGS. line_cost = التكلفة × الكمية بحساب Money (bcmath).
-                $unitCost = $item->book->cost_price !== null
-                    ? Money::normalize($item->book->cost_price)
-                    : null;
+                $cartBooks[] = $item->book;
+            }
+            EloquentCollection::make($cartBooks)->loadMissing('publisher');
+
+            foreach ($cart->items as $item) {
+                // لقطة التكلفة وقت البيع: تكلفة مُدخَلة يدويًا، وإلا تقدير من خصم دار
+                // النشر (BookCostResolver — مصدر واحد يطابق الترحيل). estimated يميّز
+                // المقدَّر عن المؤكّد. line_cost = التكلفة × الكمية بحساب Money (bcmath).
+                $resolved = $costResolver->resolve($item->book);
+                $unitCost = $resolved['amount'];
                 $lineCost = $unitCost !== null
                     ? Money::multiplyByQty($unitCost, $item->quantity)
                     : null;
@@ -283,6 +295,7 @@ class PlaceOrderAction
                     'book_title' => $item->book->title,
                     'unit_price' => $item->unitPrice,
                     'unit_cost' => $unitCost,
+                    'cost_is_estimated' => $resolved['estimated'],
                     'quantity' => $item->quantity,
                     'line_total' => $item->lineTotal,
                     'line_cost' => $lineCost,

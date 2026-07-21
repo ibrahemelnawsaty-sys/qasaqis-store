@@ -100,6 +100,47 @@ final class FinanceProfitTest extends TestCase
         $this->assertSame(1, $p['orders_unknown_cost']);
     }
 
+    public function test_estimated_order_count_is_scoped_to_costed_orders_only(): void
+    {
+        // طلب مُدرَج بالكامل وفيه سطر تكلفته تقديرية → يُعدّ في orders_estimated.
+        $costed = OrderFactory::new()->create([
+            'status' => 'delivered', 'payment_method' => 'cod', 'payment_status' => 'unpaid',
+            'subtotal' => '300.00', 'discount_total' => '0.00', 'shipping_total' => '0.00',
+        ]);
+        $b1 = Book::factory()->create(['price' => '300.00']);
+        $costed->items()->create([
+            'book_id' => $b1->id, 'book_title' => $b1->title,
+            'unit_price' => '300.00', 'unit_cost' => '210.00', 'cost_is_estimated' => true,
+            'quantity' => 1, 'line_total' => '300.00', 'line_cost' => '210.00',
+        ]);
+
+        // طلب مُستبعَد (فيه سطر بلا تكلفة) وإن حوى سطرًا تقديريًا → يجب ألّا يُعدّ،
+        // فتقديره لا يدخل الربح أصلًا (ثبات orders_estimated ⊆ orders_costed).
+        $excluded = OrderFactory::new()->create([
+            'status' => 'delivered', 'payment_method' => 'cod', 'payment_status' => 'unpaid',
+            'subtotal' => '500.00', 'discount_total' => '0.00', 'shipping_total' => '0.00',
+        ]);
+        $b2 = Book::factory()->create(['price' => '200.00']);
+        $b3 = Book::factory()->create(['price' => '300.00']);
+        $excluded->items()->create([
+            'book_id' => $b2->id, 'book_title' => $b2->title,
+            'unit_price' => '200.00', 'unit_cost' => '150.00', 'cost_is_estimated' => true,
+            'quantity' => 1, 'line_total' => '200.00', 'line_cost' => '150.00',
+        ]);
+        $excluded->items()->create([
+            'book_id' => $b3->id, 'book_title' => $b3->title,
+            'unit_price' => '300.00', 'unit_cost' => null, 'cost_is_estimated' => false,
+            'quantity' => 1, 'line_total' => '300.00', 'line_cost' => null,
+        ]);
+
+        [$from, $to] = $this->range();
+        $p = $this->service()->profit($from, $to);
+
+        $this->assertSame(1, $p['orders_costed']);       // المُدرَج فقط
+        $this->assertSame(1, $p['orders_unknown_cost']); // المُستبعَد
+        $this->assertSame(1, $p['orders_estimated'], 'تقدير الطلب المُستبعَد لا يُعدّ');
+    }
+
     public function test_shipping_margin_is_charged_minus_carrier_over_known_orders(): void
     {
         // شحن مُحصَّل 50 لكلٍّ، تكلفة شركة 30 و40.

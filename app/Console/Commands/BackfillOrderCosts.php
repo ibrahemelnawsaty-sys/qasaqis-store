@@ -15,7 +15,7 @@ class BackfillOrderCosts extends Command
 {
     protected $signature = 'finance:backfill-costs {--dry-run : معاينة ما سيُملأ دون أي كتابة}';
 
-    protected $description = 'يملأ تكلفة الطلبات القديمة (unit_cost/line_cost) من سعر الشراء الحالي للكتب';
+    protected $description = 'يملأ تكلفة الطلبات القديمة (unit_cost/line_cost): سعر الشراء المُدخَل إن وُجد، وإلا تقدير من خصم دار النشر';
 
     public function handle(CostBackfillService $service): int
     {
@@ -23,14 +23,10 @@ class BackfillOrderCosts extends Command
         $r = $service->run($dry);
 
         $prefix = $dry ? '[تجريبي — بلا كتابة] ' : '';
-        $this->info($prefix.'سطور مُلئت: '.$r['filled'].' في '.$r['orders'].' طلب.');
+        $this->info($prefix.'سطور مُلئت: '.$r['filled'].' في '.$r['orders'].' طلب (منها تقديري من خصم الدار: '.$r['estimated'].').');
 
-        if ($r['skipped_no_cost'] > 0) {
-            $this->warn('سطور بلا سعر شراء للكتاب (تُركت NULL): '.$r['skipped_no_cost']);
-        }
-
-        if ($r['skipped_missing_book'] > 0) {
-            $this->warn('سطور بكتاب محذوف نهائيًا (تعذّر ترحيلها): '.$r['skipped_missing_book']);
+        if ($r['skipped'] > 0) {
+            $this->warn('سطور تعذّر ترحيلها (كتاب محذوف صلبًا أو بلا سعر بيع): '.$r['skipped']);
         }
 
         if ($dry && $r['filled'] > 0) {

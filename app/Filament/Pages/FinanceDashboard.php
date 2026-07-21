@@ -126,7 +126,7 @@ class FinanceDashboard extends Page
                 ->visible(fn (): bool => auth()->user()?->can('products.cost.update') === true)
                 ->requiresConfirmation()
                 ->modalHeading('ترحيل تكاليف الطلبات القديمة')
-                ->modalDescription('يملأ تكلفة الطلبات التي أُنشئت قبل إدخال أسعار الشراء، مستعملًا سعر الشراء الحالي لكل كتاب. لا يلمس الطلبات التي لها تكلفة محفوظة. تنبيه: يستخدم السعر الحالي لا سعر وقت البيع.')
+                ->modalDescription('يملأ تكلفة الطلبات القديمة: سعر الشراء المُدخَل يدويًا إن وُجد، وإلا تقدير = السعر × (١ − نسبة خصم دار النشر). لا يلمس الطلبات التي لها تكلفة محفوظة. تنبيه: التقدير يستخدم السعر والنسبة الحاليَّين لا لحظة البيع.')
                 ->modalSubmitActionLabel('نفّذ الترحيل')
                 ->action(function (): void {
                     abort_unless(auth()->user()?->can('products.cost.update') === true, 403);
@@ -135,7 +135,7 @@ class FinanceDashboard extends Page
 
                     Notification::make()
                         ->title('اكتمل ترحيل التكاليف')
-                        ->body("مُلئت {$r['filled']} سطرًا في {$r['orders']} طلب. سطور بلا سعر شراء: {$r['skipped_no_cost']}.")
+                        ->body("مُلئت {$r['filled']} سطرًا في {$r['orders']} طلب (منها تقديري من خصم الدار: {$r['estimated']}). تعذّر: {$r['skipped']}.")
                         ->success()
                         ->send();
                 }),
