@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -49,5 +50,16 @@ class SendCampaignPageTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('email_campaigns', ['subject' => 'عرض تجريبي']);
+    }
+
+    public function test_flush_queue_button_runs_the_worker_immediately(): void
+    {
+        // نُبدّل عامل الطابور بمحاكاة كي لا يُشغَّل فعلًا على اتصال sync في الاختبار.
+        Artisan::shouldReceive('call')->andReturn(0);
+
+        Livewire::test(SendEmailCampaign::class)
+            ->callAction('flushQueue')
+            ->assertHasNoErrors()
+            ->assertNotified('تمت معالجة الطابور');
     }
 }
