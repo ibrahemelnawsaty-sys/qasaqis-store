@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Storefront;
 
 use App\Actions\Checkout\PlaceOrderAction;
+use App\Actions\Customer\RememberCheckoutAddress;
 use App\Exceptions\CheckoutException;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Customer\PostPurchaseAccountController;
@@ -53,15 +54,17 @@ class CheckoutController extends Controller
             'onlineDisabledMessageKey' => $resolver->onlineDisabledMessageKey(),
             'governorates' => config('egypt.governorates'),
             'countries' => Country::shippable()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
-            // ملء مسبق للعميلة المسجّلة من حسابها وآخر عنوان استخدمته، كي لا تُعيد
-            // إدخال كل شيء في كل طلب. القالب يفضّل old() عند ارتداد خطأ تحقّق.
+            // ملء مسبق للعميلة المسجّلة من عنوانها الافتراضيّ (أو آخر عنوان)، كي لا
+            // تُعيد إدخال كل شيء. القالب يفضّل old() عند ارتداد خطأ تحقّق.
             'prefill' => $this->prefill(),
+            // دفتر عناوينها المحفوظة (لمحدِّد «اختر عنوانًا/أضف جديدًا»). فارغ للزائرة.
+            'addresses' => auth('customer')->user()?->addresses ?? collect(),
         ]);
     }
 
     /**
-     * بيانات الملء المسبق للعميلة المسجّلة فقط (الاسم/الجوال/الإيميل + آخر عنوان).
-     * الجوال يُعرض بصيغة محلية (0 + الهوية المطبّعة). للزائرة مصفوفة فارغة.
+     * بيانات الملء المسبق للعميلة المسجّلة فقط: عنوانها الافتراضيّ من الدفتر، وإلا
+     * آخر عنوان محفوظ على الحساب. الجوال بصيغة محلية. للزائرة مصفوفة فارغة.
      *
      * @return array<string, string>
      */
@@ -73,14 +76,18 @@ class CheckoutController extends Controller
             return [];
         }
 
+        // من المجموعة المُحمّلة نفسها (تُقرأ أيضًا لمحدِّد العرض) لا باستعلام ثانٍ؛
+        // العلاقة مرتّبة is_default ثم id تنازليًّا فالاختيار حتميّ ولو تعدّد الافتراضيّ.
+        $default = $customer->addresses->firstWhere('is_default', true);
+
         return [
-            'name' => (string) $customer->name,
-            'phone' => filled($customer->phone_normalized) ? '0'.$customer->phone_normalized : '',
+            'name' => (string) ($default->name ?? $customer->name),
+            'phone' => (string) ($default->phone ?? (filled($customer->phone_normalized) ? '0'.$customer->phone_normalized : '')),
             'email' => (string) $customer->email,
-            'governorate' => (string) $customer->last_governorate,
-            'city' => (string) $customer->last_city,
-            'address' => (string) $customer->last_address_line,
-            'country_code' => (string) ($customer->last_country_code ?: 'EG'),
+            'governorate' => (string) ($default->governorate ?? $customer->last_governorate),
+            'city' => (string) ($default->city ?? $customer->last_city),
+            'address' => (string) ($default->address_line ?? $customer->last_address_line),
+            'country_code' => (string) ($default->country_code ?? ($customer->last_country_code ?: 'EG')),
         ];
     }
 
@@ -101,6 +108,20 @@ class CheckoutController extends Controller
         }
 
         try {
+            // دفتر العناوين المُسمّى (M12): يُحفظ العنوان المُستخدَم ويصير الافتراضيّ.
+            app(RememberCheckoutAddress::class)->handle($customer, [
+                'name' => $request->input('name'),
+                'phone' => $request->input('phone'),
+                'phone_alt' => $request->input('phone_alt'),
+                'country_code' => $request->input('country_code'),
+                'governorate' => $request->input('governorate'),
+                'state_province' => $request->input('state_province'),
+                'city' => $request->input('city'),
+                'address_line' => $request->input('address'),
+                'address_notes' => $request->input('address_notes'),
+            ]);
+
+            // last_* يبقى كـ fallback للملء السريع قبل ظهور الدفتر.
             $customer->update([
                 'last_governorate' => $this->clip($request->input('governorate'), 50),
                 'last_city' => $this->clip($request->input('city'), 80),

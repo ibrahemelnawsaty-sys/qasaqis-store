@@ -50,6 +50,68 @@
                             <input type="hidden" name="items[{{ $i }}][qty]" value="{{ $item->quantity }}">
                         @endforeach
 
+                        {{-- محدِّد العنوان المحفوظ (للعميلة المسجّلة فقط): اختيار عنوان
+                             يملأ النموذج أدناه بـJS، أو «عنوان جديد» يفرّغه. --}}
+                        @if ($addresses->isNotEmpty())
+                            <style>
+                                .addr-picks{ display:flex; flex-direction:column; gap:10px; }
+                                .addr-pick{ display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line);
+                                    border-radius:var(--r-md); padding:12px 14px; cursor:pointer; transition:border-color .12s ease; }
+                                .addr-pick:has(input:checked){ border-color:var(--purple); box-shadow:0 0 0 2px var(--purple-soft); }
+                                .addr-pick input{ margin-top:3px; width:18px; height:18px; accent-color:var(--purple); flex:none; }
+                                .addr-pick .ap-body{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+                                .addr-pick b{ font-weight:800; }
+                                .addr-pick .ap-def{ font-size:11px; font-weight:800; color:var(--purple);
+                                    background:var(--purple-soft); border-radius:var(--r-pill); padding:1px 8px; margin-inline-start:6px; }
+                                .addr-pick .ap-sub{ font-size:12.5px; color:var(--ink-soft); }
+                            </style>
+                            <div class="co-card">
+                                <h2><span class="n" aria-hidden="true">📍</span>{{ __('account.address.section') }}</h2>
+                                <p class="co-hint" style="margin-bottom:12px">{{ __('account.address.pick_hint') }}</p>
+                                <div class="addr-picks">
+                                    @foreach ($addresses as $addr)
+                                        <label class="addr-pick">
+                                            <input type="radio" name="__addr_pick" value="{{ $addr->id }}"
+                                                @checked($addr->is_default) onchange="fillCheckoutAddress('{{ $addr->id }}')">
+                                            <span class="ap-body">
+                                                <span><b>{{ $addr->label }}</b>@if ($addr->is_default)<span class="ap-def">{{ __('account.address.default_badge') }}</span>@endif</span>
+                                                <span class="ap-sub">{{ $addr->name }} · <span dir="ltr">{{ $addr->phone }}</span></span>
+                                                <span class="ap-sub">{{ collect([$addr->governorate, $addr->state_province, $addr->city, $addr->address_line])->filter()->implode('، ') }}</span>
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                    <label class="addr-pick">
+                                        <input type="radio" name="__addr_pick" value="new" onchange="fillCheckoutAddress('new')">
+                                        <span class="ap-body"><b>➕ {{ __('account.address.new') }}</b><span class="ap-sub">{{ __('account.address.new_hint') }}</span></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            @php
+                                $addrMap = $addresses->mapWithKeys(fn ($a) => [(string) $a->id => [
+                                    'f-name' => $a->name, 'f-phone' => $a->phone, 'f-phone-alt' => $a->phone_alt,
+                                    'f-country' => $a->country_code, 'f-gov' => $a->governorate,
+                                    'f-state' => $a->state_province, 'f-city' => $a->city,
+                                    'f-address' => $a->address_line, 'f-anotes' => $a->address_notes,
+                                ]])->all();
+                            @endphp
+                            <script>
+                                window.CHECKOUT_ADDR = @json($addrMap);
+                                function fillCheckoutAddress(id) {
+                                    // «عنوان جديد» يُفرّغ النموذج لكن يُبقي الدولة مصر (لئلا ينقلب
+                                    // إلى نموذج دوليّ بلا محافظة على الأم المصرية).
+                                    var a = (id === 'new') ? { 'f-country': 'EG' } : (window.CHECKOUT_ADDR[id] || {});
+                                    ['f-name', 'f-phone', 'f-phone-alt', 'f-country', 'f-gov', 'f-state', 'f-city', 'f-address', 'f-anotes'].forEach(function (fid) {
+                                        var el = document.getElementById(fid);
+                                        if (! el) { return; }
+                                        el.value = a[fid] || '';
+                                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    });
+                                }
+                            </script>
+                        @endif
+
                         {{-- بيانات التواصل --}}
                         <div class="co-card">
                             <h2><span class="n" aria-hidden="true">1</span>{{ __('checkout.form.section_contact') }}</h2>

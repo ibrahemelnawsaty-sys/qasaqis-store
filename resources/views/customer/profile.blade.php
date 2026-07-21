@@ -23,14 +23,6 @@
         // ومفتاح الدخول، وتعديله الذاتي بوابة استيلاء. phone_e164 قد يكون فارغًا
         // فتُعرض الصيغة المطبّعة المخزّنة كما هي — بلا إعادة تنسيق مخترعة.
         $phoneDisplay = filled($customer->phone_e164) ? $customer->phone_e164 : $customer->phone_normalized;
-
-        // نفس قائمة المحافظات التي يتحقق منها CheckoutRequest (config('egypt.governorates'))،
-        // كي يطابق العنوان المحفوظ خيارات صفحة الدفع ولا ينكسر الملء المسبق بصمت.
-        $governorates = config('egypt.governorates', []);
-
-        $hasSavedAddress = filled($customer->last_governorate)
-            || filled($customer->last_city)
-            || filled($customer->last_address_line);
     @endphp
 
     <div class="co">
@@ -69,6 +61,54 @@
             <div class="co-head">
                 <h1>{{ __('account.profile.heading') }}</h1>
                 <p>{{ __('account.profile.lead') }}</p>
+            </div>
+
+            {{-- دفتر العناوين المُسمّى: عرض/تعيين افتراضيّ/حذف. الإضافة تتمّ من الدفع.
+                 خارج نموذج الملف لأنّ لكلّ فعل نموذجه (POST/DELETE) ومساره. --}}
+            <div class="co-card">
+                <h2><span class="n" aria-hidden="true">📍</span>{{ __('account.address.section') }}</h2>
+                <p class="co-hint" style="margin-bottom:14px">{{ __('account.address.section_hint') }}</p>
+
+                @forelse ($customer->addresses as $addr)
+                    <div class="acc-addr">
+                        <div class="acc-addr-row">
+                            <div class="acc-addr-main">
+                                <div class="ttl"><b>{{ $addr->label }}</b>@if ($addr->is_default)<span class="acc-addr-def">{{ __('account.address.default_badge') }}</span>@endif</div>
+                                <div class="sub">{{ $addr->name }} · <span dir="ltr">{{ $addr->phone }}</span></div>
+                                <div class="sub">{{ collect([$addr->governorate, $addr->state_province, $addr->city, $addr->address_line])->filter()->implode('، ') }}</div>
+                            </div>
+                            <div class="acc-addr-actions">
+                                @unless ($addr->is_default)
+                                    <form method="POST" action="{{ route('customer.addresses.default', ['address' => $addr->id]) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-ghost" style="font-size:12.5px">{{ __('account.address.set_default') }}</button>
+                                    </form>
+                                @endunless
+                                <form method="POST" action="{{ route('customer.addresses.destroy', ['address' => $addr->id]) }}"
+                                    onsubmit="return confirm('{{ __('account.address.delete_confirm') }}')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-ghost acc-addr-del" style="font-size:12.5px">{{ __('account.address.delete') }}</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {{-- إعادة التسمية: تفتحها الأم لتسمّي العنوان كما تحبّ («المنزل»، «بيت
+                             ماما»). تفصيلة أصلية بلا JS، وتُفتح تلقائيًّا إن ارتدّ خطأ تحقّق. --}}
+                        <details class="acc-addr-rename" @if ($errors->has('label')) open @endif>
+                            <summary>✏️ {{ __('account.address.rename') }}</summary>
+                            <form class="acc-addr-rename-form" method="POST" action="{{ route('customer.addresses.rename', ['address' => $addr->id]) }}">
+                                @csrf
+                                <label class="sr-only" for="lbl-{{ $addr->id }}">{{ __('account.address.label_field') }}</label>
+                                <input id="lbl-{{ $addr->id }}" type="text" name="label" value="{{ $addr->label }}"
+                                    maxlength="60" class="co-input" placeholder="{{ __('account.address.label_ph') }}" required>
+                                <button type="submit" class="btn btn-ghost" style="font-size:12.5px">{{ __('account.address.save_label') }}</button>
+                            </form>
+                        </details>
+                    </div>
+                @empty
+                    <p class="co-hint">{{ __('account.address.empty') }}</p>
+                @endforelse
             </div>
 
             <form id="profileForm" method="POST" action="{{ route('customer.profile.update') }}">
@@ -113,63 +153,10 @@
                     </div>
                 </div>
 
-                {{-- عنوان التوصيل الافتراضي.
-                     أسماء الحقول مطابقة لـ CheckoutRequest (governorate / city / address)
-                     لتستفيد من تسميات attributes الموجودة في validation.php، ويحفظها
-                     الـ Form Request في أعمدة last_* — كما يحفظ الدفع address في address_line. --}}
-                <div class="co-card">
-                    <h2><span class="n" aria-hidden="true">2</span>{{ __('account.profile.section_address') }}</h2>
-                    <p class="co-lead" style="margin-bottom:14px">{{ __('account.profile.address_lead') }}</p>
-
-                    @unless ($hasSavedAddress)
-                        <p class="co-hint" style="margin-bottom:14px">{{ __('account.profile.address_empty') }}</p>
-                    @endunless
-
-                    <div class="co-field">
-                        <label class="co-label" for="pf-governorate">
-                            {{ __('account.profile.governorate') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <select id="pf-governorate" name="governorate"
-                            class="co-select @error('governorate') err @enderror"
-                            @error('governorate') aria-invalid="true" aria-describedby="pf-governorate-err" @enderror>
-                            <option value="">{{ __('checkout.form.governorate_ph') }}</option>
-                            @foreach ($governorates as $gov)
-                                <option value="{{ $gov }}" @selected(old('governorate', $customer->last_governorate) === $gov)>{{ $gov }}</option>
-                            @endforeach
-                        </select>
-                        @error('governorate')
-                            <p class="co-err" id="pf-governorate-err" role="alert">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="co-field">
-                        <label class="co-label" for="pf-city">
-                            {{ __('account.profile.city') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <input id="pf-city" type="text" name="city" value="{{ old('city', $customer->last_city) }}"
-                            maxlength="80" class="co-input @error('city') err @enderror"
-                            @error('city') aria-invalid="true" aria-describedby="pf-city-err" @enderror>
-                        @error('city')
-                            <p class="co-err" id="pf-city-err" role="alert">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="co-field">
-                        <label class="co-label" for="pf-address">
-                            {{ __('account.profile.address_line') }}
-                            <span class="opt">{{ __('account.a11y.optional') }}</span>
-                        </label>
-                        <textarea id="pf-address" name="address" maxlength="300" rows="3"
-                            class="co-textarea @error('address') err @enderror"
-                            placeholder="{{ __('account.profile.address_ph') }}"
-                            @error('address') aria-invalid="true" aria-describedby="pf-address-err" @enderror>{{ old('address', $customer->last_address_line) }}</textarea>
-                        @error('address')
-                            <p class="co-err" id="pf-address-err" role="alert">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
+                {{-- عنوان التوصيل يُدار الآن من بطاقة «عناويني المحفوظة» أعلى الصفحة
+                     (دفتر عناوين مُسمّى، M12): يُحفظ من الطلب ويُملأ الافتراضيّ تلقائيًّا،
+                     فأُزيل نموذج العنوان المفرد من هنا (كان يكتب أعمدة last_* التي صارت
+                     مصدر ملء احتياطيًّا داخليًّا يُحدَّث من الدفع). مصدر حقيقة واحد للعنوان. --}}
 
                 {{-- تغيير كلمة المرور — قسم قابل للطي بعنصر details الأصلي (صفر JS،
                      يعمل على شبكة ضعيفة). مطويّ افتراضيًا لأن أغلب الزيارات لا تغيّره،
