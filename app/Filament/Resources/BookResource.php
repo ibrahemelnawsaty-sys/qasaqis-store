@@ -427,16 +427,10 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // عمود «الترتيب» قابل للتعديل مباشرةً: اكتب الرقم واحفظ بالخروج من الحقل —
-                // بديل عملي عن السحب حين تكون الكتب كثيرة. الأصغر يظهر أولًا عند العميل.
-                // للمحرّرين فقط (products.update)؛ لغيرهم يظهر للقراءة.
-                Tables\Columns\TextInputColumn::make('sort_order')
+                Tables\Columns\TextColumn::make('sort_order')
                     ->label('الترتيب')
-                    ->type('number')
-                    ->rules(['integer', 'min:0'])
                     ->sortable()
-                    ->disabled(fn (): bool => ! static::userCan('update'))
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('reviews_count')
                     ->label('المراجعات')
