@@ -223,9 +223,9 @@ class OpsDashboard extends Dashboard
                 ->join('books', 'books.id', '=', 'order_items.book_id')
                 ->where('orders.created_at', '>=', $since)
                 ->groupBy('order_items.book_id', 'books.title')
-                ->selectRaw('books.title, SUM(order_items.quantity) as qty, SUM(order_items.line_total) as revenue')
+                ->selectRaw('order_items.book_id as id, books.title, SUM(order_items.quantity) as qty, SUM(order_items.line_total) as revenue')
                 ->orderByDesc('qty')->limit(6)->get()
-                ->map(fn ($r): array => ['title' => $r->title, 'qty' => (int) $r->qty, 'revenue' => (float) $r->revenue])->all();
+                ->map(fn ($r): array => ['id' => (int) $r->id, 'title' => $r->title, 'qty' => (int) $r->qty, 'revenue' => (float) $r->revenue])->all();
         }, []);
     }
 
@@ -250,6 +250,7 @@ class OpsDashboard extends Dashboard
                     $cover = $vel > 0 ? round($b->stock_quantity / $vel) : null;
 
                     return [
+                        'id' => (int) $b->id,
                         'title' => $b->title, 'stock' => (int) $b->stock_quantity, 'sold' => $qty,
                         'cover' => $cover, 'out' => $b->stock_status === 'out_of_stock' || $b->stock_quantity <= 0,
                     ];
@@ -268,9 +269,9 @@ class OpsDashboard extends Dashboard
                 ->leftJoin('categories', 'categories.id', '=', 'books.category_id')
                 ->where('orders.created_at', '>=', $since)
                 ->groupBy('categories.id', 'categories.name')
-                ->selectRaw("COALESCE(categories.name, 'بلا قسم') as name, SUM(order_items.quantity) as qty, SUM(order_items.line_total) as revenue")
+                ->selectRaw("categories.id as id, COALESCE(categories.name, 'بلا قسم') as name, SUM(order_items.quantity) as qty, SUM(order_items.line_total) as revenue")
                 ->orderByDesc('revenue')->limit(6)->get()
-                ->map(fn ($r): array => ['name' => $r->name, 'qty' => (int) $r->qty, 'revenue' => (float) $r->revenue])->all();
+                ->map(fn ($r): array => ['id' => $r->id !== null ? (int) $r->id : null, 'name' => $r->name, 'qty' => (int) $r->qty, 'revenue' => (float) $r->revenue])->all();
         }, []);
     }
 

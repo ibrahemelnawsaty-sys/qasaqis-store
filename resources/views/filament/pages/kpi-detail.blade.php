@@ -52,7 +52,7 @@
         <div class="kpid-hero">
             <div class="top">
                 <span class="ic" aria-hidden="true">{{ $def['icon'] }}</span>
-                <h2>{{ $def['label'] }}</h2>
+                <h2>{{ $def['label'] }}@if (! is_null($valueLabel ?? null)): <span style="color:var(--soft)">{{ $valueLabel }}</span>@endif</h2>
             </div>
             <div class="val">
                 {{ $money($metric) }}@if ($isMoney) <small>ج.م</small>@endif

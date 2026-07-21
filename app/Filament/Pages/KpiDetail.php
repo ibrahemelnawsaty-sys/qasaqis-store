@@ -42,6 +42,10 @@ class KpiDetail extends Page
     #[Locked]
     public string $kpi = '';
 
+    /** معامِل المؤشّرات المُعامَلة (اسم محافظة/معرّف كتاب/شهر…). مقفول كـ$kpi. */
+    #[Locked]
+    public string $value = '';
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -54,12 +58,23 @@ class KpiDetail extends Page
 
     public function getTitle(): string
     {
-        return OpsKpi::get($this->kpi)['label'] ?? 'تفاصيل المؤشّر';
+        $def = OpsKpi::get($this->kpi);
+
+        if ($def === null) {
+            return 'تفاصيل المؤشّر';
+        }
+
+        if (OpsKpi::isParam($def) && $this->value !== '') {
+            return $def['label'].': '.OpsKpi::valueLabel($def, $this->value);
+        }
+
+        return $def['label'];
     }
 
     public function mount(): void
     {
         $this->kpi = (string) request()->query('kpi', '');
+        $this->value = (string) request()->query('v', '');
 
         $this->authorizedDef();
     }
@@ -78,6 +93,8 @@ class KpiDetail extends Page
         $def = OpsKpi::get($this->kpi);
         abort_if($def === null, 404);
         abort_if($def['financial'] && ! auth()->user()?->can('orders.view_financials'), 403);
+        // مؤشّر مُعامَل بلا قيمة = طلب ناقص (404): لا نعرض «كل الطلبات» بلا قصد.
+        abort_if(OpsKpi::isParam($def) && $this->value === '', 404);
 
         return $def;
     }
@@ -89,7 +106,8 @@ class KpiDetail extends Page
 
         return [
             'def' => $def,
-            'metric' => OpsKpi::metricValue($def),
+            'metric' => OpsKpi::metricValue($def, $this->value),
+            'valueLabel' => OpsKpi::isParam($def) ? OpsKpi::valueLabel($def, $this->value) : null,
             'rows' => $this->rows($def),
             'breakdown' => $this->breakdown($def),
         ];
@@ -101,7 +119,7 @@ class KpiDetail extends Page
      */
     private function rows(array $def): LengthAwarePaginator
     {
-        $query = ($def['query'])();
+        $query = ($def['query'])($this->value);
 
         return match ($def['model']) {
             Book::class => $query->orderBy('stock_quantity')->paginate(self::PER_PAGE),
@@ -120,7 +138,7 @@ class KpiDetail extends Page
     private function breakdown(array $def): array
     {
         if ($def['model'] === Order::class) {
-            $rows = ($def['query'])()
+            $rows = ($def['query'])($this->value)
                 ->selectRaw('status, COUNT(*) as n')->groupBy('status')
                 ->orderByDesc('n')->pluck('n', 'status');
 
@@ -131,8 +149,8 @@ class KpiDetail extends Page
         }
 
         if ($def['model'] === Book::class) {
-            $out = ($def['query'])()->where(fn ($q) => $q->where('stock_status', 'out_of_stock')->orWhere('stock_quantity', '<=', 0))->count();
-            $total = ($def['query'])()->count();
+            $out = ($def['query'])($this->value)->where(fn ($q) => $q->where('stock_status', 'out_of_stock')->orWhere('stock_quantity', '<=', 0))->count();
+            $total = ($def['query'])($this->value)->count();
 
             return [
                 ['label' => 'نافد تمامًا', 'value' => $out],
