@@ -90,4 +90,40 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         // تسليم الاستثناءات إلى Sentry (النمط الرسمي لـ Laravel 11).
         Integration::handles($exceptions);
+
+        // مدير التحويلات: قبل عرض 404، يُفحَص جدول التحويلات عن مسار الطلب (GET فقط).
+        // إن وُجد تحويل نشط يُصدَر 301/302 للوجهة (يمنع فقدان روابط تغيّر رابطها).
+        // الفحص يقع عند 404 فقط فلا حِمل على المسارات الموجودة.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if (! $request->isMethod('GET')) {
+                return null;
+            }
+
+            $from = \App\Models\Redirect::normalizePath($request->path());
+
+            $redirect = \App\Models\Redirect::query()
+                ->active()
+                ->where('from_path', $from)
+                ->first();
+
+            if ($redirect === null) {
+                return null; // لا تحويل — يُكمَل عرض 404 الافتراضي.
+            }
+
+            // لا تُوجِّه المسار إلى نفسه (يتجنّب حلقة إعادة توجيه).
+            if (\App\Models\Redirect::normalizePath($redirect->to_path) === $from) {
+                return null;
+            }
+
+            $redirect->forceFill([
+                'hits' => $redirect->hits + 1,
+                'last_hit_at' => now(),
+            ])->saveQuietly();
+
+            $status = in_array($redirect->status_code, [301, 302, 307, 308], true)
+                ? $redirect->status_code
+                : 301;
+
+            return redirect($redirect->to_path, $status);
+        });
     })->create();

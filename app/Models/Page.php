@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\NotifiesIndexNow;
+use App\Models\Concerns\TracksSlugRedirects;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -14,6 +15,7 @@ class Page extends Model
 {
     use NotifiesIndexNow;
     use SoftDeletes;
+    use TracksSlugRedirects;
 
     protected $fillable = [
         'title',
@@ -66,5 +68,10 @@ class Page extends Model
         return $this->is_published && filled($this->slug)
             ? rtrim((string) config('seo.site_url'), '/') . '/pages/' . $this->slug
             : null;
+    }
+
+    public function seoUrlBase(): string
+    {
+        return '/pages';
     }
 }

@@ -7,6 +7,7 @@ namespace App\Models;
 use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Concerns\NotifiesIndexNow;
+use App\Models\Concerns\TracksSlugRedirects;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Book extends Model
 {
     /** @use HasFactory<BookFactory> */
-    use HasFactory, NotifiesIndexNow, SoftDeletes;
+    use HasFactory, NotifiesIndexNow, SoftDeletes, TracksSlugRedirects;
     use \App\Support\Audit\RecordsAdminActivity;
 
     protected $fillable = [
@@ -128,6 +129,11 @@ class Book extends Model
         return $this->is_published && filled($this->slug)
             ? rtrim((string) config('seo.site_url'), '/') . '/books/' . $this->slug
             : null;
+    }
+
+    public function seoUrlBase(): string
+    {
+        return '/books';
     }
 
     public function images(): HasMany

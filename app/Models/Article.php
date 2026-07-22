@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\NotifiesIndexNow;
+use App\Models\Concerns\TracksSlugRedirects;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Article extends Model
 {
     /** @use HasFactory<\Database\Factories\ArticleFactory> */
-    use HasFactory, NotifiesIndexNow, SoftDeletes;
+    use HasFactory, NotifiesIndexNow, SoftDeletes, TracksSlugRedirects;
 
     protected $fillable = [
         'title',
@@ -75,6 +76,11 @@ class Article extends Model
         return $this->is_published && filled($this->slug)
             ? rtrim((string) config('seo.site_url'), '/') . '/blog/' . $this->slug
             : null;
+    }
+
+    public function seoUrlBase(): string
+    {
+        return '/blog';
     }
 
     // ----- Routing -------------------------------------------------------
