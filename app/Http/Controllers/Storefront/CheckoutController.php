@@ -12,6 +12,7 @@ use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Country;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Services\Cart\CartService;
 use App\Services\Payment\PaymentMethodResolver;
@@ -20,6 +21,7 @@ use App\Support\Payment\PaymentInitiation;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -47,6 +49,13 @@ class CheckoutController extends Controller
         // مستقلة؛ وكل إرسال من العرض نفسه (نقرة مزدوجة أو F5) هو المحاولة ذاتها.
         CheckoutSession::beginAttempt($request->session());
 
+        // دفتر العناوين رفاهية لا يجوز أن تُسقط الدفع (أهمّ مسار للإيراد): إن تعذّرت
+        // قراءته — كأن تكون هجرة customer_addresses لم تُشغَّل بعد على الإنتاج (كود
+        // جديد على مخطّط قديم، DEPLOYMENT.md §12) — نتدهور إلى «بلا عناوين محفوظة»،
+        // فتُدخل العميلة عنوانها يدويًّا، ويُسجَّل الخطأ. يوازي rescue() لاستعلامات المحتوى.
+        $customer = auth('customer')->user();
+        $addresses = rescue(fn () => $customer?->addresses ?? collect(), collect());
+
         return view('checkout.show', [
             'cart' => $cart,
             'methods' => $resolver->available(),
@@ -56,9 +65,9 @@ class CheckoutController extends Controller
             'countries' => Country::shippable()->orderBy('sort_order')->get(['iso_code', 'name_ar']),
             // ملء مسبق للعميلة المسجّلة من عنوانها الافتراضيّ (أو آخر عنوان)، كي لا
             // تُعيد إدخال كل شيء. القالب يفضّل old() عند ارتداد خطأ تحقّق.
-            'prefill' => $this->prefill(),
+            'prefill' => $this->prefill($customer, $addresses),
             // دفتر عناوينها المحفوظة (لمحدِّد «اختر عنوانًا/أضف جديدًا»). فارغ للزائرة.
-            'addresses' => auth('customer')->user()?->addresses ?? collect(),
+            'addresses' => $addresses,
         ]);
     }
 
@@ -66,19 +75,20 @@ class CheckoutController extends Controller
      * بيانات الملء المسبق للعميلة المسجّلة فقط: عنوانها الافتراضيّ من الدفتر، وإلا
      * آخر عنوان محفوظ على الحساب. الجوال بصيغة محلية. للزائرة مصفوفة فارغة.
      *
+     * تأخذ العناوين مُحمّلةً بأمان من show() (rescue) فلا تلمس customer_addresses
+     * مباشرةً؛ بقية القيم من جدول customers الحاضر دائمًا، فلا تُسقط الدفع.
+     *
+     * @param  Collection<int, \App\Models\CustomerAddress>  $addresses
      * @return array<string, string>
      */
-    private function prefill(): array
+    private function prefill(?Customer $customer, Collection $addresses): array
     {
-        $customer = auth('customer')->user();
-
         if ($customer === null) {
             return [];
         }
 
-        // من المجموعة المُحمّلة نفسها (تُقرأ أيضًا لمحدِّد العرض) لا باستعلام ثانٍ؛
         // العلاقة مرتّبة is_default ثم id تنازليًّا فالاختيار حتميّ ولو تعدّد الافتراضيّ.
-        $default = $customer->addresses->firstWhere('is_default', true);
+        $default = $addresses->firstWhere('is_default', true);
 
         return [
             'name' => (string) ($default->name ?? $customer->name),
