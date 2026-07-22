@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\NotifiesIndexNow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Article extends Model
 {
     /** @use HasFactory<\Database\Factories\ArticleFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, NotifiesIndexNow, SoftDeletes;
 
     protected $fillable = [
         'title',
@@ -67,6 +68,13 @@ class Article extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_published', true);
+    }
+
+    public function indexNowUrl(): ?string
+    {
+        return $this->is_published && filled($this->slug)
+            ? rtrim((string) config('seo.site_url'), '/') . '/blog/' . $this->slug
+            : null;
     }
 
     // ----- Routing -------------------------------------------------------

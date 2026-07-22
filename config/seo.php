@@ -21,6 +21,11 @@ return [
     // من Search Console في env GOOGLE_SITE_VERIFICATION فيظهر وسم التحقّق في <head>.
     'google_site_verification' => (string) env('GOOGLE_SITE_VERIFICATION', ''),
 
+    // مفتاح IndexNow (إرسال فوري لـBing/Yandex عند نشر/تعديل محتوى). من env
+    // INDEXNOW_KEY (نصّ عشوائي، حروف/أرقام). فارغ = الميزة معطّلة (لا إرسال، وملف
+    // المفتاح يرجع 404). ولا يدعمه Google — Bing/Yandex فقط.
+    'indexnow_key' => trim((string) env('INDEXNOW_KEY', '')),
+
     // لون الثيم لشريط المتصفح (بنفسجي العلامة — بند 0.1).
     'theme_color' => '#5B2A86',
 

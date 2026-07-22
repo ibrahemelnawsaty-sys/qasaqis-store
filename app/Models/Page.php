@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\NotifiesIndexNow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Page extends Model
 {
+    use NotifiesIndexNow;
     use SoftDeletes;
 
     protected $fillable = [
@@ -57,5 +59,12 @@ class Page extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_published', true);
+    }
+
+    public function indexNowUrl(): ?string
+    {
+        return $this->is_published && filled($this->slug)
+            ? rtrim((string) config('seo.site_url'), '/') . '/pages/' . $this->slug
+            : null;
     }
 }

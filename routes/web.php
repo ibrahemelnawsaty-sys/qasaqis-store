@@ -73,6 +73,16 @@ Route::get('/tasks/run/{token}', TaskRunnerController::class)
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
+// ملف مفتاح IndexNow: تطلبه محرّكات البحث للتحقّق من ملكية النطاق. يخدم المفتاح
+// المضبوط فقط (hash_equals)، و404 إن لم يُضبط أو لم يطابق. النمط ({8,128}) يمنع
+// تعارضه مع robots.txt (٦ أحرف) أو غيره.
+Route::get('/{key}.txt', function (string $key) {
+    $configured = trim((string) config('seo.indexnow_key'));
+    abort_if($configured === '' || ! hash_equals($configured, $key), 404);
+
+    return response($configured, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->where('key', '[A-Za-z0-9\-]{8,128}')->name('indexnow.key');
+
 // التصفح الكامل + الفلاتر (?cat[]=&pub[]=&age[]=&min=&max=&sale=1&sort=)
 Route::get('/books', [BookController::class, 'index'])->name('books.index');
 
