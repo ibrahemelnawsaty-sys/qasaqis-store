@@ -69,7 +69,7 @@
                 <h2><span class="n" aria-hidden="true">📍</span>{{ __('account.address.section') }}</h2>
                 <p class="co-hint" style="margin-bottom:14px">{{ __('account.address.section_hint') }}</p>
 
-                @forelse ($customer->addresses as $addr)
+                @forelse ($addresses as $addr)
                     <div class="acc-addr">
                         <div class="acc-addr-row">
                             <div class="acc-addr-main">
