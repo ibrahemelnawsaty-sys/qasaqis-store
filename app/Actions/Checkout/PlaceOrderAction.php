@@ -24,6 +24,8 @@ use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -46,6 +48,14 @@ use Illuminate\Support\Str;
  */
 class PlaceOrderAction
 {
+    /**
+     * أعمدة كل جدول الموجودة فعلًا، مُخبّأة لكل طلب — لتصفية الكتابة على مخطّط قد
+     * يسبقه الكود (كود جديد قبل تشغيل الهجرة). المفتاح غير الموجود = «لم يُسأل بعد».
+     *
+     * @var array<string, list<string>>
+     */
+    private array $schemaColumns = [];
+
     public function __construct(
         private readonly CartService $cartService,
         private readonly CouponService $couponService,
@@ -133,7 +143,9 @@ class PlaceOrderAction
      */
     private function findReplay(?string $idempotencyKey, PaymentMethod $method): ?Order
     {
-        if ($idempotencyKey === null) {
+        // حصانة انزلاق المخطّط (DEPLOYMENT §12): إن غاب عمود idempotency_key (هجرة M7
+        // لم تُشغَّل بعد) نتعامل كأن لا مفتاح — سلوك ما قبل M7 (بلا حماية تكرار) بدل 500.
+        if ($idempotencyKey === null || ! $this->schemaHas('orders', 'idempotency_key')) {
             return null;
         }
 
@@ -150,7 +162,8 @@ class PlaceOrderAction
      */
     private function withoutConflictingKey(PlaceOrderData $data, PaymentMethod $method): PlaceOrderData
     {
-        if ($data->idempotencyKey === null) {
+        // بلا مفتاح، أو المخطّط بلا عموده بعد (DEPLOYMENT §12): لا تعارض نتحرّى عنه.
+        if ($data->idempotencyKey === null || ! $this->schemaHas('orders', 'idempotency_key')) {
             return $data;
         }
 
@@ -222,6 +235,11 @@ class PlaceOrderAction
      */
     private function persistOrder(PlaceOrderData $data, PaymentMethod $method): array
     {
+        // تحميل قوائم الأعمدة قبل فتح المعاملة وقفل الصفوف: استعلام بيانات وصفية
+        // خفيف نُبقيه خارج نافذة القفل. (orders مُخبّأ أصلًا من findReplay.)
+        $this->existingColumns('orders');
+        $this->existingColumns('order_items');
+
         return DB::transaction(function () use ($data, $method) {
             // Re-price the cart from the DB with the book rows locked.
             $cart = $this->cartService->fromItems($data->items, lock: true);
@@ -242,7 +260,11 @@ class PlaceOrderAction
 
             [$status, $paymentStatus] = $this->statusFor($method);
 
-            $order = Order::create([
+            // onlyExisting: حصانة انزلاق المخطّط (DEPLOYMENT §12). حين تكون كل الأعمدة
+            // حاضرة (الحالة الطبيعية) لا يُسقط شيئًا — لا تغيّر في السلوك. وحين تسبق
+            // موجةُ كودٍ هجرتَها (customer_id/الحقول الدولية/idempotency_key) يُسقط العمود
+            // الغائب فيكتمل البيع بدل 500، ويُلتقط فور تشغيل الهجرة.
+            $order = Order::create($this->onlyExisting('orders', [
                 'order_number' => $this->generateOrderNumber(),
                 'idempotency_key' => $data->idempotencyKey,
                 'user_id' => $data->userId,
@@ -270,7 +292,7 @@ class PlaceOrderAction
                 'payment_status' => $paymentStatus,
                 'customer_note' => $data->customerNote,
                 'ip_address' => $data->ipAddress,
-            ]);
+            ]));
 
             // Snapshot each line (price taken from the DB, not the client).
             $costResolver = app(BookCostResolver::class);
@@ -294,7 +316,10 @@ class PlaceOrderAction
                     ? Money::multiplyByQty($unitCost, $item->quantity)
                     : null;
 
-                $order->items()->create([
+                // onlyExisting: تُسقَط أعمدة لقطة التكلفة (unit_cost/cost_is_estimated/
+                // line_cost) إن لم تُشغَّل هجرتاها بعد، فيُلتقط السطر بلا لقطة تكلفة
+                // (بيانات لوحة ثانوية، تُبلَّغ لاحقًا) بدل 500 على كل شراء.
+                $order->items()->create($this->onlyExisting('order_items', [
                     'book_id' => $item->book->id,
                     'book_title' => $item->book->title,
                     'unit_price' => $item->unitPrice,
@@ -303,7 +328,7 @@ class PlaceOrderAction
                     'quantity' => $item->quantity,
                     'line_total' => $item->lineTotal,
                     'line_cost' => $lineCost,
-                ]);
+                ]));
             }
 
             if ($couponResult->valid && $couponResult->coupon instanceof Coupon) {
@@ -489,5 +514,46 @@ class PlaceOrderAction
         } while (Order::where('order_number', $candidate)->exists());
 
         return $candidate;
+    }
+
+    /**
+     * حصانة انزلاق المخطّط (DEPLOYMENT §12 «كود جديد على مخطّط قديم»): يُبقي من الحمولة
+     * الأعمدة الموجودة فعلًا في الجدول فقط. الحالة الطبيعية (كل الأعمدة حاضرة) لا يُسقط
+     * فيها شيئًا — لا تغيّر في السلوك. الحلّ الجذري يبقى تشغيل الهجرات قبل الكود.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function onlyExisting(string $table, array $payload): array
+    {
+        $filtered = array_intersect_key($payload, array_flip($this->existingColumns($table)));
+
+        // في الوضع الطبيعي (كل الأعمدة حاضرة) لا يُسقَط شيء فلا سطر سجلّ — لا ضجيج.
+        // أمّا إسقاطُ عمودٍ فعليًّا فيعني انزلاق مخطّط (هجرة لم تُشغَّل، أو مفتاح لم يعُد
+        // عمودًا): نُسجّله تحذيرًا صريحًا كي لا يُبتلَع الخلل صامتًا على مسار الإيراد —
+        // يظهر في السجلّ/Sentry فورًا (بدل «Unknown column» الذي حوّلناه إلى تدهور).
+        if (count($filtered) !== count($payload)) {
+            Log::warning('PlaceOrderAction: أعمدة مفقودة أُسقطت من الكتابة (انزلاق مخطّط؟ شغّل الهجرات).', [
+                'table' => $table,
+                'dropped' => array_keys(array_diff_key($payload, $filtered)),
+            ]);
+        }
+
+        return $filtered;
+    }
+
+    private function schemaHas(string $table, string $column): bool
+    {
+        return in_array($column, $this->existingColumns($table), true);
+    }
+
+    /**
+     * أعمدة الجدول الموجودة فعلًا، مُخبّأة لكل طلب (استعلام بيانات وصفية واحد لكل جدول).
+     *
+     * @return list<string>
+     */
+    private function existingColumns(string $table): array
+    {
+        return $this->schemaColumns[$table] ??= Schema::getColumnListing($table);
     }
 }
