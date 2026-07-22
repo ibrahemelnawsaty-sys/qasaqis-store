@@ -25,6 +25,7 @@ class Article extends Model
     protected $fillable = [
         'title',
         'slug',
+        'focus_keyword',
         'excerpt',
         'content',
         'cover_image',

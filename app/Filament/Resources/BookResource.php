@@ -78,6 +78,8 @@ class BookResource extends Resource
                         ->label('العنوان')
                         ->required()
                         ->maxLength(200)
+                        // حيّ عند الانتقال لتحديث «تحليل SEO المباشر» أسفل النموذج.
+                        ->live(onBlur: true)
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('slug')
@@ -85,6 +87,7 @@ class BookResource extends Resource
                         ->required()
                         ->maxLength(220)
                         ->unique(ignoreRecord: true)
+                        ->live(onBlur: true)
                         ->helperText('يُكتب يدويًا بحروف لاتينية/أرقام؛ التوليد التلقائي لا يصلح للعربية.'),
 
                     Forms\Components\TextInput::make('sku')
@@ -144,16 +147,26 @@ class BookResource extends Resource
                     Forms\Components\Textarea::make('short_description')
                         ->label('الوصف القصير')
                         ->maxLength(500)
-                        ->rows(3),
+                        ->rows(3)
+                        ->live(onBlur: true),
 
                     Forms\Components\RichEditor::make('long_description')
                         ->label('الوصف الطويل')
+                        ->live(onBlur: true)
                         ->columnSpanFull(),
 
                     Forms\Components\TagsInput::make('learning_outcomes')
                         ->label('مخرجات التعلّم')
                         ->helperText('أضف كل مخرج تعلّم كوسم منفصل.'),
                 ]),
+
+            // تحليل SEO المباشر (نظير Yoast): كلمة مفتاحية + نقاط تتحدّث مع الكتابة.
+            \App\Filament\Support\ContentSeoAnalysis::make(
+                titleField: 'title',
+                descriptionField: 'short_description',
+                bodyFields: ['long_description', 'short_description'],
+                slugField: 'slug',
+            ),
 
             Forms\Components\Section::make('السعر')
                 ->columns(3)

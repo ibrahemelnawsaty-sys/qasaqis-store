@@ -72,19 +72,30 @@ class ArticleResource extends Resource
                         ->required()
                         ->maxLength(220)
                         ->unique(ignoreRecord: true)
+                        ->live(onBlur: true)
                         ->helperText('يُستخدم في رابط المقال /blog/... بأحرف إنجليزية وشرطات.'),
                     Forms\Components\Textarea::make('excerpt')
                         ->label('المقتطف')
                         ->rows(3)
                         ->maxLength(500)
                         ->columnSpanFull()
+                        ->live(onBlur: true)
                         ->helperText('ملخّص قصير يظهر في قائمة المدونة ونتائج البحث.'),
                     Forms\Components\RichEditor::make('content')
                         ->label('المحتوى')
                         ->required()
+                        ->live(onBlur: true)
                         ->columnSpanFull(),
                 ])
                 ->columns(2),
+
+            // تحليل SEO المباشر (نظير Yoast): كلمة مفتاحية + نقاط تتحدّث مع الكتابة.
+            \App\Filament\Support\ContentSeoAnalysis::make(
+                titleField: 'title',
+                descriptionField: 'excerpt',
+                bodyFields: ['content', 'excerpt'],
+                slugField: 'slug',
+            ),
 
             Forms\Components\Section::make('بيانات المقال')
                 ->schema([

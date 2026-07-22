@@ -29,6 +29,7 @@ class Book extends Model
         'series_position',
         'title',
         'slug',
+        'focus_keyword',
         'sku',
         'author',
         'illustrator',
