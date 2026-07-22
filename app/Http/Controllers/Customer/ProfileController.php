@@ -24,8 +24,15 @@ final class ProfileController extends Controller
 {
     public function edit(Request $request): View
     {
+        $customer = $this->customer($request);
+
         return view('customer.profile', [
-            'customer' => $this->customer($request),
+            'customer' => $customer,
+            // دفتر العناوين رفاهية لا تُسقط صفحة «بياناتي»: إن تعذّرت قراءته — كأن
+            // تكون هجرة customer_addresses لم تُشغَّل بعد على الإنتاج (كود جديد على
+            // مخطّط قديم، DEPLOYMENT.md §12) — نتدهور إلى قائمة فارغة بدل 500. نفس
+            // حرس الدفع (CheckoutController::show) على الجدول نفسه.
+            'addresses' => rescue(fn () => $customer->addresses, collect()),
         ]);
     }
 

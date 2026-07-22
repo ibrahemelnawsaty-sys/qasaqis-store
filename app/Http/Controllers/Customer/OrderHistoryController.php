@@ -68,11 +68,19 @@ final class OrderHistoryController extends Controller
         // ‏ضيف بمطابقة جوال العميلة يجب أن يبقى غير مرئي تمامًا (customer_id فقط).
         abort_unless($this->policy->view($customer, $order), 404);
 
-        // items لبطاقة الكتب، وstatusHistories للخط الزمني (رحلة الطلب). كلاهما
-        // تحميل مسبق دفعةً واحدة تجنّبًا لـ N+1 (الدستور 2.5). الترتيب الزمني يتمّ
-        // في القالب لأن الفهرس (order_id, created_at) يخدم الجلب، والفرز على مجموعة
-        // صغيرة (انتقالات طلب واحد) لا يستدعي استعلامًا آخر.
-        $order->load(['items', 'statusHistories']);
+        // items لبطاقة الكتب (جدول أساسيّ). الترتيب الزمني يتمّ في القالب لأن الفهرس
+        // (order_id, created_at) يخدم الجلب، والفرز على مجموعة صغيرة لا يستدعي استعلامًا.
+        $order->load('items');
+
+        // الخط الزمني (رحلة الطلب) رفاهية لا تُسقط تفاصيل الطلب: إن غاب جدول
+        // order_status_histories (هجرة لم تُشغَّل بعد على الإنتاج، DEPLOYMENT.md §12)
+        // نضبط علاقة فارغة بدل 500. setRelation ضروريّ: القالب يصل $order->statusHistories
+        // مباشرةً، فبدونه يُطلق استعلامًا كسولًا يضرب الجدول الغائب ثانيةً.
+        $order->setRelation('statusHistories', rescue(
+            fn () => $order->statusHistories()->get(),
+            collect(),
+            report: false,
+        ));
 
         return view('customer.orders.show', [
             'customer' => $customer,
