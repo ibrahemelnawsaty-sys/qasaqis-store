@@ -21,6 +21,11 @@
     <title>@yield('title', __('common.brand') . ' — ' . __('common.tagline'))</title>
     <meta name="description" content="@yield('meta_description', __('common.tagline'))">
 
+    {{-- تحقّق Google Search Console (طريقة meta-tag) — يظهر فقط عند ضبط GOOGLE_SITE_VERIFICATION. --}}
+    @if (filled(config('seo.google_site_verification')))
+        <meta name="google-site-verification" content="{{ config('seo.google_site_verification') }}">
+    @endif
+
     {{-- خطوط عربية مستضافة محليًا (@font-face في app.css) — بلا حجب عرض ولا اعتماد خارجي.
          preload للخطّين الحرجين فقط (نص Tajawal + عناوين Baloo) لتقليل قفز التخطيط. --}}
     <link rel="preload" href="{{ asset('fonts/tajawal-400-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
@@ -138,11 +143,28 @@
             $seoWebSite['alternateName'] = $seoAltNames;
         }
 
+        // قائمة التنقّل الرئيسية كـSiteNavigationElement — تُخبر Google بأقسام الموقع
+        // الأساسية صراحةً (يقوّي فهم البنية، ويُساند ترشيح الروابط الفرعية). روابط
+        // مطلقة على دومين الإنتاج مثل باقي الـschema.
+        $seoNav = [
+            '@context' => 'https://schema.org',
+            '@type' => 'ItemList',
+            '@id' => $seoSiteUrl . '/#nav',
+            'name' => $seoName,
+            'itemListElement' => [
+                ['@type' => 'SiteNavigationElement', 'position' => 1, 'name' => __('nav.shop'), 'url' => $seoSiteUrl . '/books'],
+                ['@type' => 'SiteNavigationElement', 'position' => 2, 'name' => __('nav.offers'), 'url' => $seoSiteUrl . '/offers'],
+                ['@type' => 'SiteNavigationElement', 'position' => 3, 'name' => __('nav.blog'), 'url' => $seoSiteUrl . '/blog'],
+                ['@type' => 'SiteNavigationElement', 'position' => 4, 'name' => 'من نحن', 'url' => $seoSiteUrl . '/pages/about'],
+            ],
+        ];
+
         $seoJsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
             | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
     @endphp
     <script type="application/ld+json">{!! json_encode($seoOrg, $seoJsonFlags) !!}</script>
     <script type="application/ld+json">{!! json_encode($seoWebSite, $seoJsonFlags) !!}</script>
+    <script type="application/ld+json">{!! json_encode($seoNav, $seoJsonFlags) !!}</script>
 
     {{-- وسوم SEO لكل صفحة (canonical / Open Graph / JSON-LD) تدفعها الصفحات (بند 0.8). --}}
     @stack('meta')

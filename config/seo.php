@@ -17,6 +17,10 @@ return [
     // الدومين المطلق للموقع (بلا شرطة أخيرة).
     'site_url' => rtrim((string) env('SEO_SITE_URL', 'https://qasaqis.store'), '/'),
 
+    // كود تحقّق Google Search Console (طريقة الـmeta-tag، بديلة عن DNS). الصق الكود
+    // من Search Console في env GOOGLE_SITE_VERIFICATION فيظهر وسم التحقّق في <head>.
+    'google_site_verification' => (string) env('GOOGLE_SITE_VERIFICATION', ''),
+
     // لون الثيم لشريط المتصفح (بنفسجي العلامة — بند 0.1).
     'theme_color' => '#5B2A86',
 
