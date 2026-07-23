@@ -30,10 +30,16 @@ use Illuminate\Support\Facades\Cache;
  */
 trait CachesDashboardData
 {
-    /** بند 5.4 — خمس دقائق لكل استعلام لوحة. */
+    /** بند 5.4 — خمس دقائق لكل استعلام لوحة (سقف التقادم؛ الإبطال الفوري أدناه). */
     protected const DASHBOARD_CACHE_TTL = 300;
 
     protected const DASHBOARD_CACHE_PREFIX = 'admin.dashboard.';
+
+    /** مفتاح إصدار الكاش — رفعُه يُبطِل كلَّ مفاتيح اللوحة فورًا بلا وسوم. */
+    protected const DASHBOARD_CACHE_VERSION_KEY = 'admin.dashboard.version';
+
+    /** إصدار محفوظ لكل طلب — يُقرأ مرّة واحدة لا لكل استعلام لوحة. */
+    private static ?int $dashboardVersionMemo = null;
 
     /**
      * Remember a dashboard aggregate, degrading to $default on any failure.
@@ -48,11 +54,39 @@ trait CachesDashboardData
     {
         return rescue(
             fn (): mixed => Cache::remember(
-                static::DASHBOARD_CACHE_PREFIX.$key,
+                static::dashboardCacheKey($key),
                 static::DASHBOARD_CACHE_TTL,
                 $callback,
             ),
             $default,
         );
+    }
+
+    /**
+     * إبطال كل كاش اللوحة فورًا برفع الإصدار — يُستدعى عند تغيّر مصدر البيانات
+     * (حفظ/حذف طلب) كي تظهر التغييرات فور تحديث الصفحة بدل انتظار انتهاء المهلة.
+     * متجر كاش قاعدة البيانات لا يدعم الوسوم، فبصمةُ إصدارٍ في المفتاح هي البديل؛
+     * المفاتيح القديمة تنتهي بمهلتها. rescue: عطل الكاش لا يُسقِط عملية الحفظ.
+     */
+    public static function flushDashboardCache(): void
+    {
+        static::$dashboardVersionMemo = null;
+
+        rescue(function (): void {
+            if (Cache::increment(static::DASHBOARD_CACHE_VERSION_KEY) === false) {
+                Cache::forever(static::DASHBOARD_CACHE_VERSION_KEY, 2);
+            }
+        });
+    }
+
+    /** المفتاح مضمومًا إليه بصمة الإصدار الحالية. */
+    protected static function dashboardCacheKey(string $key): string
+    {
+        return static::DASHBOARD_CACHE_PREFIX.static::dashboardCacheVersion().'.'.$key;
+    }
+
+    protected static function dashboardCacheVersion(): int
+    {
+        return static::$dashboardVersionMemo ??= rescue(fn (): int => (int) Cache::get(static::DASHBOARD_CACHE_VERSION_KEY, 1), 1);
     }
 }

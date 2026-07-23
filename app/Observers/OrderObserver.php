@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Actions\Order\RestoreOrderStockAction;
+use App\Filament\Pages\OpsDashboard;
 use App\Jobs\SendPurchaseServerEvent;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
@@ -38,18 +39,20 @@ class OrderObserver
     }
 
     /**
-     * إبطال كاش تقارير القسم المالي عند أي إنشاء/تعديل طلب — saved يغطّي
-     * الحالتين. بدونه يظل الطلب الجديد أو تغيّر الحالة غير مرئي في الداشبورد
-     * حتى انتهاء عمر الكاش (الدستور 5.4). flush رفع إصدار واحد رخيص.
+     * إبطال كاش القسم المالي **ولوحة العمليات** عند أي إنشاء/تعديل طلب — saved
+     * يغطّي الحالتين. بدونه يظل الطلب الجديد أو تغيّر الحالة (كإرجاع طلب) غير مرئي
+     * في اللوحة حتى انتهاء عمر الكاش (5 دقائق). الإبطال رفع إصدار واحد رخيص.
      */
     public function saved(Order $order): void
     {
         app(FinanceReportService::class)->flush();
+        OpsDashboard::flushDashboardCache();
     }
 
     public function deleted(Order $order): void
     {
         app(FinanceReportService::class)->flush();
+        OpsDashboard::flushDashboardCache();
     }
 
     /**

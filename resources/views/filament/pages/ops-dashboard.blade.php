@@ -118,7 +118,7 @@
                 {{-- قُمع --}}
                 <div class="opsd-card">
                     <h3>قُمع حالات الطلب — آخر 30 يومًا</h3>
-                    @php $ft = $funnel['total'] ?? 0; $steps = [['وارد',$ft,'#7C3AED','orders_month'],['مؤكّد',$funnel['confirmed']??0,'#EC4899','funnel_confirmed'],['قيد التجهيز',$funnel['processing']??0,'#F59E0B','funnel_processing'],['مشحون',$funnel['shipped']??0,'#EAB308','funnel_shipped'],['مسلَّم',$funnel['delivered']??0,'#12B3A6','funnel_delivered'],['ملغى/مرفوض',$funnel['lost']??0,'#EF4444','funnel_lost']]; @endphp
+                    @php $ft = $funnel['total'] ?? 0; $steps = [['وارد',$ft,'#7C3AED','orders_month'],['مؤكّد',$funnel['confirmed']??0,'#EC4899','funnel_confirmed'],['قيد التجهيز',$funnel['processing']??0,'#F59E0B','funnel_processing'],['مشحون',$funnel['shipped']??0,'#EAB308','funnel_shipped'],['مسلَّم',$funnel['delivered']??0,'#12B3A6','funnel_delivered'],['ملغى/مرفوض/مسترد',$funnel['lost']??0,'#EF4444','funnel_lost']]; @endphp
                     @if ($ft === 0)
                         <p class="s" style="color:var(--faint)">لا طلبات في آخر 30 يومًا بعد.</p>
                     @else

@@ -153,7 +153,9 @@ class OpsDashboard extends Dashboard
                 'processing' => $g(['processing', 'shipped', 'delivered', 'completed']),
                 'shipped' => $g(['shipped', 'delivered', 'completed']),
                 'delivered' => $g(['delivered', 'completed']),
-                'lost' => $g(['cancelled', 'refused']),
+                // «مسترد» ضمن المفقود كي لا يظهر في «وارد» بلا فئة (يطابق استبعاد
+                // الإيراد المحقّق للمسترد). وإلا بقي طلبٌ مستردٌّ معلّقًا في القمع.
+                'lost' => $g(['cancelled', 'refused', 'refunded']),
             ];
         }, []);
     }
@@ -172,7 +174,7 @@ class OpsDashboard extends Dashboard
                 ->selectRaw('governorate,
                     COUNT(*) as orders,
                     SUM(grand_total) as revenue,
-                    SUM(CASE WHEN status IN ("cancelled","refused") THEN 1 ELSE 0 END) as lost')
+                    SUM(CASE WHEN status IN ("cancelled","refused","refunded") THEN 1 ELSE 0 END) as lost')
                 ->groupBy('governorate')->orderByDesc('orders')->limit(6)->get()
                 ->map(fn ($r): array => [
                     'name' => $r->governorate,

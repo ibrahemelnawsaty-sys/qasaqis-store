@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Filament\Pages\OpsDashboard;
 use App\Models\Book;
 
 /**
@@ -34,5 +35,19 @@ class BookObserver
 
         // Rebuild search_index from the current field + relation values.
         $book->refreshSearchIndex();
+    }
+
+    /**
+     * إبطال كاش لوحة العمليات عند حفظ/حذف كتاب — بطاقتا «تغطية المخزون» و«الأكثر
+     * مبيعًا» تُشتقّان من الكتب، فتظهر تغييرات المخزون فورًا لا بعد انتهاء المهلة.
+     */
+    public function saved(Book $book): void
+    {
+        OpsDashboard::flushDashboardCache();
+    }
+
+    public function deleted(Book $book): void
+    {
+        OpsDashboard::flushDashboardCache();
     }
 }

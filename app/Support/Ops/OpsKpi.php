@@ -167,7 +167,7 @@ final class OpsKpi
             'funnel_processing' => self::funnelStage('طلبات وصلت التجهيز فأكثر', '📦', ['processing', 'shipped', 'delivered', 'completed'], $since),
             'funnel_shipped' => self::funnelStage('طلبات وصلت الشحن فأكثر', '🚚', ['shipped', 'delivered', 'completed'], $since),
             'funnel_delivered' => self::funnelStage('طلبات سُلّمت', '🎉', ['delivered', 'completed'], $since),
-            'funnel_lost' => self::funnelStage('طلبات ملغاة/مرفوضة', '⚠️', ['cancelled', 'refused'], $since),
+            'funnel_lost' => self::funnelStage('طلبات ملغاة/مرفوضة/مستردّة', '⚠️', ['cancelled', 'refused', 'refunded'], $since),
 
             // ── الأزمنة (ثابتة) — عيّنة الطلبات/الإثباتات خلف متوسّط الزمن ──
             'timing_confirm' => [
