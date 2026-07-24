@@ -77,6 +77,13 @@
     // Product، بينما Book يحفظ الدلالة الحقيقية — وschema.org يسمح بتعدّد الأنواع.
     // aggregateRating يُصدَر أدناه من عمودَي $book المجمّعَين (يحدّثهما ReviewObserver
     // من كل المراجعات المنشورة) لا من مجموعة ->take(6) المعروضة.
+
+    // تكلفة الشحن داخل مصر من مصدر التسعير الرسمي (config/egypt ← SHIPPING_FLAT_COST)
+    // لا قيمة مخترعة (بند 1.1). نُصدر shippingDetails فقط حين تُضبط قيمة > 0، كي لا
+    // نُعلن «شحن مجاني» زورًا حين لا يكون الرقم مضبوطًا (الشحن الفعلي متغيّر بشركة الشحن).
+    $shipFlat = (string) config('egypt.shipping.flat', '0.00');
+    $hasShipRate = is_numeric($shipFlat) && (float) $shipFlat > 0;
+
     $ld = array_filter([
         '@context' => 'https://schema.org',
         // Product يُضاف فقط حين يوجد سعر. مواصفة Google تشترط على Product أحد ثلاثة:
@@ -95,13 +102,35 @@
         'numberOfPages' => $book->pages_count ?: null,
         'brand' => ['@type' => 'Brand', 'name' => $book->publisher->name],
         'publisher' => ['@type' => 'Organization', 'name' => $book->publisher->name],
-        'offers' => $hasPrice ? [
+        'offers' => $hasPrice ? array_filter([
             '@type' => 'Offer',
             'price' => (string) $book->price,
             'priceCurrency' => 'EGP',
             'availability' => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             'url' => route('books.show', $book),
-        ] : null,
+            // سياسة الاسترجاع الظاهرة (صفحة /pages/returns-policy): لا استبدال ولا
+            // استرجاع لطبيعة الكتب → MerchantReturnNotPermitted. يطابق المحتوى المرئي
+            // (شرط Google) ويُنهي تحذير hasMerchantReturnPolicy في Search Console.
+            'hasMerchantReturnPolicy' => [
+                '@type' => 'MerchantReturnPolicy',
+                'applicableCountry' => 'EG',
+                'returnPolicyCategory' => 'https://schema.org/MerchantReturnNotPermitted',
+            ],
+            // تفاصيل الشحن: تظهر فقط حين تُضبط قيمة شحن مصر (> 0). array_filter يُسقط
+            // null فلا يُصدَر حقل شحن بلا سعر حقيقيّ.
+            'shippingDetails' => $hasShipRate ? [
+                '@type' => 'OfferShippingDetails',
+                'shippingRate' => [
+                    '@type' => 'MonetaryAmount',
+                    'value' => $shipFlat,
+                    'currency' => 'EGP',
+                ],
+                'shippingDestination' => [
+                    '@type' => 'DefinedRegion',
+                    'addressCountry' => 'EG',
+                ],
+            ] : null,
+        ]) : null,
         // تقييم مُجمّع → نجوم في نتائج البحث. المصدر عمودا الكتاب (يحدّثهما ReviewObserver
         // من المراجعات المنشورة) لا مجموعة ->take(6). يُصدَر فقط حين توجد مراجعة منشورة
         // واحدة على الأقل، وإلا حذفه array_filter (لا نُصدر aggregateRating فارغًا = خطأ
