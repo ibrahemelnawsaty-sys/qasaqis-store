@@ -44,6 +44,10 @@ final class ContentSeoAnalysis
 
                 Placeholder::make('seo_analysis_view')
                     ->hiddenLabel()
+                    // يُصيّر Filament تسمية sr-only بـ for=id، لكنّ محتوى الـPlaceholder
+                    // ليس إدخالًا فلا يحمل ذلك id → تحذير «label for بلا عنصر مطابق».
+                    // نمنح المحتوى نفس id التسمية فيتطابقان (يظهر على مورد الكتب والمقالات).
+                    ->extraAttributes(fn (Placeholder $component): array => ['id' => $component->getId()])
                     ->content(function (Get $get) use ($titleField, $descriptionField, $bodyFields, $slugField, $keywordField): Htmlable {
                         $body = collect($bodyFields)
                             ->map(fn (string $field): string => (string) $get($field))
