@@ -12,6 +12,7 @@ use App\Filament\Support\SeoPlaceholder;
 use App\Models\Book;
 use App\Models\Category;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Support\Text\Slug;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -80,6 +81,21 @@ class BookResource extends Resource
                         ->maxLength(200)
                         // حيّ عند الانتقال لتحديث «تحليل SEO المباشر» أسفل النموذج.
                         ->live(onBlur: true)
+                        ->afterStateUpdated(function (string $operation, $state, $old, Forms\Get $get, Forms\Set $set): void {
+                            // توليد الـslug تلقائيًا من العنوان عند الإنشاء فقط (لئلا
+                            // ينكسر رابط كتاب منشور عند تعديل عنوانه). يُزامَن ما دام
+                            // المستخدم لم يعدّل الـslug يدويًا: فور تعديله (لم يعُد يطابق
+                            // مولّد العنوان السابق) يتوقّف التزامن ويبقى تعديله كما هو.
+                            if ($operation !== 'create') {
+                                return;
+                            }
+
+                            $currentSlug = (string) $get('slug');
+
+                            if (blank($currentSlug) || $currentSlug === Slug::fromTitle((string) $old)) {
+                                $set('slug', Slug::fromTitle((string) $state));
+                            }
+                        })
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('slug')
@@ -88,7 +104,7 @@ class BookResource extends Resource
                         ->maxLength(220)
                         ->unique(ignoreRecord: true)
                         ->live(onBlur: true)
-                        ->helperText('يُكتب يدويًا بحروف لاتينية/أرقام؛ التوليد التلقائي لا يصلح للعربية.'),
+                        ->helperText('يُولَّد تلقائيًا من العنوان عند الإنشاء (نقل عربي→لاتيني). تقدر تعدّله يدويًا؛ ولو تكرّر سيُنبّهك النظام.'),
 
                     Forms\Components\TextInput::make('sku')
                         ->label('رمز المنتج (SKU)')

@@ -9,13 +9,13 @@ use App\Filament\Resources\ArticleResource\Pages;
 use App\Filament\Support\SeoPlaceholder;
 use App\Models\Article;
 use App\Providers\Filament\AdminPanelProvider;
+use App\Support\Text\Slug;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 
 /**
  * مقالات المدونة (constitution 0.8 — محتوى قابل للتحرير من الأدمن يُدار عبر CMS).
@@ -60,11 +60,18 @@ class ArticleResource extends Resource
                         ->required()
                         ->maxLength(200)
                         ->live(onBlur: true)
-                        ->afterStateUpdated(function (string $operation, $state, Forms\Set $set): void {
-                            // توليد الـ slug من العنوان أثناء الإنشاء فقط، حتى لا
-                            // ينكسر رابط مقال منشور عند تعديله لاحقًا.
-                            if ($operation === 'create') {
-                                $set('slug', Str::slug((string) $state));
+                        ->afterStateUpdated(function (string $operation, $state, $old, Forms\Get $get, Forms\Set $set): void {
+                            // توليد الـslug من العنوان أثناء الإنشاء فقط (حتى لا ينكسر
+                            // رابط مقال منشور عند تعديله). يُزامَن ما دام المستخدم لم
+                            // يعدّل الـslug يدويًا؛ فور تعديله يتوقّف التزامن.
+                            if ($operation !== 'create') {
+                                return;
+                            }
+
+                            $currentSlug = (string) $get('slug');
+
+                            if (blank($currentSlug) || $currentSlug === Slug::fromTitle((string) $old)) {
+                                $set('slug', Slug::fromTitle((string) $state));
                             }
                         }),
                     Forms\Components\TextInput::make('slug')
