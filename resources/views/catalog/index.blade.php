@@ -49,6 +49,27 @@
     @endpush
 @endif
 
+{{-- ItemList للصفحة: يربط Google كتب الصفحة كقائمة مرتّبة (أهلية عرض القوائم/الكاروسيل).
+     يُصدَر فقط على الصفحات المفهرَسة (canonical صريح) وحين توجد كتب — صفحة البحث مستثناة.
+     نُخرج url + name فقط (صفحة ملخّص): التفاصيل الغنية في صفحة الكتاب نفسها. --}}
+@if ($catalogCanonical !== null && $books->isNotEmpty())
+    @push('head')
+        @php
+            $itemListLd = [
+                '@context' => 'https://schema.org',
+                '@type' => 'ItemList',
+                'itemListElement' => collect($books->items())->map(fn ($b, $i) => [
+                    '@type' => 'ListItem',
+                    'position' => ($books->firstItem() ?? 1) + $i,
+                    'url' => route('books.show', $b),
+                    'name' => $b->title,
+                ])->all(),
+            ];
+        @endphp
+        <script type="application/ld+json">{!! json_encode($itemListLd, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+    @endpush
+@endif
+
 @section('content')
     @php
         // صفحة السلسلة: قائمة عناوين مرتّبة (بلا فلاتر/فرز — الترتيب ثابت حسب السلسلة).

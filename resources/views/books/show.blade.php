@@ -98,6 +98,8 @@
         'image' => array_column($galleryImages, 'src'),
         'author' => $book->author ?: null,
         'inLanguage' => 'ar',
+        // رمز المنتج (يُولَّد تلقائيًّا للكتب الجديدة): مُعرّف Product يساعد فهارس Google/التسوّق.
+        'sku' => $book->sku ?: null,
         'isbn' => $book->isbn ?: null,
         'numberOfPages' => $book->pages_count ?: null,
         'brand' => ['@type' => 'Brand', 'name' => $book->publisher->name],
@@ -106,6 +108,9 @@
             '@type' => 'Offer',
             'price' => (string) $book->price,
             'priceCurrency' => 'EGP',
+            // صلاحية السعر (تلقائية، متجدّدة سنة): بلا هذا الحقل قد يعدّ Google العرض
+            // «منتهيًا» فيُسقط نتيجة السعر. السعر مستمر بلا انتهاء فعليّ، فنمدّه سنة.
+            'priceValidUntil' => now()->addYear()->toDateString(),
             'availability' => $inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             'url' => route('books.show', $book),
             // سياسة الاسترجاع الظاهرة (صفحة /pages/returns-policy): لا استبدال ولا
@@ -148,6 +153,12 @@
 
 @section('title', $metaTitle)
 @section('meta_description', $metaDesc)
+
+{{-- og:image = غلاف الكتاب حين وُجد؛ وإلا يرث شعار العلامة من التخطيط (لا نخترع صورة).
+     كانت صفحات الكتب تعرض الشعار في معاينة المشاركة بدل الغلاف. --}}
+@if ($coverSrc)
+    @section('og_image', $coverSrc)
+@endif
 
 @push('head')
     {{-- HEX flags تمنع كسر السياق بـ </script> أو "؛ UNESCAPED_UNICODE يُبقي العربية مقروءة. --}}

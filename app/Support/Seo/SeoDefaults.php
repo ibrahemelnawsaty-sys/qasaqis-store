@@ -95,6 +95,33 @@ final class SeoDefaults
         return self::description($model);
     }
 
+    /**
+     * صورة OpenGraph المشتقّة تلقائيًا من غلاف الكيان (كتاب/مقال) — رابط مطلق، أو
+     * null حين لا غلاف فيرجع القالب لشعار العلامة (بند 1.1: لا نخترع صورة). مصدر
+     * واحد يستخدمه قالبا الكتاب والمقال بدل تكرار منطق حلّ مسار الصورة في كلٍّ.
+     */
+    public static function ogImage(Model $model): ?string
+    {
+        $path = trim((string) match (true) {
+            $model instanceof Book => $model->cover_image,
+            $model instanceof Article => $model->cover_image,
+            default => '',
+        });
+
+        if ($path === '') {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        // أصول مجمّعة (images/…) تُخدَم مباشرةً؛ وإلا فهي في التخزين العام (storage/…).
+        return Str::startsWith($path, 'images/')
+            ? asset($path)
+            : asset('storage/'.ltrim($path, '/'));
+    }
+
     /** أول قيمة غير فارغة بعد التشذيب، أو '' إن غابت كلها. */
     private static function firstFilled(array $candidates): string
     {

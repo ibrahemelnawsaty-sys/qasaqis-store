@@ -7,14 +7,9 @@
     $metaTitle = filled($article->seo_title) ? $article->seo_title : \App\Support\Seo\SeoDefaults::title($article);
     $metaDesc = filled($article->seo_description) ? $article->seo_description : \App\Support\Seo\SeoDefaults::description($article);
 
-    // غلاف المقال إن وُجد؛ وإلا شعار العلامة (لا نخترع صورة — بند 1.1/0.4).
-    $coverSrc = filled($article->cover_image)
-        ? (\Illuminate\Support\Str::startsWith($article->cover_image, ['http://', 'https://'])
-            ? $article->cover_image
-            : (\Illuminate\Support\Str::startsWith($article->cover_image, 'images/')
-                ? asset($article->cover_image)
-                : asset('storage/' . ltrim($article->cover_image, '/'))))
-        : null;
+    // غلاف المقال المشتقّ تلقائيًا عبر المصدر الموحّد SeoDefaults (نفس منطق حلّ مسار
+    // الصورة الذي يستخدمه قالب الكتاب) — رابط مطلق أو null فنرجع لشعار العلامة.
+    $coverSrc = \App\Support\Seo\SeoDefaults::ogImage($article);
     $ogImage = $coverSrc ?: asset(config('seo.default_image', 'images/logo.png'));
 
     $publishedAt = $article->published_at;
