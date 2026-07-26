@@ -49,10 +49,15 @@ final class LongtailArticlesTest extends TestCase
             ->assertSee('<h2>', false);                        // يُصيَّر HTML فعليًّا
     }
 
-    public function test_blog_index_lists_a_new_article(): void
+    public function test_blog_index_lists_the_most_recent_article(): void
     {
+        // الأحدث نشرًا يظهر في الصفحة الأولى مهما كثر العدد (تجنّبًا لهشاشة الترقيم).
+        $latest = \App\Models\Article::where('is_published', true)
+            ->orderByDesc('published_at')
+            ->firstOrFail();
+
         $this->get('/blog')
             ->assertOk()
-            ->assertSee('القصص المصوّرة للأطفال');
+            ->assertSee($latest->title);
     }
 }
