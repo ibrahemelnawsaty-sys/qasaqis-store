@@ -64,10 +64,11 @@ class SettingSeeder extends Seeder
             // figure from the panel.
             ['shipping', 'free_shipping_threshold', '', 'string'],
 
-            // --- Social media (social) — empty, ready for the admin to fill --
-            ['social', 'social_facebook', 'https://www.facebook.com/groups/1596310100703409/', 'string'],
+            // --- Social media (social) — روابط العلامة الرسمية (تُغذّي sameAs + الفوتر).
+            // فيسبوك = الصفحة الرسمية (كيان العلامة) لا المجموعة؛ المجموعة مجتمع يُذكر في «من نحن».
+            ['social', 'social_facebook', 'https://www.facebook.com/p/%D9%82%D8%B5%D8%A7%D9%82%D9%8A%D8%B5-%D8%A3%D8%B7%D9%81%D8%A7%D9%84-100076208663362/', 'string'],
             ['social', 'social_instagram', 'https://www.instagram.com/qsaqis_kids/', 'string'],
-            ['social', 'social_tiktok', '', 'string'],
+            ['social', 'social_tiktok', 'https://www.tiktok.com/@user6932917567139', 'string'],
             ['social', 'social_youtube', '', 'string'],
             ['social', 'social_twitter', '', 'string'],
             ['social', 'social_snapchat', '', 'string'],

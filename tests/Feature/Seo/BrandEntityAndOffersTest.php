@@ -45,4 +45,17 @@ class BrandEntityAndOffersTest extends TestCase
             ->assertOk()
             ->assertSee('كل كتب الأطفال المخفّضة حاليًا'); // نصّ offers_intro الفريد
     }
+
+    public function test_homepage_emits_sameas_with_official_social_profiles(): void
+    {
+        // روابط السوشيال يضبطها set_official_social_links (تُشغَّل ضمن RefreshDatabase).
+        Book::factory()->create(['is_published' => true]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('sameAs')
+            ->assertSee('qsaqis_kids')       // Instagram
+            ->assertSee('user6932917567139') // TikTok
+            ->assertSee('100076208663362');  // صفحة فيسبوك الرسمية
+    }
 }
