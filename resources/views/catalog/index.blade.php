@@ -91,6 +91,10 @@
             <h1 class="sec-title" style="margin-top:0">{{ $heading }}</h1>
             @if ($category && filled($category->description))
                 <p class="sec-desc">{{ $category->description }}</p>
+            @elseif (request()->routeIs('books.offers'))
+                {{-- نصّ تعريفيّ فريد لصفحة العروض كي لا تكون نسخة مطابقة من /books
+                     (يمنع «Crawled – currently not indexed» بإعطائها قيمة مستقلّة). --}}
+                <p class="sec-desc">{{ __('catalog.offers_intro') }}</p>
             @endif
         </div>
 
@@ -187,6 +191,9 @@
                                         <li>• {{ $hint }}</li>
                                     @endforeach
                                 </ul>
+                            @elseif (request()->routeIs('books.offers'))
+                                <h2 class="sec-title" style="font-size:22px">{{ __('catalog.offers_empty_title') }}</h2>
+                                <p class="sec-desc">{{ __('catalog.offers_empty_hint') }}</p>
                             @else
                                 <h2 class="sec-title" style="font-size:22px">{{ __('catalog.empty_title') }}</h2>
                                 <p class="sec-desc">{{ __('catalog.empty_hint') }}</p>

@@ -107,6 +107,10 @@
             'name' => $seoName,
             'url' => $seoSiteUrl,
             'logo' => $seoLogo,
+            // وصف الكيان + مجالات معرفته: إشارات تُعرّف جوجل بماهيّة العلامة وتربطها
+            // بمجال «كتب الأطفال» عند بناء الكيان (يدعم لوحة المعرفة وربط «قصاقيص»).
+            'description' => (string) __('common.brand_description'),
+            'knowsAbout' => ['كتب الأطفال', 'قصص الأطفال', 'القراءة للأطفال', 'كتب تعليمية للأطفال'],
         ];
         if ($seoSameAs !== []) {
             $seoOrg['sameAs'] = $seoSameAs;
@@ -121,6 +125,12 @@
         $seoAltNames = is_array($seoBrandAlt)
             ? array_values(array_filter($seoBrandAlt, 'filled'))
             : [];
+
+        // نُثبت الأسماء البديلة على كيان المؤسسة أيضًا (لا WebSite فقط): Organization هو
+        // كيان العلامة الذي يبني عليه Google لوحة المعرفة وربط «قصاقيص» بالموقع.
+        if ($seoAltNames !== []) {
+            $seoOrg['alternateName'] = $seoAltNames;
+        }
 
         $seoWebSite = [
             '@context' => 'https://schema.org',
