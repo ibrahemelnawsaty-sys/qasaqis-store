@@ -6,6 +6,7 @@ namespace App\Observers;
 
 use App\Filament\Pages\OpsDashboard;
 use App\Models\Book;
+use Illuminate\Support\Str;
 
 /**
  * Keeps a book's Arabic search columns in sync on every write.
@@ -18,6 +19,21 @@ use App\Models\Book;
  */
 class BookObserver
 {
+    /** بادئة الرمز التلقائي — يميّزه عن رموز المورّدين (مثل «000102» من moon-edu). */
+    private const SKU_PREFIX = 'QSQ-';
+
+    /**
+     * توليد رمز منتج (SKU) فريد تلقائيًّا للكتب الجديدة التي تُحفَظ بلا رمز — فلا
+     * يُدخله الأدمن يدويًّا ولا يتكرّر. يُطلَق على الإنشاء فقط؛ رمز الكتاب القائم لا
+     * يتغيّر. من أدخل رمزًا يدويًّا يُحترَم (يُتحقّق تفرّده في النموذج/القاعدة).
+     */
+    public function creating(Book $book): void
+    {
+        if (blank($book->sku)) {
+            $book->sku = $this->generateUniqueSku();
+        }
+    }
+
     /**
      * Runs before both insert and update, so the normalized columns are written
      * inside the same query as the rest of the row — no extra save, no drift.
@@ -49,5 +65,19 @@ class BookObserver
     public function deleted(Book $book): void
     {
         OpsDashboard::flushDashboardCache();
+    }
+
+    /**
+     * رمز فريد: بادئة + 6 محارف عشوائية آمنة، مع إعادة المحاولة عند التصادم النادر
+     * (withTrashed كي لا يصطدم برمز محذوف ناعمًا يحمله فهرس التفرّد). قيد UNIQUE في
+     * القاعدة هو الضمان النهائي حتى تحت التزامن.
+     */
+    private function generateUniqueSku(): string
+    {
+        do {
+            $sku = self::SKU_PREFIX.Str::upper(Str::random(6));
+        } while (Book::withTrashed()->where('sku', $sku)->exists());
+
+        return $sku;
     }
 }

@@ -109,6 +109,8 @@ class BookResource extends Resource
                     Forms\Components\TextInput::make('sku')
                         ->label('رمز المنتج (SKU)')
                         ->maxLength(60)
+                        ->placeholder('يُولَّد تلقائيًّا')
+                        ->helperText('اتركه فارغًا ليُولَّد رمز فريد تلقائيًّا — لا حاجة لإدخاله يدويًّا (يمنع التكرار).')
                         ->unique(ignoreRecord: true),
 
                     Forms\Components\Select::make('category_id')
