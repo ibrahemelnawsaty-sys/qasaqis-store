@@ -98,10 +98,13 @@ class SeoAuditorTest extends TestCase
 
     public function test_article_without_excerpt_or_cover_warns(): void
     {
-        // لا يوجد ArticleFactory في المستودع، فنُنشئ المقال مباشرةً.
+        // المستودع يبذر مقالات أساسية عبر مِهجرة (بلا غلاف)، فنقيس الفارق لا العدد
+        // المطلق. لا يوجد ArticleFactory فنُنشئ المقال مباشرةً.
+        $before = $this->auditor()->run()->where('group', 'المقالات')->count();
+
         Article::create([
-            'title' => 'مقال',
-            'slug' => 'article-no-excerpt',
+            'title' => 'مقال اختبار بلا مقتطف',
+            'slug' => 'article-no-excerpt-audit',
             'excerpt' => '',
             'content' => 'نصّ المقال هنا.',
             'cover_image' => '',
@@ -112,9 +115,12 @@ class SeoAuditorTest extends TestCase
 
         $articles = $this->auditor()->run()->where('group', 'المقالات');
 
-        // تحذيران: لا مقتطف + لا صورة غلاف.
-        $this->assertCount(2, $articles);
-        $this->assertSame(2, $articles->where('severity', SeoFinding::WARNING)->count());
+        // مقالي يضيف تحذيرين: لا مقتطف + لا صورة غلاف.
+        $this->assertCount($before + 2, $articles);
+
+        $mine = $articles->where('label', 'مقال اختبار بلا مقتطف');
+        $this->assertCount(2, $mine);
+        $this->assertSame(2, $mine->where('severity', SeoFinding::WARNING)->count());
     }
 
     public function test_page_without_content_flags_danger(): void
