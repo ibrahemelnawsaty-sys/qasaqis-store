@@ -154,6 +154,25 @@
             'bestRating' => '5',
             'worstRating' => '1',
         ] : null,
+        // مراجعات فردية → مقتطفات مراجعة في نتائج البحث. من المراجعات المنشورة الظاهرة
+        // نفسها ($reviews — نفس ما يراه المستخدم، شرط Google: تطابق المحتوى المرئي) لا
+        // مخترعة. تُصدَر فقط حين توجد مراجعة حقيقية بمؤلّف؛ وإلا حذفها array_filter.
+        // لا تُزيَّف مراجعات أبدًا (عقوبة يدوية من Google).
+        'review' => $reviews->isNotEmpty()
+            ? $reviews->filter(fn ($r): bool => filled($r->author_name))->map(fn ($r): array => array_filter([
+                '@type' => 'Review',
+                'author' => ['@type' => 'Person', 'name' => $r->author_name],
+                'reviewRating' => [
+                    '@type' => 'Rating',
+                    'ratingValue' => (string) $r->rating,
+                    'bestRating' => '5',
+                    'worstRating' => '1',
+                ],
+                'name' => $r->title ?: null,
+                'reviewBody' => $r->body ?: null,
+                'datePublished' => $r->created_at?->toDateString(),
+            ]))->values()->all()
+            : null,
     ]);
 @endphp
 

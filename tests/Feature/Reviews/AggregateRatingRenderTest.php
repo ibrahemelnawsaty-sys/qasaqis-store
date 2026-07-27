@@ -58,4 +58,27 @@ class AggregateRatingRenderTest extends TestCase
 
         $this->assertStringNotContainsString('"aggregateRating"', $html);
     }
+
+    public function test_book_page_emits_individual_review_json_ld_from_real_reviews(): void
+    {
+        $book = Book::factory()->create(['is_published' => true]);
+        $this->publishReview($book, 5);
+
+        $html = $this->get(route('books.show', $book))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"review"', $html);
+        $this->assertStringContainsString('"@type":"Review"', $html);
+        $this->assertStringContainsString('"reviewRating"', $html);
+        $this->assertStringContainsString('أم يوسف', $html);                    // مؤلّف حقيقيّ
+        $this->assertStringContainsString('مراجعة منشورة لأغراض الاختبار', $html); // نصّ المراجعة
+    }
+
+    public function test_book_page_has_no_review_json_ld_without_reviews(): void
+    {
+        $book = Book::factory()->create(['is_published' => true]);
+
+        $html = $this->get(route('books.show', $book))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('"@type":"Review"', $html);
+    }
 }
