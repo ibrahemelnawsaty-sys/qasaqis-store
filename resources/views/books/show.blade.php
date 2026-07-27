@@ -84,6 +84,10 @@
     $shipFlat = (string) config('egypt.shipping.flat', '0.00');
     $hasShipRate = is_numeric($shipFlat) && (float) $shipFlat > 0;
 
+    // تاريخ بدء صلاحية العرض (validFrom): تاريخ نشر الكتاب (أو الإنشاء) — قيمة حقيقية
+    // لا مخترعة (بند 1.1). يُنهي تحذير «validFrom غير مضمَّن» في Search Console.
+    $offerValidFrom = ($book->published_at ?? $book->created_at)?->toDateString();
+
     $ld = array_filter([
         '@context' => 'https://schema.org',
         // Product يُضاف فقط حين يوجد سعر. مواصفة Google تشترط على Product أحد ثلاثة:
@@ -108,6 +112,8 @@
             '@type' => 'Offer',
             'price' => (string) $book->price,
             'priceCurrency' => 'EGP',
+            // بدء صلاحية العرض (تاريخ نشر الكتاب) — حقل مُوصى به في Merchant listings.
+            'validFrom' => $offerValidFrom,
             // صلاحية السعر (تلقائية، متجدّدة سنة): بلا هذا الحقل قد يعدّ Google العرض
             // «منتهيًا» فيُسقط نتيجة السعر. السعر مستمر بلا انتهاء فعليّ، فنمدّه سنة.
             'priceValidUntil' => now()->addYear()->toDateString(),

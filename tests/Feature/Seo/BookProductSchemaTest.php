@@ -64,4 +64,12 @@ class BookProductSchemaTest extends TestCase
             ->assertDontSee('OfferShippingDetails')  // لا نُعلن شحنًا بلا سعر حقيقي
             ->assertSee('MerchantReturnNotPermitted'); // سياسة الاسترجاع تبقى
     }
+
+    public function test_offer_includes_validity_dates(): void
+    {
+        $this->get(route('books.show', $this->pricedBook()))
+            ->assertOk()
+            ->assertSee('validFrom')        // بدء صلاحية العرض
+            ->assertSee('priceValidUntil'); // انتهاء صلاحية السعر
+    }
 }
