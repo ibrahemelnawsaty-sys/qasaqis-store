@@ -75,6 +75,36 @@ final class ImportBooksCategoryTest extends TestCase
         $this->assertSame(5, $book->stock_quantity);
     }
 
+    public function test_it_imports_into_the_arabic_language_section(): void
+    {
+        // قسم «اللغة العربية» تنشئه هجرة 2026_07_28_000001 التي يشغّلها RefreshDatabase
+        // (بطلب المالك، M13) — وجهة استيراد كتب اللغة/الفصحى من مورّد معتمد.
+        $this->assertTrue(
+            Category::query()->where('slug', 'arabic-language')->exists(),
+            'قسم اللغة العربية يجب أن تنشئه الهجرة تلقائيًّا.',
+        );
+
+        $feed = $this->feedFile([[
+            'handle' => 'fusha-juz-amma',
+            'title' => 'جزء عمّ — سعادتي في كتابي',
+            'vendor' => 'دار الفصحى',
+            'variants' => [['price' => '90.00', 'sku' => 'FUS-001']],
+            'images' => [],
+        ]]);
+
+        $this->artisan('books:import', [
+            'file' => $feed, '--category' => 'arabic-language', '--stock' => 5, '--publish' => true,
+        ])->assertSuccessful();
+
+        $book = Book::query()->where('title', 'جزء عمّ — سعادتي في كتابي')->firstOrFail();
+        $this->assertSame(
+            Category::query()->where('slug', 'arabic-language')->value('id'),
+            $book->category_id,
+        );
+        $this->assertSame('90.00', $book->price);
+        $this->assertTrue($book->is_published);
+    }
+
     public function test_it_uses_the_default_category_when_the_feed_has_none(): void
     {
         $stories = $this->stories();
