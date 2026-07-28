@@ -48,9 +48,13 @@ class IndexNowTest extends TestCase
 
     public function test_unpublished_book_does_not_ping(): void
     {
+        // القسم فعّال فيُبلّغ IndexNow عند الحفظ (كبقية المحتوى العام)؛ ننشئه قبل ضبط
+        // المفتاح والتزييف كي لا يُسجَّل بلاغه — الاختبار يقيس أن الكتاب **غير المنشور**
+        // وحده لا يُبلّغ، لا أنّ لا شيء في الموقع يُبلّغ.
+        $cat = Category::factory()->create();
+
         Http::fake();
         config(['seo.indexnow_key' => 'abc123def456']);
-        $cat = Category::factory()->create();
 
         Book::factory()->create(['category_id' => $cat->id, 'is_published' => false]);
 

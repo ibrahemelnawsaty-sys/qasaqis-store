@@ -8,6 +8,7 @@ use App\Models\Article;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Page;
+use App\Models\Series;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -207,6 +208,20 @@ class SitemapController extends Controller
                 $urls[] = [
                     'loc' => $this->abs('/blog/'.$article->slug),
                     'lastmod' => $this->stamp($article->updated_at),
+                    'changefreq' => 'weekly',
+                    'priority' => '0.6',
+                ];
+            });
+
+        // سلاسل الكتب الفعّالة (/series/{slug}) — كانت غائبة عن الخريطة فبقيت شبه يتيمة.
+        Series::query()
+            ->where('is_active', true)
+            ->select(['slug', 'updated_at'])
+            ->orderBy('id')
+            ->each(function (Series $series) use (&$urls): void {
+                $urls[] = [
+                    'loc' => $this->abs('/series/'.$series->slug),
+                    'lastmod' => $this->stamp($series->updated_at),
                     'changefreq' => 'weekly',
                     'priority' => '0.6',
                 ];

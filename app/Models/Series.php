@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\NotifiesIndexNow;
+use App\Models\Concerns\TracksSlugRedirects;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Series extends Model
 {
     /** @use HasFactory<\Database\Factories\SeriesFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, NotifiesIndexNow, SoftDeletes, TracksSlugRedirects;
 
     protected $table = 'series';
 
@@ -64,6 +66,20 @@ class Series extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /** الرابط العام للفهرسة الفورية (IndexNow) — السلسلة الفعّالة فقط، وإلا null. */
+    public function indexNowUrl(): ?string
+    {
+        return $this->is_active && filled($this->slug)
+            ? rtrim((string) config('seo.site_url'), '/').'/series/'.$this->slug
+            : null;
+    }
+
+    /** جذر مسار السلسلة لتوليد تحويل 301 تلقائي عند تغيّر الـslug. */
+    public function seoUrlBase(): string
+    {
+        return '/series';
     }
 
     public function getRouteKeyName(): string
