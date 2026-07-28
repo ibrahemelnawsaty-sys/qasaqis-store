@@ -103,8 +103,10 @@
         'sku' => $book->sku ?: null,
         'isbn' => $book->isbn ?: null,
         'numberOfPages' => $book->pages_count ?: null,
-        'brand' => ['@type' => 'Brand', 'name' => $book->publisher->name],
-        'publisher' => ['@type' => 'Organization', 'name' => $book->publisher->name],
+        // ناشر اختياري: كتاب بلا ناشر (استيراد بلا إسناد/ناشر محذوف) كان $book->publisher->name
+        // يرمي «property on null» فتُرجع الصفحة 500. نحرسه فيُحذف brand/publisher عبر array_filter.
+        'brand' => $book->publisher ? ['@type' => 'Brand', 'name' => $book->publisher->name] : null,
+        'publisher' => $book->publisher ? ['@type' => 'Organization', 'name' => $book->publisher->name] : null,
         'offers' => $hasPrice ? array_filter([
             '@type' => 'Offer',
             'price' => (string) $book->price,
