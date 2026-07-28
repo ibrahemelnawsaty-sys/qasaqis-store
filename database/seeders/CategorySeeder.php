@@ -12,6 +12,10 @@ use Illuminate\Database\Seeder;
  * including the currently-empty ones (روايات، كتب طفولة مبكرة) — and MUST NOT be
  * removed just because they hold no books yet. Slugs are explicit Latin/URL-safe
  * strings because Str::slug() strips pure-Arabic text to an empty string.
+ *
+ * «اللغة العربية» (arabic-language) أُضيف بطلب المالك (M13) كوجهة استيراد كتب
+ * اللغة/الفصحى من مورّد معتمد. 0.3 يمنع الحذف لا الإضافة المطلوبة. على الإنتاج
+ * المزروع سلفًا تُنزِله الهجرة 2026_07_28_000001 (idempotent، نفس الـ slug).
  */
 class CategorySeeder extends Seeder
 {
@@ -28,6 +32,7 @@ class CategorySeeder extends Seeder
             ['name' => 'قصص',               'slug' => 'stories',           'color_hex' => '#F2B705', 'description' => 'قصص أطفال مصوّرة مختارة بحبّ: حكايات قصيرة تزرع القيم وتنمّي الخيال واللغة لكل الأعمار. تصفّح مجموعة «قصاقيص أطفال» واقرأ لطفلك كل يوم.'],
             ['name' => 'كتب طفولة مبكرة',    'slug' => 'early-childhood',   'color_hex' => '#5B2A86', 'description' => 'كتب الطفولة المبكرة (٠–٥ سنوات): كتب أولى متينة بصور كبيرة وكلمات بسيطة تبني لغة طفلك وحبّه للكتاب مبكرًا. مجموعة «قصاقيص أطفال» المختارة.'],
             ['name' => 'كتب دينية',          'slug' => 'religious',         'color_hex' => '#F27405', 'description' => 'كتب دينية للأطفال بأسلوب محبّب: تعرّف طفلك على القيم والسيرة والأخلاق الإسلامية بلغة بسيطة ورسوم جميلة. اختيار «قصاقيص أطفال» بعناية.'],
+            ['name' => 'اللغة العربية',      'slug' => 'arabic-language',   'color_hex' => '#12B3A6', 'description' => 'كتب اللغة العربية والفصحى للأطفال: إصدارات لغوية إثرائية وأجزاء قرآنية ميسّرة تبني لغة طفلك وقراءته ونطقه السليم بأسلوب محبّب. مجموعة «قصاقيص أطفال» المختارة.'],
         ];
 
         foreach ($categories as $index => $category) {
