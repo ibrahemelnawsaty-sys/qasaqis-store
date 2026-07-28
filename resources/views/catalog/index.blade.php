@@ -26,6 +26,21 @@
         request()->routeIs('search') => null,
         default => route('books.index'),
     };
+
+    // تجاوزات الأدمن للقسم/السلسلة (seo_meta): canonical/robots/og — كانت معروضة في الأدمن
+    // لكن تُهمَل للقسم/السلسلة خلافًا لصفحات CMS. الرجوع للافتراضي عند الغياب.
+    $entitySeo = $seoEntity?->seo;
+    if (filled($entitySeo?->canonical_url)) {
+        $catalogCanonical = $entitySeo->canonical_url;
+    }
+    $catalogRobots = $entitySeo?->robots ?: null;
+    $catalogOgTitle = $entitySeo?->og_title ?: ($heading.' — '.__('common.brand'));
+    $catalogOgDescription = $entitySeo?->og_description ?: $catalogMetaDescription;
+    $catalogOgImage = filled($entitySeo?->og_image_path)
+        ? (\Illuminate\Support\Str::startsWith($entitySeo->og_image_path, ['http://', 'https://'])
+            ? $entitySeo->og_image_path
+            : asset('storage/'.ltrim($entitySeo->og_image_path, '/')))
+        : null;
 @endphp
 
 @section('meta_description', $catalogMetaDescription)
@@ -37,6 +52,19 @@
 {{-- نتائج البحث لا تُفهرس: محتوى مولَّد بلا قيمة مستقلة، وقد يولّد روابط لا نهائية. --}}
 @if (request()->routeIs('search'))
     @section('seo_robots', 'noindex, follow')
+@endif
+
+{{-- تجاوز robots للقسم/السلسلة (مثل noindex قسم بعينه). البحث مستثنى أعلاه (لا كيان له،
+     فـ$catalogRobots فارغ) فلا يتعارض القسمان. --}}
+@if ($catalogRobots)
+    @section('seo_robots', $catalogRobots)
+@endif
+
+@section('og_title', $catalogOgTitle)
+@section('og_description', $catalogOgDescription)
+
+@if ($catalogOgImage)
+    @section('og_image', $catalogOgImage)
 @endif
 
 {{-- يقابل مسار الفتات المرئي. صفحات البحث مستثناة: لا تُفهرس فلا قيمة لوسمها. --}}

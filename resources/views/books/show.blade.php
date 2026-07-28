@@ -176,10 +176,34 @@
 @section('title', $metaTitle)
 @section('meta_description', $metaDesc)
 
-{{-- og:image = غلاف الكتاب حين وُجد؛ وإلا يرث شعار العلامة من التخطيط (لا نخترع صورة).
-     كانت صفحات الكتب تعرض الشعار في معاينة المشاركة بدل الغلاف. --}}
-@if ($coverSrc)
-    @section('og_image', $coverSrc)
+@php
+    // تجاوزات SEO من لوحة الأدمن (seo_meta) — الرجوع للافتراضي عند الغياب (كما pages/show).
+    // تُمكّن ضبط noindex/canonical/og لكتاب بعينه (كانت الحقول معروضة في الأدمن لكن مُهمَلة).
+    $seoRobots = $book->seo?->robots ?: null;
+    $seoCanonical = filled($book->seo?->canonical_url) ? $book->seo->canonical_url : null;
+    $ogTitle = $book->seo?->og_title ?: $metaTitle;
+    $ogDescription = $book->seo?->og_description ?: $metaDesc;
+    // og:image: تجاوز الأدمن (og_image_path) ثم غلاف الكتاب ثم شعار التخطيط الافتراضي.
+    $ogImage = filled($book->seo?->og_image_path)
+        ? (\Illuminate\Support\Str::startsWith($book->seo->og_image_path, ['http://', 'https://'])
+            ? $book->seo->og_image_path
+            : asset('storage/'.ltrim($book->seo->og_image_path, '/')))
+        : $coverSrc;
+@endphp
+
+@section('og_title', $ogTitle)
+@section('og_description', $ogDescription)
+
+@if ($seoRobots)
+    @section('seo_robots', $seoRobots)
+@endif
+
+@if ($seoCanonical)
+    @section('seo_canonical', $seoCanonical)
+@endif
+
+@if ($ogImage)
+    @section('og_image', $ogImage)
 @endif
 
 @push('head')
