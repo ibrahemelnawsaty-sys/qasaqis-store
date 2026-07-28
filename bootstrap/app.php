@@ -40,6 +40,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // ~دقيقة عبر قفل ذرّي، فيعمل الطابور تلقائيًا بلا cron/خدمة خارجية اعتمادًا
         // على زيارات الموقع ونشاط اللوحة. عالميّ ليغطّي المتجر واللوحة معًا.
         $middleware->append(\App\Http\Middleware\KeepQueueAlive::class);
+
+        // ترويسات أمان على كل استجابة (منع التأطير/التضمين عبر النطاقات، nosniff، HSTS).
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     /*
      | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة:

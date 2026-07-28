@@ -5,22 +5,28 @@ declare(strict_types=1);
 namespace App\Services\Media;
 
 /**
- * يضع علامة العلامة المائية (شعار «قصاقيص أطفال») في وسط صورة الغلاف بشفافية، عبر GD
- * المضمّن (لا حزمة خارجية). يحمي الملكية: حتى لو نُسخت الصورة تبقى موسومة باسمك.
+ * يعالج صورة الغلاف للعرض العام: (١) يصغّرها إلى دقّة عرض (يبقى الأصل عالي الدقّة
+ * خاصًّا فلا تنفع النسخة المسروقة للطباعة/إعادة البيع)، و(٢) يضع الشعار بشفافية في
+ * الزاوية السفلى (حاضر لكن غير مزعج للزائر). GD المضمّن (بلا حزمة).
  *
- * صامد للأعطال: يعيد null عند أي فشل (GD مفقود، صورة تالفة، شعار غائب) فيخدم المتحكّم
- * الأصل كما هو — الصورة لا تنكسر أبدًا. الشعار يُحمَّل مرّة ويُعاد استخدامه.
+ * صامد: يعيد null عند أي فشل فيخدم المتحكّم الأصل — الصورة لا تنكسر أبدًا.
  */
 class CoverWatermark
 {
-    /** عرض الشعار كنسبة من عرض الغلاف. */
-    private const SCALE = 0.42;
+    /** أقصى ضلع للنسخة العامة (px). العرض على الشاشة أصغر بكثير؛ الأصل يبقى كامل الدقّة. */
+    private const MAX_EDGE = 1400;
 
-    /** شفافية العلامة (0 = خفيّة، 1 = صريحة). */
-    private const OPACITY = 0.30;
+    /** عرض الشعار كنسبة من عرض الصورة (زاوية صغيرة). */
+    private const SCALE = 0.26;
+
+    /** شفافية العلامة (0 = خفيّة، 1 = صريحة) — خفيفة كي لا تُضايق. */
+    private const OPACITY = 0.32;
+
+    /** هامش الزاوية كنسبة من العرض. */
+    private const MARGIN = 0.03;
 
     /**
-     * يعيد بايتات JPEG للصورة موسومةً، أو null عند تعذّر المعالجة.
+     * يعيد بايتات JPEG للصورة (مصغّرة + موسومة)، أو null عند تعذّر المعالجة.
      */
     public function apply(string $sourceAbsPath): ?string
     {
@@ -41,13 +47,23 @@ class CoverWatermark
         $w = imagesx($src);
         $h = imagesy($src);
 
-        // تسطيح على خلفية بيضاء (أغلفة PNG الشفّافة تخرج نظيفة كـJPEG).
-        $canvas = imagecreatetruecolor($w, $h);
-        imagefilledrectangle($canvas, 0, 0, $w, $h, imagecolorallocate($canvas, 255, 255, 255));
-        imagecopy($canvas, $src, 0, 0, 0, 0, $w, $h);
+        // دقّة الهدف: تصغير إن تجاوز الضلع الأطول MAX_EDGE (يحمي قيمة الأصل عالي الدقّة).
+        $targetW = $w;
+        $targetH = $h;
+        $maxEdge = max($w, $h);
+        if ($maxEdge > self::MAX_EDGE) {
+            $ratio = self::MAX_EDGE / $maxEdge;
+            $targetW = max(1, (int) round($w * $ratio));
+            $targetH = max(1, (int) round($h * $ratio));
+        }
+
+        // لوحة بيضاء (تسطيح الشفافية) + رسم المصدر بدقّة الهدف.
+        $canvas = imagecreatetruecolor($targetW, $targetH);
+        imagefilledrectangle($canvas, 0, 0, $targetW, $targetH, imagecolorallocate($canvas, 255, 255, 255));
+        imagecopyresampled($canvas, $src, 0, 0, 0, 0, $targetW, $targetH, $w, $h);
         imagedestroy($src);
 
-        $this->stampLogo($canvas, $w, $h);
+        $this->stampLogo($canvas, $targetW, $targetH);
 
         ob_start();
         $ok = imagejpeg($canvas, null, 82);
@@ -71,7 +87,7 @@ class CoverWatermark
     }
 
     /**
-     * يرسم الشعار الشفّاف في وسط اللوحة. أي فشل يُتجاهَل (تبقى الصورة بلا علامة خير من لا صورة).
+     * يرسم الشعار الشفّاف في الزاوية السفلى (يمين). أي فشل يُتجاهَل (تبقى الصورة بلا علامة).
      */
     private function stampLogo(\GdImage $canvas, int $w, int $h): void
     {
@@ -91,7 +107,6 @@ class CoverWatermark
         $targetW = max(1, (int) round($w * self::SCALE));
         $targetH = max(1, (int) round($lh * ($targetW / $lw)));
 
-        // شعار مصغّر بقناة ألفا محفوظة.
         $scaled = imagecreatetruecolor($targetW, $targetH);
         imagealphablending($scaled, false);
         imagesavealpha($scaled, true);
@@ -99,7 +114,7 @@ class CoverWatermark
         imagecopyresampled($scaled, $logo, 0, 0, 0, 0, $targetW, $targetH, $lw, $lh);
         imagedestroy($logo);
 
-        // خفض الشفافية إلى OPACITY (كل بكسل: نزيد ألفا نحو الشفاف).
+        // خفض الشفافية إلى OPACITY.
         for ($y = 0; $y < $targetH; $y++) {
             for ($x = 0; $x < $targetW; $x++) {
                 $c = imagecolorat($scaled, $x, $y);
@@ -110,8 +125,10 @@ class CoverWatermark
             }
         }
 
-        $dx = (int) round(($w - $targetW) / 2);
-        $dy = (int) round(($h - $targetH) / 2);
+        // الزاوية السفلى اليمنى بهامش.
+        $margin = (int) round($w * self::MARGIN);
+        $dx = max(0, $w - $targetW - $margin);
+        $dy = max(0, $h - $targetH - $margin);
 
         imagealphablending($canvas, true);
         imagecopy($canvas, $scaled, $dx, $dy, 0, 0, $targetW, $targetH);

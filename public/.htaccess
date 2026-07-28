@@ -5,6 +5,12 @@
 
     RewriteEngine On
 
+    # حجب زواحف الذكاء الاصطناعي والسحب المعروفة عند الخادم (يعزّز robots.txt ويوقف
+    # من يتجاهله). لا يشمل Googlebot/Bingbot ولا facebookexternalhit/WhatsApp (معاينات
+    # الروابط والفهرسة سليمة). عند أي مشكلة: علّق السطرين التاليين وحدهما.
+    RewriteCond %{HTTP_USER_AGENT} (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|anthropic-ai|Claude-Web|CCBot|PerplexityBot|Bytespider|Amazonbot|ImagesiftBot|Diffbot|cohere-ai|DuckAssistBot|YouBot|Omgilibot|Scrapy) [NC]
+    RewriteRule .* - [F,L]
+
     # توحيد المضيف: www نسخة كاملة مكرّرة من الموقع (كل صفحة متاحة على المضيفين،
     # وكل واحد يجعل نفسه canonical لأن url()->current() يبني الرابط من ترويسة Host).
     # نثبّت النطاق المجرّد لأن sitemap و JSON-LD وكل الروابط الداخلية تشير إليه.
@@ -31,6 +37,13 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ===== منع تصفّح الفهارس والوصول للملفات الحسّاسة (تحصين دفاعيّ) =====
+Options -Indexes
+
+<FilesMatch "\.(env|log|sql|bak|sh|lock|dist)$">
+    Require all denied
+</FilesMatch>
 
 # ===== الأداء: تخزين مؤقت طويل للأصول الثابتة + ضغط =====
 <IfModule mod_headers.c>
