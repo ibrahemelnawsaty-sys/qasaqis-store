@@ -96,7 +96,9 @@
 @endphp
 
 <footer class="ft">
-    <div class="wrap">
+    {{-- data-nosnippet: التذييل (حقوق النشر + روابط) زخرفة متكرّرة؛ نمنع جوجل من
+         اقتباسها في المقتطف فلا يظهر «© كل الحقوق محفوظة…» بدل وصف الصفحة. --}}
+    <div class="wrap" data-nosnippet>
         <div class="ft-grid">
             <div>
                 <a class="logo" href="{{ route('home') }}" aria-label="{{ __('common.brand') }}">

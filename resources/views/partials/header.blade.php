@@ -217,8 +217,10 @@
     @endpush
 @endonce
 
+{{-- data-nosnippet: يمنع جوجل من اقتباس الهيدر/القائمة في مقتطف نتائج البحث،
+     فيستعمل وصف الميتا بدل التقاط روابط التنقّل والشعار (تحسين مقتطف، لا يؤثّر على الفهرسة). --}}
 <header>
-    <div class="nav">
+    <div class="nav" data-nosnippet>
         <div class="nav-brand">
             {{-- بحث سطح المكتب (Alpine store مشترك) — يُخفى على الجوال؛ البحث هناك في الشريط السفلي.
                  x-init يضبط النص الحالي من الرابط. الفهرس يُحمَّل كسولًا عند التركيز على
@@ -282,7 +284,7 @@
     {{-- شريط التنقّل: روابطه تُدار من «القوائم» (قائمة location=header) فلا تتكرّر مع
          روابط ثابتة؛ والأقسام تُضاف تلقائيًا من «الأقسام» فيظهر الجديد منها بلا عمل يدوي. --}}
     <nav class="catstrip" aria-label="{{ __('nav.categories') }}">
-        <div class="wrap">
+        <div class="wrap" data-nosnippet>
             @if ($stripLinks->isNotEmpty())
                 @foreach ($stripLinks as $link)
                     <a class="catlink" href="{{ $link['url'] }}"@if ($link['target'] === '_blank') target="_blank" rel="noopener"@endif>
