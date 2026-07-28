@@ -221,9 +221,12 @@
     <div class="nav">
         <div class="nav-brand">
             {{-- بحث سطح المكتب (Alpine store مشترك) — يُخفى على الجوال؛ البحث هناك في الشريط السفلي.
-                 x-init يضبط النص الحالي من الرابط ويُحمّل الفهرس مرّة واحدة. --}}
+                 x-init يضبط النص الحالي من الرابط. الفهرس يُحمَّل كسولًا عند التركيز على
+                 حقل البحث (أدناه)، لا عند فتح الصفحة — فلا يجلبه Googlebot عند التصيير
+                 (يحجبه robots) ولا يُثقَّل كل زائر لا يبحث. يُحمَّل فورًا فقط إن كان في
+                 الرابط استعلام بحث مسبق (صفحة النتائج) كي تجهز الاقتراحات. --}}
             <div class="searchbar-wrap nav-search"
-                x-init="$store.search.q = @js((string) request('q')); $store.search.load()"
+                x-init="$store.search.q = @js((string) request('q')); if ($store.search.q.trim()) $store.search.load()"
                 @click.outside="$store.search.close()">
                 <form class="searchbar" action="{{ route('search') }}" method="get" role="search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
@@ -235,7 +238,7 @@
                         role="combobox" aria-controls="search-suggest" aria-autocomplete="list"
                         :aria-expanded="$store.search.open.toString()"
                         @input="$store.search.filter()"
-                        @focus="$store.search.reopen()"
+                        @focus="$store.search.load(); $store.search.reopen()"
                         @keydown.arrow-down.prevent="$store.search.move(1)"
                         @keydown.arrow-up.prevent="$store.search.move(-1)"
                         @keydown.enter="$store.search.onEnter($event)"
@@ -425,7 +428,7 @@
                     placeholder="{{ __('common.search_placeholder') }}"
                     aria-label="{{ __('common.search_placeholder') }}"
                     aria-controls="s-ov-results" role="combobox" aria-autocomplete="list"
-                    x-init="$store.search.load(); $watch('searchOpen', v => { if (v) { $store.search.load(); $nextTick(() => $el.focus()); } })">
+                    x-init="$watch('searchOpen', v => { if (v) { $store.search.load(); $nextTick(() => $el.focus()); } })">
             </form>
             <button type="button" class="icon-btn" @click="searchOpen = false"
                 aria-label="{{ __('common.close') }}"><x-ui-icon name="close" /></button>
