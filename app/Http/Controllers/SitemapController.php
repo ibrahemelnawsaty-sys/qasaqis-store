@@ -87,7 +87,8 @@ class SitemapController extends Controller
         $urls = $this->urls();
 
         $lines = ['<?xml version="1.0" encoding="UTF-8"?>'];
-        $lines[] = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        $lines[] = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+            .' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">';
 
         foreach ($urls as $url) {
             $lines[] = '  <url>';
@@ -99,6 +100,12 @@ class SitemapController extends Controller
 
             $lines[] = '    <changefreq>'.$url['changefreq'].'</changefreq>';
             $lines[] = '    <priority>'.$url['priority'].'</priority>';
+
+            // صور المنتج (أغلفة الكتب) — يساعد اكتشاف Google Images لمتجر بصريّ (371 غلافًا).
+            foreach ($url['images'] ?? [] as $image) {
+                $lines[] = '    <image:image><image:loc>'.$this->esc($image).'</image:loc></image:image>';
+            }
+
             $lines[] = '  </url>';
         }
 
@@ -174,14 +181,19 @@ class SitemapController extends Controller
         // الكتب المنشورة فقط.
         Book::query()
             ->where('is_published', true)
-            ->select(['slug', 'updated_at'])
+            ->select(['id', 'slug', 'updated_at', 'cover_image'])
             ->orderBy('id')
             ->each(function (Book $book) use (&$urls): void {
+                // coverUrl() يعطي الرابط المخدوم فعلًا (http خارجي / أصل ثابت / مسار /media)،
+                // ويرجع null بلا غلاف فلا نُصدر image:loc فارغًا.
+                $cover = $book->coverUrl();
+
                 $urls[] = [
                     'loc' => $this->abs('/books/'.$book->slug),
                     'lastmod' => $this->stamp($book->updated_at),
                     'changefreq' => 'weekly',
                     'priority' => '0.8',
+                    'images' => $cover !== null ? [$cover] : [],
                 ];
             });
 
