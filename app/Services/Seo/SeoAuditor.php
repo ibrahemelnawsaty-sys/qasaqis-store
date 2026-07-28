@@ -12,6 +12,7 @@ use App\Models\Article;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Page;
+use App\Support\Seo\SeoDefaults;
 use Illuminate\Support\Collection;
 
 /**
@@ -39,6 +40,7 @@ class SeoAuditor
             ->concat($this->auditArticles())
             ->concat($this->auditPages())
             ->concat($this->auditCategories())
+            ->concat($this->auditDuplicates())
             ->concat($this->auditSite());
 
         $order = [SeoFinding::DANGER => 0, SeoFinding::WARNING => 1, SeoFinding::INFO => 2];
@@ -183,6 +185,77 @@ class SeoAuditor
                         $this->editUrl(CategoryResource::class, $category->getKey()));
                 }
             });
+
+        return $out;
+    }
+
+    /**
+     * يكشف العناوين المكرّرة بين الصفحات المنشورة (تنافس داخلي / keyword cannibalization):
+     * صفحتان بعنوان ميتا واحد تتنافسان على نفس الاستعلام في جوجل فتُضعفان بعضهما. يجزّئ على
+     * **العنوان الفعّال المُصدَر فعلًا** لكل كيان (تجاوز الأدمن المخزّن ?: مشتقّ SeoDefaults)
+     * مطابقًا للقوالب (books/blog/pages show)، فلا إيجابيات كاذبة عند اختلاف تجاوزَين ولا
+     * سلبيات كاذبة عند توحيد عنوانين بتجاوز واحد. يحمّل أعمدة/علاقة العنوان فقط (خفيف).
+     *
+     * @return array<int, SeoFinding>
+     */
+    private function auditDuplicates(): array
+    {
+        /** @var array<string, array<int, array{group: string, label: string, url: string|null}>> $seen */
+        $seen = [];
+
+        $collect = function (iterable $models, string $group, string $resource, callable $effectiveTitle) use (&$seen): void {
+            foreach ($models as $model) {
+                $title = trim((string) $effectiveTitle($model));
+
+                if ($title === '') {
+                    continue;
+                }
+
+                $seen[mb_strtolower($title)][] = [
+                    'group' => $group,
+                    'label' => (string) ($model->title ?? $model->name ?? $title),
+                    'url' => $this->editUrl($resource, $model->getKey()),
+                ];
+            }
+        };
+
+        // العنوان الفعّال = التجاوز المخزّن (seo->meta_title / seo_title) أولًا، وإلا مشتقّ
+        // SeoDefaults (يُلحق العلامة) — تمامًا كما يبنيه القالب المقابل لكل نوع.
+        $collect(
+            Book::query()->where('is_published', true)->with('seo')->get(['id', 'title']), 'الكتب', BookResource::class,
+            fn (Book $b): string => filled($b->seo?->meta_title) ? (string) $b->seo->meta_title : SeoDefaults::title($b),
+        );
+        $collect(
+            Article::query()->where('is_published', true)->get(['id', 'title', 'seo_title']), 'المقالات', ArticleResource::class,
+            fn (Article $a): string => filled($a->seo_title) ? (string) $a->seo_title : SeoDefaults::title($a),
+        );
+        $collect(
+            Page::query()->where('is_published', true)->with('seo')->get(['id', 'title']), 'الصفحات', PageResource::class,
+            fn (Page $p): string => filled($p->seo?->meta_title) ? (string) $p->seo->meta_title : SeoDefaults::title($p),
+        );
+        // القسم: لا يُطبّق تجاوز meta_title على <title> صفحة التصفّح (تستعمل $heading)، فالمشتقّ أقرب.
+        $collect(
+            Category::query()->where('is_active', true)->get(['id', 'name']), 'الأقسام', CategoryResource::class,
+            fn (Category $c): string => SeoDefaults::title($c),
+        );
+
+        $out = [];
+
+        foreach ($seen as $items) {
+            if (count($items) < 2) {
+                continue;
+            }
+
+            foreach ($items as $item) {
+                $out[] = new SeoFinding(
+                    SeoFinding::WARNING,
+                    $item['group'],
+                    $item['label'],
+                    'عنوان مكرّر مع '.(count($items) - 1).' صفحة أخرى بنفس العنوان — تتنافس على نفس الكلمة في جوجل (تنافس داخلي). ميّز العناوين.',
+                    $item['url'],
+                );
+            }
+        }
 
         return $out;
     }

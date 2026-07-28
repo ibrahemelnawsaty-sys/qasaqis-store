@@ -35,8 +35,8 @@ class SeoAudit extends Page
 
     protected static string $view = 'filament.pages.seo-audit';
 
-    /** مفتاح تخزين ملخّص الشارة (يُحدَّث كل ربع ساعة أو عند إعادة الفحص يدويًا). */
-    private const BADGE_CACHE_KEY = 'seo.audit.summary';
+    /** مفتاح تخزين ملخّص الشارة (يُحدَّث كل ربع ساعة، أو عند إعادة الفحص يدويًا، أو من أمر seo:audit المجدول). */
+    public const BADGE_CACHE_KEY = 'seo.audit.summary';
 
     public static function canAccess(): bool
     {
