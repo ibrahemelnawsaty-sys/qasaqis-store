@@ -8,6 +8,27 @@ Disallow: /search/index.json
 Disallow: /coupon/
 Disallow: /inquiries
 
+# حجب زواحف الذكاء الاصطناعي — لا تسحب المحتوى والصور للتدريب. لا يؤثّر على فهرسة
+# Google في البحث (Googlebot غير محجوب؛ Google-Extended خاصّ بتدريب الذكاء فقط).
+# ملاحظة: هذا التزامٌ طوعيّ تحترمه الروبوتات الملتزمة؛ الحجب الحاسم عبر Cloudflare.
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: CCBot
+User-agent: Google-Extended
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: Claude-Web
+User-agent: PerplexityBot
+User-agent: Bytespider
+User-agent: Amazonbot
+User-agent: Applebot-Extended
+User-agent: Meta-ExternalAgent
+User-agent: ImagesiftBot
+User-agent: Diffbot
+User-agent: Omgilibot
+Disallow: /
+
 # ملاحظة مقصودة: صفحات المعاملات (/cart و /checkout و /search و /orders/) تحمل
 # noindex في وسومها ولا تُحجب هنا. الحجب بـ robots.txt يمنع الزحف، فلا يرى Google
 # وسم noindex أصلًا — ويظل قادرًا على فهرسة الرابط عاريًا إن أشار إليه رابط خارجي.

@@ -44,7 +44,16 @@ class SitemapController extends Controller
         // يطابق public/robots.txt الساكن — أي تباعد بينهما يعني سلوكًا مختلفًا بين
         // الإنتاج (الساكن) وبيئة التطوير (هذا المسار). صفحات المعاملات غير محجوبة
         // عمدًا: تحمل noindex، والحجب هنا كان سيمنع Google من رؤيته أصلًا.
-        $body = implode("\n", [
+        // زواحف الذكاء الاصطناعي المحجوبة (تطابق public/robots.txt) — لا تسحب المحتوى
+        // والصور للتدريب. لا تمسّ Googlebot (فهرسة البحث)؛ Google-Extended للتدريب فقط.
+        $aiBots = [
+            'GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'CCBot', 'Google-Extended',
+            'ClaudeBot', 'anthropic-ai', 'Claude-Web', 'PerplexityBot', 'Bytespider',
+            'Amazonbot', 'Applebot-Extended', 'Meta-ExternalAgent', 'ImagesiftBot',
+            'Diffbot', 'Omgilibot',
+        ];
+
+        $lines = [
             'User-agent: *',
             'Disallow: /admin',
             'Disallow: /search/suggest',
@@ -52,9 +61,17 @@ class SitemapController extends Controller
             'Disallow: /coupon/',
             'Disallow: /inquiries',
             '',
-            'Sitemap: '.$site.'/sitemap.xml',
-            '',
-        ]);
+        ];
+
+        foreach ($aiBots as $bot) {
+            $lines[] = 'User-agent: '.$bot;
+        }
+        $lines[] = 'Disallow: /';
+        $lines[] = '';
+        $lines[] = 'Sitemap: '.$site.'/sitemap.xml';
+        $lines[] = '';
+
+        $body = implode("\n", $lines);
 
         return response($body, 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',

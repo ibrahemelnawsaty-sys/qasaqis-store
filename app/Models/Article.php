@@ -84,6 +84,27 @@ class Article extends Model
         return '/blog';
     }
 
+    /**
+     * رابط غلاف المقال الموسوم بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage).
+     */
+    public function coverUrl(): ?string
+    {
+        if (blank($this->cover_image)) {
+            return null;
+        }
+
+        if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+            return $this->cover_image;
+        }
+
+        // أصل ثابت مشحون (public/images، أغلفة المقالات المبذورة) — يُخدَم مباشرةً.
+        if (str_starts_with($this->cover_image, 'images/')) {
+            return asset($this->cover_image);
+        }
+
+        return route('media.article', $this);
+    }
+
     // ----- Routing -------------------------------------------------------
 
     public function getRouteKeyName(): string

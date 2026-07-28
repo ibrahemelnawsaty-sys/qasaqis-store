@@ -102,24 +102,13 @@ final class SeoDefaults
      */
     public static function ogImage(Model $model): ?string
     {
-        $path = trim((string) match (true) {
-            $model instanceof Book => $model->cover_image,
-            $model instanceof Article => $model->cover_image,
-            default => '',
-        });
-
-        if ($path === '') {
-            return null;
-        }
-
-        if (Str::startsWith($path, ['http://', 'https://'])) {
-            return $path;
-        }
-
-        // أصول مجمّعة (images/…) تُخدَم مباشرةً؛ وإلا فهي في التخزين العام (storage/…).
-        return Str::startsWith($path, 'images/')
-            ? asset($path)
-            : asset('storage/'.ltrim($path, '/'));
+        // يُفوَّض إلى coverUrl() على النموذج: الغلاف موسومًا بالعلامة المائية (عبر مسار
+        // بالمعرّف لا يكشف /storage) للأصول المخزّنة، وأصلًا مباشرًا للخارجيّ/المجمّع.
+        return match (true) {
+            $model instanceof Book => $model->coverUrl(),
+            $model instanceof Article => $model->coverUrl(),
+            default => null,
+        };
     }
 
     /** أول قيمة غير فارغة بعد التشذيب، أو '' إن غابت كلها. */

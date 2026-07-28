@@ -151,11 +151,7 @@
                     @foreach ($related as $rel)
                         @php
                             $pair = $blogPalettes[(int) $rel->id % count($blogPalettes)];
-                            $relCover = filled($rel->cover_image)
-                                ? (\Illuminate\Support\Str::startsWith($rel->cover_image, ['http://', 'https://'])
-                                    ? $rel->cover_image
-                                    : asset('storage/' . ltrim($rel->cover_image, '/')))
-                                : null;
+                            $relCover = $rel->coverUrl(); // موسوم بالعلامة المائية
                             $relUrl = route('blog.show', $rel);
                         @endphp
                         <article style="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line, rgba(0,0,0,.06));border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.05)">

@@ -36,4 +36,20 @@ class BookImage extends Model
     {
         return $this->belongsTo(Book::class);
     }
+
+    /**
+     * رابط الصورة الموسوم بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage).
+     */
+    public function url(): ?string
+    {
+        if (blank($this->path)) {
+            return null;
+        }
+
+        if (str_starts_with($this->path, 'http://') || str_starts_with($this->path, 'https://')) {
+            return $this->path;
+        }
+
+        return route('media.image', $this);
+    }
 }

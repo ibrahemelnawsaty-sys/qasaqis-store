@@ -26,6 +26,7 @@ use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
 use App\Http\Controllers\Storefront\PaymentCallbackController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
 use App\Http\Controllers\Storefront\ReviewController;
@@ -72,6 +73,11 @@ Route::get('/tasks/run/{token}', TaskRunnerController::class)
 // في الإنتاج يخدم public/robots.txt الساكن أولًا؛ يبقى المسار عاملًا حين يغيب.
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
+
+// صور الكتب/المقالات موسومةً بالعلامة المائية (بالمعرّف/slug فلا يُكشف اسم الملف الأصلي).
+Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
+Route::get('/media/image/{image}', [MediaController::class, 'bookImage'])->name('media.image');
+Route::get('/media/article/{article:slug}', [MediaController::class, 'articleCover'])->name('media.article');
 
 // ملف مفتاح IndexNow: تطلبه محرّكات البحث للتحقّق من ملكية النطاق. يخدم المفتاح
 // المضبوط فقط (hash_equals)، و404 إن لم يُضبط أو لم يطابق. النمط ({8,128}) يمنع

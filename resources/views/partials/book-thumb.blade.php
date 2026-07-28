@@ -7,12 +7,7 @@
         ['#FF8A2A', '#FFC23C'], ['#6E2FB0', '#12B3A6'], ['#4FB0E8', '#12B3A6'],
     ];
     $pair = $palettes[(int) ($book->id ?? 0) % count($palettes)];
-    $cover = $book->cover_image ?? null;
-    $src = filled($cover)
-        ? (\Illuminate\Support\Str::startsWith($cover, ['http://', 'https://'])
-            ? $cover
-            : asset('storage/' . ltrim($cover, '/')))
-        : null;
+    $src = $book->coverUrl(); // موسوم بالعلامة المائية
 @endphp
 <span class="co-thumb" style="background:linear-gradient(150deg,{{ $pair[0] }},{{ $pair[1] }})">
     @if ($src)

@@ -137,6 +137,28 @@ class Book extends Model
         return '/books';
     }
 
+    /**
+     * رابط الغلاف الموسوم بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage). يعيد
+     * الرابط الخارجي كما هو، وnull حين لا غلاف (فيُعرض البديل). لا يُستعمَل في لوحة الإدارة.
+     */
+    public function coverUrl(): ?string
+    {
+        if (blank($this->cover_image)) {
+            return null;
+        }
+
+        if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+            return $this->cover_image;
+        }
+
+        // أصل ثابت مشحون (public/images) لا يمرّ بالتخزين — يُخدَم مباشرةً بلا علامة.
+        if (str_starts_with($this->cover_image, 'images/')) {
+            return asset($this->cover_image);
+        }
+
+        return route('media.book', $this);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(BookImage::class)->orderBy('sort_order');

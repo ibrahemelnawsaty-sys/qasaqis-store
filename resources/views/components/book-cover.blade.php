@@ -17,13 +17,8 @@
     ];
     $pair = $palettes[(int) ($book->id ?? 0) % count($palettes)];
 
-    $cover = $book->cover_image ?? null;
-    $src = null;
-    if (filled($cover)) {
-        $src = \Illuminate\Support\Str::startsWith($cover, ['http://', 'https://'])
-            ? $cover
-            : asset('storage/' . ltrim($cover, '/'));
-    }
+    // رابط الغلاف موسومًا بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage).
+    $src = $book->coverUrl();
 
     $coverClass = $variant === 'pdp' ? 'pdp-cover' : 'cover';
     $style = 'background:linear-gradient(150deg,' . $pair[0] . ',' . $pair[1] . ')';

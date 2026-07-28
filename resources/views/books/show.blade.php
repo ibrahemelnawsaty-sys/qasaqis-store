@@ -46,24 +46,21 @@
     // الغلاف مخزَّن مرّتين: عمود cover_image + صف is_cover في book_images. لذا نبني
     // القائمة من عمود الغلاف ثم نضمّ بقية الصور مع استبعاد صف الغلاف (is_cover) وأي
     // صورة يطابق مصدرها الغلاف، حتى لا يتكرر الغلاف ولا تُحجب صورة حقيقية بلا داعٍ.
-    $resolveImageUrl = static fn (string $path): string => \Illuminate\Support\Str::startsWith($path, ['http://', 'https://'])
-        ? $path
-        : asset('storage/' . ltrim($path, '/'));
-
+    // روابط صور المعرض موسومةً بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage).
     $coverIsImage = filled($book->cover_image);
-    $coverSrc = $coverIsImage ? $resolveImageUrl($book->cover_image) : null;
+    $coverSrc = $book->coverUrl();
 
     $galleryImages = [];
-    if ($coverIsImage) {
+    if ($coverIsImage && $coverSrc) {
         $galleryImages[] = ['src' => $coverSrc, 'alt' => $book->title];
     }
     // نستبعد صف الغلاف فقط عندما يوجد غلاف في العمود فعلاً؛ وإلا (عمود فارغ + صف
-    // is_cover) نُبقيه ليظهر في المعرض بدل أن يختفي تمامًا.
+    // is_cover) نُبقيه ليظهر في المعرض بدل أن يختفي تمامًا. المطابقة بالمسار المخزّن.
     $extraImages = $book->images
-        ->reject(fn ($img) => $coverIsImage && ($img->is_cover || $resolveImageUrl($img->path) === $coverSrc));
+        ->reject(fn ($img) => $coverIsImage && ($img->is_cover || $img->path === $book->cover_image));
     foreach ($extraImages as $img) {
         $galleryImages[] = [
-            'src' => $resolveImageUrl($img->path),
+            'src' => $img->url(),
             'alt' => $img->alt ?: __('book.gallery_thumb_alt', ['title' => $book->title]),
         ];
     }
@@ -445,11 +442,7 @@
                             @foreach ($seriesBooks as $sb)
                                 @php
                                     $isCurrent = (int) $sb->id === (int) $book->id;
-                                    $sbCover = filled($sb->cover_image)
-                                        ? (\Illuminate\Support\Str::startsWith($sb->cover_image, ['http://', 'https://'])
-                                            ? $sb->cover_image
-                                            : asset('storage/' . ltrim($sb->cover_image, '/')))
-                                        : null;
+                                    $sbCover = $sb->coverUrl(); // موسوم بالعلامة المائية
                                 @endphp
                                 <a class="series-item {{ $isCurrent ? 'is-current' : '' }}"
                                     @if ($isCurrent) aria-current="true" @else href="{{ route('books.show', $sb) }}" @endif

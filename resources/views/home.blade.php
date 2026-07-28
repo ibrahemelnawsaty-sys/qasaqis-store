@@ -449,13 +449,7 @@
                     @foreach ($articles as $article)
                         @php
                             $pair = $blogPalettes[(int) $article->id % count($blogPalettes)];
-                            $coverSrc = filled($article->cover_image)
-                                ? (\Illuminate\Support\Str::startsWith($article->cover_image, ['http://', 'https://'])
-                                    ? $article->cover_image
-                                    : (\Illuminate\Support\Str::startsWith($article->cover_image, 'images/')
-                                        ? asset($article->cover_image)
-                                        : asset('storage/' . ltrim($article->cover_image, '/'))))
-                                : null;
+                            $coverSrc = $article->coverUrl(); // موسوم بالعلامة المائية
                             $articleUrl = route('blog.show', $article);
                         @endphp
                         <article style="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line, rgba(0,0,0,.06));border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.05)">
