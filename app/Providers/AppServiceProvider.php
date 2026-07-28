@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Enums\PatternSurface;
+use App\Models\Article;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Expense;
+use App\Models\HomepageBlock;
+use App\Models\HomepageSection;
 use App\Models\Menu;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -120,6 +123,15 @@ class AppServiceProvider extends ServiceProvider
                 }
             });
             $linkableModel::deleted(static fn (): mixed => StorefrontCache::forgetMenus());
+        }
+
+        // إبطال كاش الرئيسية المجمّع عند تغيّر أيٍّ من مصادره. الرئيسية أكثر الصفحات
+        // زيارةً فنُبقيها طازجة بإبطال صريح (لا نكتفي بـTTL)، والقراءات الهائلة للزوّار
+        // تبقى من الكاش. أحداث الموديل تلتقط كل مسارات الكتابة (Filament/بذر/tinker).
+        // Book مشمول لأن الأقسام التلقائية (الأحدث/الأكثر مبيعًا) تُشتقّ من الكتب.
+        foreach ([HomepageBlock::class, HomepageSection::class, Review::class, Article::class, Book::class, Category::class] as $homeModel) {
+            $homeModel::saved(static fn (): mixed => StorefrontCache::forgetHomepage());
+            $homeModel::deleted(static fn (): mixed => StorefrontCache::forgetHomepage());
         }
 
         // Shared data for every storefront view (layout, partials, and the page

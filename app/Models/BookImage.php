@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\Media\MediaCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,6 +51,7 @@ class BookImage extends Model
             return $this->path;
         }
 
-        return route('media.image', $this);
+        // المشتقّ الموسوم الثابت إن جهز (بلا PHP)، وإلا مسار /media الذي يولّده.
+        return MediaCache::publicUrlIfReady($this->path) ?? route('media.image', $this);
     }
 }

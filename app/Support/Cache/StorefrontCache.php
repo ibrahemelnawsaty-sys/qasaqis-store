@@ -22,6 +22,9 @@ final class StorefrontCache
     /** إعدادات المتجر العامة (whatsapp/سوشيال/هوية) من جدول settings. */
     public const STORE_SETTINGS = 'shell.store_settings';
 
+    /** حمولة الرئيسية المجمّعة (شرائح/بلوكات/أقسام كتب/مراجعات/مقالات/أقسام). */
+    public const HOMEPAGE = 'shell.homepage';
+
     /** مهلة قصيرة مشتركة (ثوانٍ) — نفس مرتبة PopupService/BackgroundPatternService. */
     public const TTL = 600;
 
@@ -46,6 +49,11 @@ final class StorefrontCache
     public static function forgetStoreSettings(): void
     {
         Cache::forget(self::STORE_SETTINGS);
+    }
+
+    public static function forgetHomepage(): void
+    {
+        Cache::forget(self::HOMEPAGE);
     }
 
     public static function forgetMenus(): void

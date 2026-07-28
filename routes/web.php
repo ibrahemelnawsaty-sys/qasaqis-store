@@ -75,9 +75,19 @@ Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap')
 Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 
 // صور الكتب/المقالات موسومةً بالعلامة المائية (بالمعرّف/slug فلا يُكشف اسم الملف الأصلي).
-Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
-Route::get('/media/image/{image}', [MediaController::class, 'bookImage'])->name('media.image');
-Route::get('/media/article/{article:slug}', [MediaController::class, 'articleCover'])->name('media.article');
+// بلا جلسة/CSRF (صور GET عديمة الحالة): يُسقِط Set-Cookie فيخزّنها الـ CDN على الحافة
+// بدل DYNAMIC، ويلغي قراءة/كتابة جلسة DB لكل غلاف (~20/صفحة). المتحكّم لا يقرأ الجلسة.
+// معظم الأغلفة تُخدَم static من public/media-cache (coverUrl) فلا تصل هنا أصلًا؛ هذا
+// المسار للتوليد الأوّل والاحتياط فقط.
+Route::withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+])->group(function () {
+    Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
+    Route::get('/media/image/{image}', [MediaController::class, 'bookImage'])->name('media.image');
+    Route::get('/media/article/{article:slug}', [MediaController::class, 'articleCover'])->name('media.article');
+});
 
 // ملف مفتاح IndexNow: تطلبه محرّكات البحث للتحقّق من ملكية النطاق. يخدم المفتاح
 // المضبوط فقط (hash_equals)، و404 إن لم يُضبط أو لم يطابق. النمط ({8,128}) يمنع

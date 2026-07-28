@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\NotifiesIndexNow;
 use App\Models\Concerns\TracksSlugRedirects;
+use App\Services\Media\MediaCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -102,7 +103,8 @@ class Article extends Model
             return asset($this->cover_image);
         }
 
-        return route('media.article', $this);
+        // المشتقّ الموسوم الثابت إن جهز (بلا PHP)، وإلا مسار /media الذي يولّده.
+        return MediaCache::publicUrlIfReady($this->cover_image) ?? route('media.article', $this);
     }
 
     // ----- Routing -------------------------------------------------------

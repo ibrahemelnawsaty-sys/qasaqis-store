@@ -7,17 +7,19 @@ namespace App\Http\Controllers;
 use App\Models\Article;
 use App\Models\Book;
 use App\Models\BookImage;
-use App\Services\Media\CoverWatermark;
+use App\Services\Media\MediaCache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
  * يخدم صور الكتب/المقالات موسومةً بالعلامة المائية عبر مسار بالمعرّف/slug — فلا يُكشف
- * اسم الملف الأصلي في /storage (لا يمكن تعديل الرابط للوصول للأصل النظيف). النتيجة
- * مخزّنة مؤقتًا على القرص (خاصّ) ويخدمها متصفّح/Cloudflare بكاش طويل.
+ * اسم الملف الأصلي في /storage (لا يمكن تعديل الرابط للوصول للأصل النظيف).
  *
- * المسار يأتي من النموذج لا من إدخال المستخدم، فلا خطر عبور مسارات. صامد: أي فشل
- * تعليم يخدم الأصل عبر المسار نفسه (لا يكشف /storage) — الصورة لا تنكسر.
+ * هذا المسار **احتياطيّ ومولّد**: عند أوّل طلب لصورة غير محمّاة يولّد المشتقّ الثابت في
+ * public/media-cache (MediaCache::ensure) ويخدمه، فتعيد coverUrl() بعده رابطه الثابت
+ * ويخدمه خادم الويب مباشرةً بلا PHP (لا يعود لهذا المسار). أمر media:warm يولّدها كلها
+ * سلفًا. صامد: أي فشل توليد/كتابة عامّة يخدم الأصل الخاصّ عبر المسار نفسه — لا تنكسر
+ * الصورة ولا يُكشف اسم الملف.
  */
 class MediaController extends Controller
 {
@@ -43,33 +45,22 @@ class MediaController extends Controller
             abort(404);
         }
 
-        $abs = Storage::disk('public')->path($path);
-        if (! is_file($abs)) {
+        if (! is_file(Storage::disk('public')->path($path))) {
             abort(404);
         }
 
         $headers = ['Cache-Control' => 'public, max-age=31536000, immutable'];
-        $cacheFile = storage_path('app/media-wm/' . sha1($path) . '-' . filemtime($abs) . '.jpg');
 
-        if (! is_file($cacheFile)) {
-            $binary = app(CoverWatermark::class)->apply($abs);
+        // يولّد (أو يجد) المشتقّ الثابت العام في public/media-cache ويخدمه — فيصبح
+        // الطلب التالي لنفس الصورة static مباشرة عبر رابط coverUrl، بلا PHP.
+        $publicFile = MediaCache::ensure($path);
 
-            if ($binary === null) {
-                // تعذّر التعليم — نخدم الأصل عبر المسار نفسه (يبقى اسم الملف مخفيًّا).
-                return response()->file($abs, $headers);
-            }
-
-            if (! is_dir(dirname($cacheFile))) {
-                @mkdir(dirname($cacheFile), 0755, true);
-            }
-            @file_put_contents($cacheFile, $binary);
-
-            if (! is_file($cacheFile)) {
-                // تعذّرت كتابة الكاش (أذونات) — أرجِع البايتات مباشرةً بلا كاش قرصيّ.
-                return response($binary, 200, ['Content-Type' => 'image/jpeg'] + $headers);
-            }
+        if ($publicFile !== null) {
+            return response()->file($publicFile, ['Content-Type' => 'image/jpeg'] + $headers);
         }
 
-        return response()->file($cacheFile, ['Content-Type' => 'image/jpeg'] + $headers);
+        // تعذّر توليد/كتابة المشتقّ العام (تعليم فاشل أو public غير قابل للكتابة) —
+        // نخدم الأصل عبر المسار نفسه (يبقى اسم الملف مخفيًّا).
+        return response()->file(Storage::disk('public')->path($path), $headers);
     }
 }

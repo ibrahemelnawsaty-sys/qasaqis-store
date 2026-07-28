@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\Media\MediaCache;
 use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Concerns\NotifiesIndexNow;
@@ -156,7 +157,9 @@ class Book extends Model
             return asset($this->cover_image);
         }
 
-        return route('media.book', $this);
+        // المشتقّ الموسوم الثابت إن جهز (يخدمه خادم الويب بلا PHP)، وإلا مسار /media
+        // الذي يولّده عند أوّل طلب فيصير الطلب التالي static.
+        return MediaCache::publicUrlIfReady($this->cover_image) ?? route('media.book', $this);
     }
 
     public function images(): HasMany

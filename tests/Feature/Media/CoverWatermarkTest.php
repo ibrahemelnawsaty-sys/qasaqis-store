@@ -11,23 +11,68 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * حماية الصور: الأغلفة تُخدَم عبر مسار بالمعرّف (/media/book/{slug}) موسومةً بالعلامة
- * المائية — فلا يُكشف اسم الملف الأصلي في /storage ولا يُوصَل للأصل النظيف بتعديل الرابط.
+ * حماية الصور + أداؤها: الأغلفة تُخدَم كمشتقّات موسومة **ثابتة** من public/media-cache
+ * (يخدمها خادم الويب بلا PHP). مسار /media/book/{slug} احتياطيّ يولّد المشتقّ عند أوّل
+ * طلب ثم تعيد coverUrl() رابطه الثابت. لا يُكشف اسم الملف الأصلي في /storage.
+ *
+ * معزول عن نظام الملفات: usePublicPath يوجّه الكتابة إلى مجلّد مؤقّت لا public/ الحقيقي.
  */
 final class CoverWatermarkTest extends TestCase
 {
     use RefreshDatabase;
+
+    private string $tempPublic;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('public');
+
+        // عزل: المشتقّات تُكتب هنا لا في public/ الحقيقي للمستودع.
+        $this->tempPublic = storage_path('framework/testing/pub-'.bin2hex(random_bytes(6)));
+        @mkdir($this->tempPublic, 0755, true);
+        $this->app->usePublicPath($this->tempPublic);
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_dir($this->tempPublic)) {
+            $items = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($this->tempPublic, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($items as $item) {
+                $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+            }
+            @rmdir($this->tempPublic);
+        }
+
+        parent::tearDown();
+    }
 
     private function book(array $attrs = []): Book
     {
         return Book::factory()->create($attrs + ['category_id' => Category::factory()->create()->id]);
     }
 
-    public function test_cover_url_uses_media_route_for_storage_paths(): void
+    /** يضع صورة JPEG حقيقية في مسار الغلاف كي يعالجها GD. */
+    private function putRealCover(string $path): void
+    {
+        $img = imagecreatetruecolor(240, 320);
+        imagefill($img, 0, 0, imagecolorallocate($img, 210, 160, 120));
+        ob_start();
+        imagejpeg($img);
+        $bytes = (string) ob_get_clean();
+        imagedestroy($img);
+        Storage::disk('public')->put($path, $bytes);
+    }
+
+    public function test_cover_url_falls_back_to_media_route_when_derivative_missing(): void
     {
         $book = $this->book(['cover_image' => 'books/covers/x.jpg']);
 
-        // لا يكشف المسار: يستخدم route بالمعرّف لا /storage.
+        // لا مشتقّ ثابت بعد => مسار بالمعرّف (لا /storage) يولّده عند أوّل طلب.
         $this->assertSame(route('media.book', $book), $book->coverUrl());
         $this->assertStringNotContainsString('/storage/', (string) $book->coverUrl());
     }
@@ -39,26 +84,54 @@ final class CoverWatermarkTest extends TestCase
         $this->assertNull($this->book(['cover_image' => null])->coverUrl());
     }
 
-    public function test_media_route_serves_a_watermarked_jpeg(): void
+    public function test_media_route_serves_jpeg_generates_static_derivative_and_switches_coverurl(): void
     {
-        Storage::fake('public');
-
-        // صورة حقيقية في مسار الغلاف كي يعالجها GD.
-        $img = imagecreatetruecolor(240, 320);
-        imagefill($img, 0, 0, imagecolorallocate($img, 210, 160, 120));
-        ob_start();
-        imagejpeg($img);
-        $bytes = (string) ob_get_clean();
-        imagedestroy($img);
-        Storage::disk('public')->put('books/covers/wm-test.jpg', $bytes);
-
+        $this->putRealCover('books/covers/wm-test.jpg');
         $book = $this->book(['cover_image' => 'books/covers/wm-test.jpg']);
 
         $response = $this->get(route('media.book', $book));
         $response->assertOk();
         $this->assertStringContainsString('image/jpeg', (string) $response->headers->get('Content-Type'));
-        // بايتات صورة فعلية (مخرَج JPEG صالح من المعالجة).
         $this->assertNotFalse(@getimagesizefromstring($this->fileResponseBytes($response)));
+
+        // المشتقّ الثابت العام وُلِّد => coverUrl صارت static (بلا PHP) في الطلب التالي.
+        $book->refresh();
+        $this->assertStringContainsString('media-cache/', (string) $book->coverUrl());
+        $this->assertNotSame(route('media.book', $book), $book->coverUrl());
+    }
+
+    public function test_media_route_carries_no_session_or_csrf_cookie(): void
+    {
+        // بلا جلسة/CSRF (rank 3): يُسقِط Set-Cookie فيخزّنها الـ CDN على الحافة.
+        $this->putRealCover('books/covers/nocookie.jpg');
+        $book = $this->book(['cover_image' => 'books/covers/nocookie.jpg']);
+
+        $response = $this->get(route('media.book', $book));
+        $response->assertOk();
+
+        $cookieNames = array_map(static fn ($c): string => $c->getName(), $response->headers->getCookies());
+        $this->assertNotContains(config('session.cookie'), $cookieNames);
+        $this->assertNotContains('XSRF-TOKEN', $cookieNames);
+    }
+
+    public function test_media_warm_command_pregenerates_static_derivative(): void
+    {
+        $this->putRealCover('books/covers/warm-me.jpg');
+        $book = $this->book(['cover_image' => 'books/covers/warm-me.jpg']);
+
+        $this->assertSame(route('media.book', $book), $book->coverUrl());
+
+        $this->artisan('media:warm')->assertSuccessful();
+
+        // بعد الإحماء: المشتقّ موجود => coverUrl static بلا أوّل طلب على PHP.
+        $this->assertStringContainsString('media-cache/', (string) $book->fresh()->coverUrl());
+    }
+
+    public function test_media_route_404_when_file_missing(): void
+    {
+        $book = $this->book(['cover_image' => 'books/covers/nope.jpg']);
+
+        $this->get(route('media.book', $book))->assertNotFound();
     }
 
     private function fileResponseBytes(\Illuminate\Testing\TestResponse $response): string
@@ -70,13 +143,5 @@ final class CoverWatermarkTest extends TestCase
         }
 
         return (string) $r->getContent();
-    }
-
-    public function test_media_route_404_when_file_missing(): void
-    {
-        Storage::fake('public');
-        $book = $this->book(['cover_image' => 'books/covers/nope.jpg']);
-
-        $this->get(route('media.book', $book))->assertNotFound();
     }
 }

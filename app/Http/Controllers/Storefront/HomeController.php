@@ -11,13 +11,33 @@ use App\Models\HomepageBlock;
 use App\Models\HomepageSection;
 use App\Models\Review;
 use App\Services\Cms\HomepageSectionResolver;
+use App\Support\Cache\StorefrontCache;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 
 class HomeController extends Controller
 {
     use FiltersBooks;
 
     public function __invoke(): View
+    {
+        // الحمولة كلها محتوى CMS عامّ (لا خاصّ بمستخدم) يتغيّر نادرًا؛ تُخزَّن مجمّعةً
+        // بمفتاح واحد (StorefrontCache::HOMEPAGE) بدل ~12–18 استعلامًا على كل زيارة،
+        // وتُبطَل عبر أحداث الموديل في AppServiceProvider. TTL يحدّ التقادم (600s).
+        // نقوش الأقسام والبوب-أب تبقى ديناميكية (view composers، خارج الكاش).
+        $data = Cache::remember(
+            StorefrontCache::HOMEPAGE,
+            StorefrontCache::TTL,
+            fn (): array => $this->buildHomeData(),
+        );
+
+        return view('home', $data);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildHomeData(): array
     {
         // Editable CMS blocks for the homepage (constitution 0.8). One query,
         // partitioned in memory (no N+1): banners/sliders feed the top carousel,
@@ -76,13 +96,13 @@ class HomeController extends Controller
             report: false,
         );
 
-        return view('home', [
+        return [
             'slides' => $slides,
             'blocks' => $blocks,
             'categories' => $this->categoriesWithCounts(),
             'bookSections' => $bookSections,
             'reviews' => $reviews,
             'articles' => $articles,
-        ]);
+        ];
     }
 }
