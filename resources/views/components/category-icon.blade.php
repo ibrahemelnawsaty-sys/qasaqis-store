@@ -1,14 +1,20 @@
 @props(['cat'])
 
 @php
-    // صور أيقونات الأقسام المرسومة (public/images/categories/<slug>.png، خلفية شفافة،
-    // مطابقة بالـ slug). عند غياب صورة لقسمٍ نرجع لأيقونة SVG بلونه (احتياطي، بلا اختلاق).
+    // أولوية عرض القسم: (١) الصورة المرفوعة من اللوحة (image_path على قرص public)،
+    // ثم (٢) أيقونة مرسومة ثابتة للأقسام الأصلية (public/images/categories/<slug>.png،
+    // مطابقة بالـ slug)، ثم (٣) أيقونة SVG بلونه (احتياطي، بلا اختلاق).
+    // كان image_path يُتجاهَل تمامًا فلا تظهر صورة الأدمن — هذا الإصلاح.
+    $uploaded = $cat->imageUrl();
     $imageSlugs = ['novels', 'science', 'behavior-emotions', 'stories', 'early-childhood', 'religious', 'language'];
-    $hasImage = in_array($cat->slug, $imageSlugs, true);
+    $staticPng = in_array($cat->slug, $imageSlugs, true)
+        ? asset('images/categories/' . $cat->slug . '.png')
+        : null;
+    $img = $uploaded ?? $staticPng;
 @endphp
 
-@if ($hasImage)
-    <img class="cat-img" src="{{ asset('images/categories/' . $cat->slug . '.png') }}"
+@if ($img)
+    <img class="cat-img" src="{{ $img }}"
         alt="" loading="lazy" decoding="async" width="200" height="200"
         style="width:100px;height:100px;display:block;margin-inline:auto;object-fit:contain">
 @else
