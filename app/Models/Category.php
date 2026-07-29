@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Facades\Storage;
 
 class Category extends Model
 {
@@ -69,6 +70,17 @@ class Category extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * رابط صورة القسم المرفوعة من اللوحة (قرص public تحت categories/)، أو null إن لم
+     * تُرفع. تُعرَض في بطاقة القسم قبل الأيقونة المرسومة/الاحتياطية (x-category-icon).
+     */
+    public function imageUrl(): ?string
+    {
+        return filled($this->image_path)
+            ? Storage::disk('public')->url($this->image_path)
+            : null;
     }
 
     /** الرابط العام للفهرسة الفورية (IndexNow) — القسم الفعّال فقط، وإلا null. */
