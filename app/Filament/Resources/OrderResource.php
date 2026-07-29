@@ -25,7 +25,6 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\LazyCollection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -408,13 +407,15 @@ class OrderResource extends Resource
                                     default => 'warning',
                                 }),
                             // Proofs live on the PRIVATE 'local' disk (storage/app/private).
-                            // config/filesystems.php sets 'serve' => true, which lets
-                            // Laravel 11 mint a short-lived signed URL rather than a public
-                            // link (constitution 4.5 / docs 6.3). Works for jpg/png/pdf.
+                            // يُخدَم عبر مسار أدمن مُصادَق يبثّ الملف (PaymentProofController)،
+                            // لا عبر رابط /storage الذي يتعارض مع الرابط الرمزيّ العامّ فيُعطي
+                            // 404 على الإنتاج (بند 4.5). Works for jpg/png/pdf.
                             TextEntry::make('file_path')
                                 ->label('الملف')
                                 ->formatStateUsing(fn (): string => 'عرض إثبات الدفع')
-                                ->url(fn (Model $record): ?string => self::proofTemporaryUrl($record->file_path))
+                                ->url(fn (Model $record): ?string => filled($record->file_path)
+                                    ? route('admin.payment-proofs.show', ['proof' => $record->getKey()])
+                                    : null)
                                 ->openUrlInNewTab()
                                 ->color('primary'),
                             TextEntry::make('review_note')->label('ملاحظة المراجعة')->placeholder('—'),
@@ -441,25 +442,6 @@ class OrderResource extends Resource
             'index' => Pages\ListOrders::route('/'),
             'view' => Pages\ViewOrder::route('/{record}'),
         ];
-    }
-
-    /**
-     * Short-lived signed URL for a manual-payment proof on the PRIVATE 'local'
-     * disk (constitution 4.5 / docs 6.3). Returns null (a plain, non-linked label)
-     * if the path is empty or the disk cannot mint a temporary URL — never lets a
-     * storage misconfiguration 500 the whole order view.
-     */
-    protected static function proofTemporaryUrl(?string $path): ?string
-    {
-        if (blank($path)) {
-            return null;
-        }
-
-        try {
-            return Storage::disk('local')->temporaryUrl($path, now()->addMinutes(10));
-        } catch (\Throwable) {
-            return null;
-        }
     }
 
     protected static function statusColor(string $state): string
