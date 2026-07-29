@@ -156,6 +156,19 @@ class OpsDashboard extends Dashboard
                 // «مسترد» ضمن المفقود كي لا يظهر في «وارد» بلا فئة (يطابق استبعاد
                 // الإيراد المحقّق للمسترد). وإلا بقي طلبٌ مستردٌّ معلّقًا في القمع.
                 'lost' => $g(['cancelled', 'refused', 'refunded']),
+                // توزيع المرحلة الحاليّة: كل طلب مرّة واحدة في حالته الآن (لا تراكم)،
+                // فمجموعه = total. يغطّي حالات STATUS_LABELS التسع كاملةً فلا فجوة:
+                // pending/confirmed/processing/shipped + (delivered|completed) +
+                // (cancelled|refused|refunded). يجيب «أين كل طلب الآن» لا «كم بلغ كل
+                // مرحلة تراكميًّا» — فلا يبدو الطلبُ الواحد المارُّ بالمراحل عدّة طلبات.
+                'current' => [
+                    'pending' => $g(['pending']),
+                    'confirmed' => $g(['confirmed']),
+                    'processing' => $g(['processing']),
+                    'shipped' => $g(['shipped']),
+                    'delivered' => $g(['delivered', 'completed']),
+                    'lost' => $g(['cancelled', 'refused', 'refunded']),
+                ],
             ];
         }, []);
     }

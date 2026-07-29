@@ -41,6 +41,20 @@
         .fn { display:flex; flex-direction:column; gap:8px; }
         .fn-row { display:grid; grid-template-columns:78px 1fr 42px; align-items:center; gap:9px; font-size:12px; color:var(--soft); }
         .fn-bar { height:20px; border-radius:5px; display:flex; align-items:center; padding-inline-start:7px; color:#fff; font-weight:800; font-size:11px; min-width:22px; }
+        /* شريط الحالة الحاليّة (كل طلب مرّة واحدة في مرحلته الآن) */
+        .opsd-now { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+        .opsd-now-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+        .opsd-now-head h3 { font-size:14px; font-weight:800; color:var(--ink); margin:0; }
+        .opsd-now-total { font-size:13px; font-weight:700; color:var(--soft); }
+        .opsd-now-total b { font-size:22px; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums; margin-inline-start:6px; }
+        .opsd-stack { display:flex; height:26px; border-radius:7px; overflow:hidden; background:var(--bg); }
+        .opsd-stack-seg { display:flex; align-items:center; justify-content:center; min-width:2px; color:#fff; font-weight:800; font-size:11px; font-variant-numeric:tabular-nums; }
+        .opsd-chips { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:12px; }
+        .opsd-chip { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--soft); }
+        .opsd-chip .dot { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+        .opsd-chip b { color:var(--ink); font-weight:800; font-variant-numeric:tabular-nums; }
+        .opsd-chip.is-alert b { color:var(--danger); }
+        .opsd-now-note { font-size:11.5px; color:var(--faint); margin:10px 0 0; }
         .opsd-legend { display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--ink); }
         .opsd-legend i { width:11px; height:11px; border-radius:3px; display:inline-block; margin-inline-end:6px; }
         table.opsd-t { width:100%; border-collapse:collapse; font-size:13px; }
@@ -113,6 +127,47 @@
         </section>
 
         {{-- ══ 3 · العمليات ══ --}}
+        {{-- شريط الحالة الحاليّة: كل طلب مرّة واحدة في مرحلته الآن (مجموعه = الإجمالي)،
+             فلا يبدو الطلبُ الواحد المارُّ بكل المراحل عدّةَ طلبات كما في القُمع التراكميّ. --}}
+        <section class="opsd-sec">
+            @php
+                $cur = $funnel['current'] ?? [];
+                $curTotal = (int) ($funnel['total'] ?? 0);
+                // [الاسم، العدد، اللون، هل يُبرَز (الوارد غير المعالَج)]
+                $nowSteps = [
+                    ['جديد (لم يُعالَج)', (int) ($cur['pending'] ?? 0), '#7C3AED', true],
+                    ['مؤكّد', (int) ($cur['confirmed'] ?? 0), '#EC4899', false],
+                    ['قيد التجهيز', (int) ($cur['processing'] ?? 0), '#F59E0B', false],
+                    ['مشحون', (int) ($cur['shipped'] ?? 0), '#EAB308', false],
+                    ['مسلَّم', (int) ($cur['delivered'] ?? 0), '#12B3A6', false],
+                    ['ملغى/مرفوض/مسترد', (int) ($cur['lost'] ?? 0), '#EF4444', false],
+                ];
+            @endphp
+            <div class="opsd-now">
+                <div class="opsd-now-head">
+                    <h3>أين طلباتك الآن؟ — آخر 30 يومًا</h3>
+                    <span class="opsd-now-total">إجمالي الطلبات <b>{{ $curTotal }}</b></span>
+                </div>
+                @if ($curTotal === 0)
+                    <p class="s" style="color:var(--faint)">لا طلبات في آخر 30 يومًا بعد.</p>
+                @else
+                    <div class="opsd-stack" role="img" aria-label="توزيع {{ $curTotal }} طلبًا حسب المرحلة الحاليّة">
+                        @foreach ($nowSteps as [$nm, $n, $col, $alert])
+                            @if ($n > 0)
+                                <div class="opsd-stack-seg" style="width:{{ round($n / $curTotal * 100, 2) }}%;background:{{ $col }}" title="{{ $nm }}: {{ $n }}">{{ $n }}</div>
+                            @endif
+                        @endforeach
+                    </div>
+                    <div class="opsd-chips">
+                        @foreach ($nowSteps as [$nm, $n, $col, $alert])
+                            <span class="opsd-chip{{ $alert && $n > 0 ? ' is-alert' : '' }}"><span class="dot" style="background:{{ $col }}"></span>{{ $nm }} <b>{{ $n }}</b></span>
+                        @endforeach
+                    </div>
+                    <p class="opsd-now-note">كل طلب يظهر مرّة واحدة في مرحلته الحاليّة فقط (مجموع الأرقام = الإجمالي) — بخلاف «القُمع» أدناه الذي يَعُدّ الطلب في كل مرحلة مرّ بها.</p>
+                @endif
+            </div>
+        </section>
+
         <section class="opsd-sec">
             <div class="opsd-grid g2">
                 {{-- قُمع --}}
