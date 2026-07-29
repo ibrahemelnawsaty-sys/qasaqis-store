@@ -15,6 +15,7 @@ use App\Http\Controllers\Customer\ProfileController as CustomerProfileController
 use App\Http\Controllers\Auth\UnifiedLoginController;
 use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\TaskRunnerController;
+use App\Http\Controllers\Admin\PaymentProofController as AdminPaymentProofController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -183,6 +184,13 @@ Route::get('/orders/{order}/payment', [OrderController::class, 'payment'])
 Route::post('/orders/{order}/proof', [OrderController::class, 'proofStore'])
     ->middleware(['signed', 'throttle:6,1'])
     ->name('orders.proof.store');
+
+// عرض إثبات الدفع للأدمن: يبثّ الملف من القرص الخاصّ عبر مسار مُصادَق (auth) والتفويض
+// داخل المتحكّم (orders.view). خارج /admin (لئلا يتعارض مع لوحة Filament) وخارج
+// /storage (لئلا يخدمه الرابط الرمزيّ العامّ كملف ساكن فيُعطي 404 للملف الخاصّ).
+Route::get('/internal/payment-proofs/{proof}', [AdminPaymentProofController::class, 'show'])
+    ->middleware('auth')
+    ->name('admin.payment-proofs.show');
 
 // صفحة الدفع الأونلاين المدمجة (كاشير iframe) داخل تصميم المتجر — موقّعة.
 Route::get('/orders/{order}/pay', [OrderController::class, 'pay'])
