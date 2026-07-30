@@ -106,6 +106,22 @@ final class CheckoutProofRequiredTest extends TestCase
         ]))->assertRedirectContains('/thank-you');
     }
 
+    public function test_checkout_renders_the_two_step_structure(): void
+    {
+        $book = $this->book();
+
+        // الخطوة ١ (co-step1) + الخطوة ٢ (proofBlock مع زرّ الرجوع) + زرّ «متابعة» +
+        // علم requires_proof على الراديو. يؤكّد أن إعادة الهيكلة تُصيَّر بعناصرها.
+        $this->withSession(['cart' => [$book->id => 1]])
+            ->get(route('checkout.show'))
+            ->assertOk()
+            ->assertSee('id="co-step1"', false)
+            ->assertSee('id="proofBlock"', false)
+            ->assertSee('id="continueBtn"', false)
+            ->assertSee('id="backToStep1"', false)
+            ->assertSee('data-requires-proof', false);
+    }
+
     public function test_cash_on_delivery_places_the_order_without_a_proof(): void
     {
         $book = $this->book();

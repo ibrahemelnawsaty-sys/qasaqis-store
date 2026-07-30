@@ -50,6 +50,10 @@
                             <input type="hidden" name="items[{{ $i }}][qty]" value="{{ $item->quantity }}">
                         @endforeach
 
+                        {{-- الخطوة ١: البيانات + اختيار طريقة الدفع. لطرق requires_proof يظهر زرّ
+                             «متابعة للدفع» فينتقل JS إلى الخطوة ٢ (بيانات الطريقة + رفع الإثبات). --}}
+                        <div id="co-step1">
+
                         {{-- محدِّد العنوان المحفوظ (للعميلة المسجّلة فقط): اختيار عنوان
                              يملأ النموذج أدناه بـJS، أو «عنوان جديد» يفرّغه. --}}
                         @if ($addresses->isNotEmpty())
@@ -242,10 +246,12 @@
                             </div>
                         </div>
 
-                        {{-- إثبات التحويل: يظهر عند اختيار طريقة تتطلّب إثباتًا (JS أدناه). الملفّ
-                             إجباريّ خادميًّا (CheckoutRequest) فلا يُنشأ طلب تحويل يدويّ بلا إثبات.
-                             «المطلوب تحويله» = الإجمالي شامل الشحن الثابت (overrides فارغة، والتحويل
-                             اليدويّ محلّيّ)، يُحسب حيًّا مع الكوبون داخل نطاق couponBox. --}}
+                        </div>{{-- /co-step1 --}}
+
+                        {{-- الخطوة ٢: بيانات طريقة الدفع المختارة + رفع الإثبات. يظهرها JS عند الضغط
+                             على «متابعة للدفع». الملفّ إجباريّ خادميًّا (CheckoutRequest) فلا يُنشأ طلب
+                             تحويل يدويّ بلا إثبات. «المطلوب تحويله» = الإجمالي شامل الشحن الثابت
+                             (overrides فارغة، والتحويل اليدويّ محلّيّ)، يُحسب حيًّا مع الكوبون في couponBox. --}}
                         @php
                             $proofMethods = $methods->filter(fn ($m) => $m->requires_proof);
                             $subtotalNum = (float) $cart->subtotal;
@@ -253,6 +259,7 @@
                         @endphp
                         @if ($proofMethods->isNotEmpty())
                             <div id="proofBlock" class="co-card" hidden>
+                                <button type="button" id="backToStep1" class="co-back-step" style="background:none;border:0;cursor:pointer;color:var(--ink-soft);font:inherit;padding:0;margin-bottom:10px">← {{ __('checkout.form.back_to_data') }}</button>
                                 <h2><span class="n" aria-hidden="true">🧾</span>{{ __('checkout.form.proof_section_title') }}</h2>
 
                                 <div class="co-amount-box">
@@ -345,6 +352,8 @@
 
                         <p class="co-hint">{{ __('checkout.summary.shipping_note') }}</p>
 
+                        {{-- زرّ الخطوة ١ للطرق التي تتطلّب إثباتًا (ينقل JS للخطوة ٢، لا يُرسل). --}}
+                        <button id="continueBtn" type="button" class="btn btn-primary btn-block" style="margin-top:14px;display:none">{{ __('checkout.form.continue_to_pay') }} →</button>
                         <button id="placeOrderBtn" type="submit" form="checkoutForm" class="btn btn-primary btn-block" style="margin-top:14px"
                             @if ($methods->isEmpty()) disabled @endif>✅ {{ __('checkout.form.place_order') }}</button>
 
@@ -384,21 +393,48 @@
         <script>
             (function () {
                 var block = document.getElementById('proofBlock');
-                if (!block) return;                                  // لا طرق إثبات مفعّلة
+                var step1 = document.getElementById('co-step1');
+                if (!block || !step1) return;                        // لا طرق إثبات → صفحة واحدة كالمعتاد
+                var contBtn = document.getElementById('continueBtn');
+                var placeBtn = document.getElementById('placeOrderBtn');
+                var backBtn = document.getElementById('backToStep1');
                 var radios = document.querySelectorAll('input[name="payment_method"]');
                 var file = document.getElementById('f-proof');
+                var step = 1;
 
-                function sync() {
-                    var sel = document.querySelector('input[name="payment_method"]:checked');
-                    var needs = !!(sel && sel.getAttribute('data-requires-proof') === '1');
-                    block.hidden = !needs;
-                    if (file) file.required = needs;
-                    block.querySelectorAll('[data-method]').forEach(function (d) {
-                        d.hidden = !(needs && sel && d.getAttribute('data-method') === sel.value);
-                    });
+                function sel() { return document.querySelector('input[name="payment_method"]:checked'); }
+                function needsProof() { var s = sel(); return !!(s && s.getAttribute('data-requires-proof') === '1'); }
+
+                // الخطوة ١: البيانات + اختيار الطريقة. الخطوة ٢ (لطرق الإثبات فقط): بيانات الطريقة
+                // + رفع الإثبات. الملفّ إجباريّ في الخطوة ٢ فقط (والخادم يفرضه أيضًا).
+                function render() {
+                    var onStep2 = step === 2 && needsProof();
+                    step1.hidden = onStep2;
+                    block.hidden = !onStep2;
+                    if (file) file.required = onStep2;
+                    if (onStep2) {
+                        var s = sel();
+                        block.querySelectorAll('[data-method]').forEach(function (d) {
+                            d.hidden = !(s && d.getAttribute('data-method') === s.value);
+                        });
+                    }
+                    if (contBtn) contBtn.style.display = (!onStep2 && needsProof()) ? '' : 'none';
+                    if (placeBtn) placeBtn.style.display = (onStep2 || !needsProof()) ? '' : 'none';
                 }
-                radios.forEach(function (r) { r.addEventListener('change', sync); });
-                sync();
+
+                if (contBtn) contBtn.addEventListener('click', function () {
+                    var bad = step1.querySelector(':invalid');        // تحقّق حقول الخطوة ١ قبل الانتقال
+                    if (bad) { if (bad.reportValidity) bad.reportValidity(); if (bad.focus) bad.focus(); return; }
+                    step = 2; render();
+                    block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                if (backBtn) backBtn.addEventListener('click', function () {
+                    step = 1; render();
+                    step1.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                // تغيير طريقة الدفع يعيد للخطوة ١ (اختيار جديد ⇒ بيانات/إثبات مختلفة).
+                radios.forEach(function (r) { r.addEventListener('change', function () { step = 1; render(); }); });
+                render();
 
                 if (file) {
                     file.addEventListener('change', function () {
