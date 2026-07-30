@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 264 220" width="264" height="220" role="img" aria-label="كتاب مفتوح">
+  <defs>
+    <linearGradient id="cover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF9E7A"/>
+      <stop offset="1" stop-color="#F56B57"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9ECF4"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD14E"/>
+      <stop offset="1" stop-color="#F5A623"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- ظلّ ناعم -->
+  <ellipse cx="132" cy="182" rx="96" ry="20" fill="#1E0C28" opacity="0.28" filter="url(#soft)"/>
+
+  <!-- الغلاف المرجانيّ -->
+  <path d="M132 56 L20 72 L36 166 L132 180 Z" fill="url(#cover)"/>
+  <path d="M132 56 L244 72 L228 166 L132 180 Z" fill="url(#cover)"/>
+
+  <!-- الصفحات البيضاء -->
+  <path d="M132 46 L30 66 L44 150 L132 166 Z" fill="url(#page)"/>
+  <path d="M132 46 L234 66 L220 150 L132 166 Z" fill="url(#page)"/>
+
+  <!-- ظلّ الطيّة عند العمود الفقري -->
+  <path d="M122 48 L132 46 L142 48 L140 166 L132 168 L124 166 Z" fill="#6E5A78" opacity="0.35" filter="url(#soft)"/>
+  <line x1="132" y1="47" x2="132" y2="167" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+
+  <!-- سطور الصفحات -->
+  <g stroke="#B4BAC8" stroke-width="2.4" stroke-linecap="round">
+    <line x1="118" y1="84" x2="56" y2="78"/><line x1="146" y1="84" x2="208" y2="78"/>
+    <line x1="118" y1="104" x2="60" y2="98"/><line x1="146" y1="104" x2="204" y2="98"/>
+    <line x1="118" y1="124" x2="64" y2="118"/><line x1="146" y1="124" x2="200" y2="118"/>
+  </g>
+
+  <!-- الفاصل الذهبيّ -->
+  <path d="M152 52 L176 52 L176 205 L164 190 L152 205 Z" fill="url(#ribbon)"/>
+
+  <!-- بريق -->
+  <path d="M224 37 L228.2 47.8 L239 52 L228.2 56.2 L224 67 L219.8 56.2 L209 52 L219.8 47.8 Z" fill="#FFFFFF" opacity="0.92"/>
+  <path d="M244 76 L246.2 81.8 L252 84 L246.2 86.2 L244 92 L241.8 86.2 L236 84 L241.8 81.8 Z" fill="#FFECB4" opacity="0.86"/>
+</svg>
