@@ -4,6 +4,12 @@
 @section('title', __('blog.index_title') . ' — ' . __('common.brand'))
 @section('meta_description', __('blog.index_meta'))
 
+@push('head')
+    {{-- خطّ عناوين الأغلفة المولّدة تلقائيًّا (SVG). يُحمَّل كسولًا: لا يُنزَّل إلا إن ظهر
+         غلاف مولّد فعلًا (مقال بلا غلاف مرفوع) — فالصفحة تبقى خفيفة. --}}
+    <style>@font-face{font-family:'Lalezar';src:url('{{ asset('fonts/lalezar.woff2') }}') format('woff2');font-display:swap}</style>
+@endpush
+
 {{-- لا نُعيد دفع og:type/og:title/og:description: التخطيط يُصدرها من @section('title')
      و@section('meta_description') أعلاه بنفس القيم تمامًا (app.blade.php:52-61)، ودفعها
      هنا يُنتج وسمًا مكرّرًا. هذا القالب كان آخر ما فات على تمرير إزالة التكرار. --}}
@@ -54,8 +60,10 @@
                                     style="width:100%;height:100%;object-fit:cover"
                                     onerror="this.style.display='none'">
                             @else
-                                <span aria-hidden="true"
-                                    style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px">📖</span>
+                                {{-- بلا غلاف مرفوع → يُولَّد غلاف تلقائيًّا (قالب القسم + العنوان)؛
+                                     لو تعذّر التوليد يظهر العنصر البديل (لا تنكسر البطاقة). --}}
+                                {!! \App\Support\Blog\CoverSvg::render($article, 'position:absolute;inset:0;width:100%;height:100%;display:block')
+                                    ?: '<span aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px">📖</span>' !!}
                             @endif
                             @if (filled($article->category))
                                 <span style="position:absolute;inset-block-start:12px;inset-inline-start:12px;background:rgba(255,255,255,.92);color:var(--purple);font-weight:800;font-size:12px;padding:4px 10px;border-radius:999px">{{ $article->category }}</span>

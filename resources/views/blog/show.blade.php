@@ -10,7 +10,9 @@
     // غلاف المقال المشتقّ تلقائيًا عبر المصدر الموحّد SeoDefaults (نفس منطق حلّ مسار
     // الصورة الذي يستخدمه قالب الكتاب) — رابط مطلق أو null فنرجع لشعار العلامة.
     $coverSrc = \App\Support\Seo\SeoDefaults::ogImage($article);
-    $ogImage = $coverSrc ?: asset(config('seo.default_image', 'images/logo.png'));
+    // للمقال بلا غلاف مرفوع: صورة المشاركة/الميتا = قالب قسمه (تصميم مُعلَّم، نقطيّ صالح لـ og
+    // خلافًا للغلاف المولّد SVG). القالب موجود دائمًا فلا نرجع لشعار عامّ.
+    $ogImage = $coverSrc ?: \App\Support\Blog\CoverSvg::templateUrl($article);
 
     $publishedAt = $article->published_at;
     $publishedText = $publishedAt?->locale('ar')->translatedFormat('j F Y');
@@ -31,7 +33,7 @@
             : ['@type' => 'Organization', 'name' => __('common.brand')],
         'datePublished' => $publishedAt?->toIso8601String(),
         'dateModified' => $article->updated_at?->toIso8601String(),
-        'image' => $coverSrc ? [$coverSrc] : null,
+        'image' => [$ogImage],
         'mainEntityOfPage' => route('blog.show', $article),
         'articleSection' => $article->category ?: null,
         'publisher' => [
@@ -59,6 +61,11 @@
 @section('meta_description', $metaDesc)
 @section('og_type', 'article')
 @section('og_image', $ogImage)
+
+@push('head')
+    {{-- خطّ عنوان الغلاف المولّد (SVG) — يُحمَّل كسولًا فقط إن لم يكن للمقال غلاف مرفوع. --}}
+    <style>@font-face{font-family:'Lalezar';src:url('{{ asset('fonts/lalezar.woff2') }}') format('woff2');font-display:swap}</style>
+@endpush
 
 @push('meta')
     <meta property="article:published_time" content="{{ $publishedAt?->toIso8601String() }}">
@@ -110,6 +117,9 @@
                 <img src="{{ $coverSrc }}" alt="{{ __('blog.cover_alt', ['title' => $article->title]) }}"
                     loading="lazy" decoding="async" width="760" height="428"
                     style="width:100%;height:auto;border-radius:18px;margin-bottom:22px;object-fit:cover">
+            @else
+                {{-- بلا غلاف مرفوع → غلاف مولّد تلقائيًّا (قالب القسم + العنوان). --}}
+                {!! \App\Support\Blog\CoverSvg::render($article, 'width:100%;height:auto;display:block;border-radius:18px;margin-bottom:22px') !!}
             @endif
 
             @if ($cleanContent !== '')
