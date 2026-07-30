@@ -31,7 +31,12 @@
         $waText = __('checkout.thankyou.wa_message', ['number' => $order->order_number]);
         $waHref = 'https://wa.me/' . $waNumber . '?text=' . rawurlencode($waText);
 
-        $needsProof = $order->payment_status === 'pending_review';
+        // pending_review مع إثبات مرفوع = «استلمناه، بانتظار المراجعة» (المسار المعتاد
+        // الآن: الإثبات يُرفع في الـcheckout). pending_review بلا إثبات = «ارفعي الإثبات»
+        // (حالة إعادة رفع نادرة). فلا نطلب رفعًا وقد رُفع.
+        $hasProof = ($order->payment_proofs_count ?? 0) > 0;
+        $proofReceived = $order->payment_status === 'pending_review' && $hasProof;
+        $needsProof = $order->payment_status === 'pending_review' && ! $hasProof;
         $isCod = $order->payment_method === 'cod';
     @endphp
 
@@ -64,7 +69,9 @@
             <div class="co-card" style="margin-top:16px">
                 <h2><span class="n" aria-hidden="true">👉</span>{{ __('checkout.thankyou.next_title') }}</h2>
 
-                @if ($needsProof)
+                @if ($proofReceived)
+                    <p class="co-lead">{{ __('checkout.thankyou.proof_received_note') }}</p>
+                @elseif ($needsProof)
                     <p class="co-lead">{{ __('payment.thankyou.manual_note') }}</p>
                 @elseif ($isCod)
                     <p class="co-lead">{{ __('payment.thankyou.cod_note') }}</p>

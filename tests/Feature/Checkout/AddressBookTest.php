@@ -8,7 +8,9 @@ use App\Models\Book;
 use App\Models\Customer;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -24,6 +26,7 @@ final class AddressBookTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(PaymentMethodSeeder::class);
     }
 
@@ -43,6 +46,7 @@ final class AddressBookTest extends TestCase
             'country_code' => 'EG', 'governorate' => 'الإسكندرية', 'city' => 'سموحة',
             'address' => 'شارع فوزي معاذ 12', 'payment_method' => 'instapay',
             'items' => [['book_id' => $book->id, 'qty' => 1]],
+            'proof' => UploadedFile::fake()->image('receipt.jpg'), // إثبات التحويل إجباريّ للطرق اليدويّة؛ ملفّ جديد لكلّ POST
         ], $overrides);
     }
 

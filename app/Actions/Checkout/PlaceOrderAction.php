@@ -23,6 +23,7 @@ use App\Support\Coupon\CouponResult;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -64,7 +65,13 @@ class PlaceOrderAction
         private readonly OrderNotifier $notifier,
     ) {}
 
-    public function execute(PlaceOrderData $data): OrderPlacementResult
+    /**
+     * $proof: صورة/PDF إثبات التحويل المرفوع في الـcheckout لطرق requires_proof. حين
+     * يُمرَّر، يُخزَّن ويُنشأ سجلّ PaymentProof **داخل معاملة إنشاء الطلب** — فلا يوجد
+     * طلب تحويل يدويّ بلا إثبات إطلاقًا (ذرّيّة: الطلب والإثبات معًا أو لا شيء). null
+     * لبقية الطرق. لا يُخزَّن في مسار إعادة الإرسال (replay) — الطلب موجود بإثباته.
+     */
+    public function execute(PlaceOrderData $data, ?UploadedFile $proof = null): OrderPlacementResult
     {
         // Resolve + whitelist the payment method (also rejects a hidden online
         // gateway). Type drives the status mapping below.
@@ -90,7 +97,7 @@ class PlaceOrderAction
         $data = $this->withoutConflictingKey($data, $method);
 
         try {
-            [$order, $onlinePaymentId] = $this->persistOrder($data, $method);
+            [$order, $onlinePaymentId] = $this->persistOrder($data, $method, $proof);
         } catch (QueryException $e) {
             // تصادم الفهرس الفريد على idempotency_key يعني أن طلبًا متزامنًا سبقنا
             // بالمللي ثانية. إن وُجد ذلك الطلب فهذه إعادة إرسال لا خطأ، فنُعيده
@@ -233,14 +240,14 @@ class PlaceOrderAction
      *
      * @return array{0: Order, 1: int|null} [الطلب، معرّف صف الدفع للبوابة إن وُجد]
      */
-    private function persistOrder(PlaceOrderData $data, PaymentMethod $method): array
+    private function persistOrder(PlaceOrderData $data, PaymentMethod $method, ?UploadedFile $proof = null): array
     {
         // تحميل قوائم الأعمدة قبل فتح المعاملة وقفل الصفوف: استعلام بيانات وصفية
         // خفيف نُبقيه خارج نافذة القفل. (orders مُخبّأ أصلًا من findReplay.)
         $this->existingColumns('orders');
         $this->existingColumns('order_items');
 
-        return DB::transaction(function () use ($data, $method) {
+        return DB::transaction(function () use ($data, $method, $proof) {
             // Re-price the cart from the DB with the book rows locked.
             $cart = $this->cartService->fromItems($data->items, lock: true);
 
@@ -337,8 +344,44 @@ class PlaceOrderAction
 
             $onlinePaymentId = $this->createPaymentRow($order, $method, $grandTotal);
 
+            // إرفاق إثبات التحويل المرفوع في الـcheckout داخل نفس المعاملة — فلا يُنشأ
+            // طلب تحويل يدويّ بلا إثبات إطلاقًا (ذرّيّة، الدستور 3.5). مقصور على طرق
+            // requires_proof (يطابق تحقّق CheckoutRequest) فلا يُرفَق ملفّ شارد بطلب
+            // COD/أونلاين حتى لو أُرسِل.
+            if ($proof !== null && $method->requires_proof === true) {
+                $this->attachProof($order, $data, $proof);
+            }
+
             return [$order, $onlinePaymentId];
         });
+    }
+
+    /**
+     * يخزّن صورة/PDF الإثبات على القرص الخاصّ (باسم عشوائي، الدستور 4.5) وينشئ سجلّ
+     * PaymentProof مربوطًا بصفّ الدفع pending_review — كلّه داخل معاملة الطلب. فشل
+     * التخزين (القرص المحلّي throw=false يعيد false) يرمي استثناءً فتتراجع المعاملة
+     * كاملةً: لا طلب بلا ملفّ إثبات محفوظ. المبلغ الافتراضيّ = إجمالي الطلب.
+     */
+    private function attachProof(Order $order, PlaceOrderData $data, UploadedFile $proof): void
+    {
+        $filename = Str::random(40).'.'.$proof->extension();
+        $path = $proof->storeAs("payment-proofs/{$order->id}", $filename, 'local');
+
+        if ($path === false || $path === '') {
+            throw new \RuntimeException('تعذّر تخزين إثبات الدفع — أُلغي إنشاء الطلب.');
+        }
+
+        // صفّ الدفع pending_review أُنشئ لتوّه في createPaymentRow (نفس المعاملة).
+        $payment = $order->payments()->where('status', 'pending_review')->latest()->first();
+
+        $order->paymentProofs()->create([
+            'payment_id' => $payment?->id,
+            'method_code' => $order->payment_method,
+            'file_path' => $path,
+            'amount' => $data->proofAmount ?? $order->grand_total,
+            'sender_reference' => $data->proofReference,
+            // review_status يبدأ pending_review افتراضيًّا.
+        ]);
     }
 
     /**

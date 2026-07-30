@@ -12,7 +12,9 @@ use Database\Seeders\CountrySeeder;
 use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\ShippingZoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -28,6 +30,7 @@ final class CheckoutPrefillTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(PaymentMethodSeeder::class);
     }
 
@@ -91,6 +94,7 @@ final class CheckoutPrefillTest extends TestCase
             'name' => 'أم سارة', 'phone' => '01099887766', 'email' => 'sara@example.com',
             'country_code' => 'EG', 'governorate' => 'الجيزة', 'city' => 'الدقي',
             'address' => 'شارع النصر رقم 20', 'payment_method' => 'instapay',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
             'items' => [['book_id' => $book->id, 'qty' => 1]],
         ])->assertStatus(302);
 
@@ -121,6 +125,7 @@ final class CheckoutPrefillTest extends TestCase
             'name' => 'أم ليان', 'phone' => '01044556677', 'email' => 'layan@example.com',
             'country_code' => 'SA', 'governorate' => $longGovernorate, 'state_province' => 'الرياض',
             'address' => 'حي النخيل', 'payment_method' => 'instapay',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
             'items' => [['book_id' => $book->id, 'qty' => 1]],
         ])->assertStatus(302); // اكتمل الطلب ووصلت للدفع، لا 500
 

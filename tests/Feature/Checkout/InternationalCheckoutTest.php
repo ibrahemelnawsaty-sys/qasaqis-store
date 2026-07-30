@@ -12,6 +12,8 @@ use Database\Seeders\CountrySeeder;
 use Database\Seeders\PaymentMethodSeeder;
 use Database\Seeders\ShippingZoneSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -29,6 +31,7 @@ final class InternationalCheckoutTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(ShippingZoneSeeder::class);
         $this->seed(CountrySeeder::class);
         $this->seed(PaymentMethodSeeder::class);
@@ -73,7 +76,9 @@ final class InternationalCheckoutTest extends TestCase
     {
         $book = $this->book();
 
-        $this->post(route('checkout.place'), $this->payload($book))->assertStatus(302);
+        $this->post(route('checkout.place'), $this->payload($book, [
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
+        ]))->assertStatus(302);
 
         $order = Order::firstOrFail();
         $this->assertSame('EG', $order->country_code);
@@ -92,6 +97,7 @@ final class InternationalCheckoutTest extends TestCase
             'governorate' => null,
             'state_province' => 'الرياض',
             'phone' => '+966512345678',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ]))->assertStatus(302);
 
         $order = Order::firstOrFail();
@@ -166,6 +172,7 @@ final class InternationalCheckoutTest extends TestCase
         $this->post(route('checkout.place'), $this->payload($book, [
             'country_code' => 'SA', 'governorate' => null, 'state_province' => 'الرياض',
             'phone' => '+966512345678', 'coupon' => 'FREESHIP',
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ]))->assertStatus(302);
 
         $order = Order::firstOrFail();

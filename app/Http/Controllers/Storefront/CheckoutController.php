@@ -152,7 +152,9 @@ class CheckoutController extends Controller
     public function place(CheckoutRequest $request, PlaceOrderAction $action): RedirectResponse
     {
         try {
-            $result = $action->execute($request->toData());
+            // ملفّ إثبات التحويل (طرق requires_proof): يُنشأ سجلّه ذرّيًّا مع الطلب داخل
+            // الفعل. null لبقية الطرق، ويُتجاهَل أيّ ملفّ شارد لغير طرق الإثبات.
+            $result = $action->execute($request->toData(), $request->file('proof'));
         } catch (CheckoutException $e) {
             return redirect()
                 ->route('checkout.show')
@@ -207,12 +209,10 @@ class CheckoutController extends Controller
         // مكتمل ووجهته صفحة داخلية مباشرة.
         $request->session()->flash('cart_placed', true);
 
-        // Manual transfer path -> instructions + proof upload.
-        if ($order->payment_status === 'pending_review') {
-            return redirect()->to(URL::signedRoute('orders.payment', ['order' => $order->id]));
-        }
-
-        // COD (and anything else) -> thank-you.
+        // التحويل اليدويّ: الإثبات رُفع في الـcheckout وأُنشئ سجلّه مع الطلب، فيذهب
+        // لصفحة الشكر مباشرةً («استلمنا إثباتك، بانتظار المراجعة»). صفحة رفع الإثبات
+        // تبقى لإعادة الرفع بعد الرفض (عبر إشعار M4)، لا للمسار السعيد.
+        // COD وأيّ حالة أخرى -> صفحة الشكر أيضًا.
         return redirect()->to(URL::signedRoute('orders.thankyou', ['order' => $order->id]));
     }
 }

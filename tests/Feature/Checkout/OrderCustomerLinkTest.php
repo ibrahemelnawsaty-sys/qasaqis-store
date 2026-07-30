@@ -10,7 +10,9 @@ use App\Models\Order;
 use Database\Factories\OrderFactory;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -27,6 +29,7 @@ final class OrderCustomerLinkTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(PaymentMethodSeeder::class);
     }
 
@@ -45,6 +48,8 @@ final class OrderCustomerLinkTest extends TestCase
             'name' => 'أم يوسف', 'phone' => '01055443322', 'email' => 'yousef@example.com',
             'country_code' => 'EG', 'governorate' => 'القاهرة', 'address' => 'شارع ٩',
             'payment_method' => 'instapay', 'items' => [['book_id' => $book->id, 'qty' => 1]],
+            // إثبات التحويل إجباري للطرق اليدوية؛ ملف جديد لكل استدعاء (يُستهلَك بعد أول POST).
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
         ];
     }
 

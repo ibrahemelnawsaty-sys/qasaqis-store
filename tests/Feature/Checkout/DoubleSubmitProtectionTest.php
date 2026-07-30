@@ -8,6 +8,8 @@ use App\Models\Book;
 use App\Models\Order;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -31,6 +33,7 @@ final class DoubleSubmitProtectionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(PaymentMethodSeeder::class);
 
         // COD مبذور معطّلًا (3c40e04)؛ هذا الملف يحتاجه مفعّلًا. نُفعّله صراحةً
@@ -61,6 +64,9 @@ final class DoubleSubmitProtectionTest extends TestCase
             'governorate' => 'القاهرة',
             'address' => 'شارع التجربة رقم 5',
             'payment_method' => 'instapay',
+            // إثبات التحويل إجباري لطرق الدفع اليدويّة؛ يُولَّد ملفّ جديد لكلّ
+            // استدعاء (payload يُستدعى مرّة لكلّ POST) لأنّ الملفّ يُستهلَك بعد الإرسال.
+            'proof' => UploadedFile::fake()->image('receipt.jpg'),
             'items' => [['book_id' => $book->id, 'qty' => 1]],
         ];
     }

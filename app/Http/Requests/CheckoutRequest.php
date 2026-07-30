@@ -46,7 +46,13 @@ class CheckoutRequest extends FormRequest
      */
     public function rules(): array
     {
-        $availableCodes = app(PaymentMethodResolver::class)->availableCodes();
+        $resolver = app(PaymentMethodResolver::class);
+        $availableCodes = $resolver->availableCodes();
+
+        // هل الطريقة المختارة تتطلّب إثبات تحويل؟ (خادميّ من الجدول، لا ثقة بالعميل).
+        // حين تتطلّبه ⇒ ملفّ الإثبات إجباريّ فلا يُنشأ طلب تحويل يدويّ بلا إثبات.
+        // طريقة غير معروفة → false (يلتقطها تحقّق payment_method بقائمته البيضاء).
+        $requiresProof = $resolver->find((string) $this->input('payment_method'))?->requires_proof === true;
 
         // مصر (الوطن) مسموحة دائمًا حتى قبل بذر جدول الدول؛ يُضاف إليها كل دولة
         // قابلة للشحن (مفعّلة ومنطقتها مفعّلة). تسعير مصر مرجعه config/egypt.
@@ -79,6 +85,13 @@ class CheckoutRequest extends FormRequest
 
             'payment_method' => ['required', 'string', Rule::in($availableCodes)],
 
+            // إثبات التحويل: إجباريّ لطرق requires_proof فقط (يطابق حارس PlaceOrderAction).
+            // قائمة بيضاء لأنواع الملفّ + سقف 8 ميجا (يطابق PaymentProofRequest). لبقية
+            // الطرق nullable (يُتجاهَل أيّ ملفّ شارد في PlaceOrderAction).
+            'proof' => [$requiresProof ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:8192'],
+            'amount' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
+            'sender_reference' => ['nullable', 'string', 'max:120'],
+
             'coupon' => ['nullable', 'string', 'max:50'],
             'note' => ['nullable', 'string', 'max:1000'],
 
@@ -107,6 +120,9 @@ class CheckoutRequest extends FormRequest
         return [
             'phone.regex' => $phoneMessage,
             'phone_alt.regex' => $phoneMessage,
+            'proof.required' => __('checkout.form.proof_required'),
+            'proof.mimes' => __('checkout.form.proof_mimes'),
+            'proof.max' => __('checkout.form.proof_max'),
         ];
     }
 
@@ -154,6 +170,9 @@ class CheckoutRequest extends FormRequest
             // حارس customer صراحةً (مستقل عن الحارس الافتراضي): يربط الطلب بحساب
             // العميلة المسجّلة فيظهر في «طلباتي» تلقائيًّا. null للزائرة.
             customerId: auth('customer')->id(),
+            // بيانات إثبات التحويل الاختياريّة (الملفّ نفسه يُمرَّر منفصلًا من المتحكّم).
+            proofAmount: $this->validated('amount') !== null ? (string) $this->validated('amount') : null,
+            proofReference: $this->validated('sender_reference'),
         );
     }
 }

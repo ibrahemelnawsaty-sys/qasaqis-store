@@ -46,6 +46,11 @@ final readonly class PlaceOrderData
         // حساب العميلة المسجّلة (حارس customer) لربط الطلب بحسابها فيظهر في «طلباتي»
         // بلا مطالبة يدوية. null للزائرة. مستقل عن userId (المرتبط بمستخدمي اللوحة).
         public ?int $customerId = null,
+        // بيانات إثبات التحويل المرفوع في الـcheckout (طرق requires_proof فقط): المبلغ
+        // والمرجع اختياريّان، والملفّ نفسه يُمرَّر منفصلًا إلى PlaceOrderAction::execute
+        // (لا يوضع في DTO لأنه ليس قيمة نصّية). null لبقية الطرق (COD/أونلاين).
+        public ?string $proofAmount = null,
+        public ?string $proofReference = null,
     ) {
     }
 }

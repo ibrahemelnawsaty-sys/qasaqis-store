@@ -34,7 +34,7 @@
 
                 {{-- عمود النموذج --}}
                 <div>
-                    <form id="checkoutForm" method="POST" action="{{ route('checkout.place') }}">
+                    <form id="checkoutForm" method="POST" action="{{ route('checkout.place') }}" enctype="multipart/form-data">
                         @csrf
 
                         {{-- حقول إسناد التتبّع (M6) — تُملأ من كوكيز المتصفح لحدث الشراء الخادمي. --}}
@@ -220,6 +220,7 @@
                                     @foreach ($methods as $method)
                                         <label class="co-method">
                                             <input type="radio" name="payment_method" value="{{ $method->code }}"
+                                                data-requires-proof="{{ $method->requires_proof ? '1' : '0' }}"
                                                 @checked($selectedMethod === $method->code) required>
                                             <span>
                                                 <span class="mt">{{ $method->name }}</span>
@@ -240,6 +241,57 @@
                                 @error('note') <p class="co-err">{{ $message }}</p> @enderror
                             </div>
                         </div>
+
+                        {{-- إثبات التحويل: يظهر عند اختيار طريقة تتطلّب إثباتًا (JS أدناه). الملفّ
+                             إجباريّ خادميًّا (CheckoutRequest) فلا يُنشأ طلب تحويل يدويّ بلا إثبات.
+                             «المطلوب تحويله» = الإجمالي شامل الشحن الثابت (overrides فارغة، والتحويل
+                             اليدويّ محلّيّ)، يُحسب حيًّا مع الكوبون داخل نطاق couponBox. --}}
+                        @php
+                            $proofMethods = $methods->filter(fn ($m) => $m->requires_proof);
+                            $subtotalNum = (float) $cart->subtotal;
+                            $flatShip = (float) config('egypt.shipping.flat', 0);
+                        @endphp
+                        @if ($proofMethods->isNotEmpty())
+                            <div id="proofBlock" class="co-card" hidden>
+                                <h2><span class="n" aria-hidden="true">🧾</span>{{ __('checkout.form.proof_section_title') }}</h2>
+
+                                <div class="co-amount-box">
+                                    <div class="lbl">{{ __('checkout.form.proof_transfer_amount') }}</div>
+                                    <div class="val"
+                                        x-text="fmt(Math.max(0, {{ $subtotalNum }} - (applied ? parseFloat(applied.discount) : 0) + ((applied &amp;&amp; applied.free_shipping) ? 0 : {{ $flatShip }}))) + ' {{ __('common.currency') }}'">{{ number_format(max(0, $subtotalNum + $flatShip), 0) }} {{ __('common.currency') }}</div>
+                                </div>
+
+                                @foreach ($proofMethods as $pm)
+                                    <div class="proof-instr" data-method="{{ $pm->code }}" hidden>
+                                        @include('partials.payment-details', ['method' => $pm])
+                                    </div>
+                                @endforeach
+
+                                <div class="co-field" style="margin-top:14px">
+                                    <label class="co-label" for="f-proof">{{ __('checkout.form.proof_field_label') }}</label>
+                                    <input id="f-proof" type="file" name="proof"
+                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                        class="co-file @error('proof') err @enderror">
+                                    <p class="co-hint" style="margin-top:6px">{{ __('checkout.form.proof_field_hint') }}</p>
+                                    @error('proof') <p class="co-err">{{ $message }}</p> @enderror
+                                </div>
+
+                                <div class="co-grid2">
+                                    <div class="co-field half">
+                                        <label class="co-label" for="f-amount">{{ __('checkout.form.proof_amount_label') }}</label>
+                                        <input id="f-amount" type="number" step="0.01" min="0" max="999999.99" name="amount" dir="ltr"
+                                            value="{{ old('amount') }}" class="co-input @error('amount') err @enderror">
+                                        @error('amount') <p class="co-err">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div class="co-field half">
+                                        <label class="co-label" for="f-ref">{{ __('checkout.form.proof_ref_label') }}</label>
+                                        <input id="f-ref" type="text" name="sender_reference" value="{{ old('sender_reference') }}" maxlength="120"
+                                            class="co-input @error('sender_reference') err @enderror" placeholder="{{ __('checkout.form.proof_ref_ph') }}" dir="ltr">
+                                        @error('sender_reference') <p class="co-err">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
                     </form>
                 </div>
 
@@ -322,6 +374,51 @@
             })();
         </script>
 
+    @endpush
+
+    {{-- إظهار كتلة الإثبات لطرق requires_proof + جعل الملفّ إجباريًّا عند الظهور (والخادم
+         يفرضه أيضًا)، وإظهار تعليمات الطريقة المختارة، وضغط صور الإيصال الكبيرة قبل الرفع
+         (نت مصر). حارس الإرسال المزدوج آمن مع required (لا يُعطّل الزر إلا بعد نجاح تحقّق
+         المتصفّح). --}}
+    @push('scripts')
+        <script>
+            (function () {
+                var block = document.getElementById('proofBlock');
+                if (!block) return;                                  // لا طرق إثبات مفعّلة
+                var radios = document.querySelectorAll('input[name="payment_method"]');
+                var file = document.getElementById('f-proof');
+
+                function sync() {
+                    var sel = document.querySelector('input[name="payment_method"]:checked');
+                    var needs = !!(sel && sel.getAttribute('data-requires-proof') === '1');
+                    block.hidden = !needs;
+                    if (file) file.required = needs;
+                    block.querySelectorAll('[data-method]').forEach(function (d) {
+                        d.hidden = !(needs && sel && d.getAttribute('data-method') === sel.value);
+                    });
+                }
+                radios.forEach(function (r) { r.addEventListener('change', sync); });
+                sync();
+
+                if (file) {
+                    file.addEventListener('change', function () {
+                        var f = file.files && file.files[0];
+                        if (!f || f.type.indexOf('image/') !== 0 || f.size <= 1.5 * 1024 * 1024) return;
+                        createImageBitmap(f).then(function (bmp) {
+                            var max = 1600, w = bmp.width, h = bmp.height;
+                            if (Math.max(w, h) > max) { var s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+                            var c = document.createElement('canvas'); c.width = w; c.height = h;
+                            c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+                            c.toBlob(function (b) {
+                                if (!b || b.size >= f.size) return;
+                                var out = new File([b], (f.name || 'proof').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+                                var dt = new DataTransfer(); dt.items.add(out); file.files = dt.files;
+                            }, 'image/jpeg', 0.82);
+                        }).catch(function () {});
+                    });
+                }
+            })();
+        </script>
     @endpush
 
     {{-- منع الإرسال المزدوج (M7 — المرحلة 5). reloadOnRestore لأن الجلسة تحمل

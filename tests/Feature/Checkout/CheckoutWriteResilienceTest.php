@@ -9,9 +9,11 @@ use App\Models\Customer;
 use App\Models\Order;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -37,6 +39,7 @@ final class CheckoutWriteResilienceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('local');
         $this->seed(PaymentMethodSeeder::class);
     }
 
@@ -79,6 +82,7 @@ final class CheckoutWriteResilienceTest extends TestCase
                 'name' => 'أم منى', 'phone' => '01011224488', 'email' => 'mona@example.com',
                 'country_code' => 'EG', 'governorate' => 'الإسكندرية', 'city' => 'سموحة',
                 'address' => 'شارع فوزي معاذ 12', 'payment_method' => 'instapay',
+                'proof' => UploadedFile::fake()->image('receipt.jpg'),
                 'items' => [['book_id' => $book->id, 'qty' => 1]],
             ])->assertStatus(302);   // إعادة توجيه لصفحة الدفع/الشكر — لا 500
 

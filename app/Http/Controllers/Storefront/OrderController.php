@@ -133,7 +133,9 @@ class OrderController extends Controller
      */
     public function thankyou(Order $order): View
     {
-        $order->load('items');
+        // عدد الإثباتات: تمييز «استلمنا إثباتك» (رُفع في الـcheckout) عن «ارفعي الإثبات»
+        // (حالة إعادة الرفع النادرة) في القالب — فلا نطلب رفعًا وقد رُفع.
+        $order->load('items')->loadCount('paymentProofs');
 
         return view('orders.thankyou', [
             'order' => $order,
