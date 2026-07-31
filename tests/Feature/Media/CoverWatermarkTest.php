@@ -84,14 +84,16 @@ final class CoverWatermarkTest extends TestCase
         $this->assertNull($this->book(['cover_image' => null])->coverUrl());
     }
 
-    public function test_media_route_serves_jpeg_generates_static_derivative_and_switches_coverurl(): void
+    public function test_media_route_serves_a_watermarked_derivative_and_switches_coverurl(): void
     {
         $this->putRealCover('books/covers/wm-test.jpg');
         $book = $this->book(['cover_image' => 'books/covers/wm-test.jpg']);
 
         $response = $this->get(route('media.book', $book));
         $response->assertOk();
-        $this->assertStringContainsString('image/jpeg', (string) $response->headers->get('Content-Type'));
+        // WebP إن توفّر imagewebp (الدستور 5.3)، وإلا JPEG — النوع يتبع MediaCache::ext.
+        $expectedMime = \App\Services\Media\MediaCache::ext() === 'webp' ? 'image/webp' : 'image/jpeg';
+        $this->assertStringContainsString($expectedMime, (string) $response->headers->get('Content-Type'));
         $this->assertNotFalse(@getimagesizefromstring($this->fileResponseBytes($response)));
 
         // المشتقّ الثابت العام وُلِّد => coverUrl صارت static (بلا PHP) في الطلب التالي.

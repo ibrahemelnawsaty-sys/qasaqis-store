@@ -56,7 +56,10 @@ class MediaController extends Controller
         $publicFile = MediaCache::ensure($path);
 
         if ($publicFile !== null) {
-            return response()->file($publicFile, ['Content-Type' => 'image/jpeg'] + $headers);
+            // النوع من امتداد المشتقّ الفعليّ (webp/jpg) — يطابق ما كتبه CoverWatermark.
+            $mime = str_ends_with($publicFile, '.webp') ? 'image/webp' : 'image/jpeg';
+
+            return response()->file($publicFile, ['Content-Type' => $mime] + $headers);
         }
 
         // تعذّر توليد/كتابة المشتقّ العام (تعليم فاشل أو public غير قابل للكتابة) —

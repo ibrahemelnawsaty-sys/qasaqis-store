@@ -26,7 +26,9 @@ class CoverWatermark
     private const MARGIN = 0.03;
 
     /**
-     * يعيد بايتات JPEG للصورة (مصغّرة + موسومة)، أو null عند تعذّر المعالجة.
+     * يعيد بايتات الصورة المعالَجة (مصغّرة + موسومة): WebP إن توفّر imagewebp (الدستور
+     * 5.3، أخفّ ~٢٥–٣٥٪ بنفس الجودة)، وإلا JPEG. null عند تعذّر المعالجة. الامتداد في
+     * MediaCache::ext() يتبع الشرط نفسه فيوافق الاسمُ البايتات.
      */
     public function apply(string $sourceAbsPath): ?string
     {
@@ -65,8 +67,10 @@ class CoverWatermark
 
         $this->stampLogo($canvas, $targetW, $targetH);
 
+        // WebP إن توفّر (الدستور 5.3، أخفّ بنفس الجودة)، وإلا سقوط آمن لـJPEG. الشرط
+        // نفسه في MediaCache::ext() فيطابق الامتدادُ المكتوبُ في الاسم البايتاتِ.
         ob_start();
-        $ok = imagejpeg($canvas, null, 82);
+        $ok = function_exists('imagewebp') ? imagewebp($canvas, null, 80) : imagejpeg($canvas, null, 82);
         $binary = (string) ob_get_clean();
         imagedestroy($canvas);
 
