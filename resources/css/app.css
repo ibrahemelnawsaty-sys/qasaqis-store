@@ -485,6 +485,16 @@
   .why-card:hover,.why-card:hover .we{ transform:none; }
 }
 
+/* لا-حركة أثناء التحميل: الزخارف اللا-نهائيّة الظاهرة في المنفذ (بقع الهيرو، زرّ
+   واتساب العائم وحلقته) تبقى مجمّدة على إطارها الأوّل حتى load (سطر motion-ready في
+   القالب)، فيبلغ المنفذ «الاكتمال البصريّ» مبكّرًا (Speed Index أدنى) ويخفّ عمل
+   الـGPU/المعالج على الهواتف الضعيفة وقت الفتح. تأتي بعد تعريف animation الكامل
+   لتَغلِب play-state الضمنيّ (running). reduced-motion يظلّ يغلبها بـanimation:none. */
+.drift,.wa-float,.wa-float .ping{ animation-play-state:paused; }
+body.motion-ready .drift,
+body.motion-ready .wa-float,
+body.motion-ready .wa-float .ping{ animation-play-state:running; }
+
 
 /* ===== معرض شهادات العملاء (بطاقات تقييم صور) — شريط أفقي بانزلاق ناعم ===== */
 .reviews-gallery{
@@ -505,10 +515,11 @@
 @media (min-width:820px){ .reviews-gallery{ grid-auto-columns:330px; } }
 
 /* ===== نقوش الخلفية المستخرجة من الشعار — نقش لكل قسم =====
-   بلاطات SVG متجهة مضمّنة (بلا طلب شبكة إضافي، +3.0KB مضغوطة إجمالًا).
-   الشفافية مخبوزة داخل البلاطة، فلا حاجة لطبقة إضافية فوق الخلفية.
-   لكل نقش نسخة ليلية بتوكنات الثيم الداكن، وإلا اختفى على #241733.
-   الفئة تُضاف على <body> عبر @section('body_class') في كل قالب. */
+   بلاطات SVG ساكنة في public/images/patterns (أُخرِجت من app.css الحاجب لتخفيفه؛
+   تُجلَب لا-حاجبةً ومخبّأةً سنة). الصفحة تستبق نقشها في الرأس (rel=preload، النسخة
+   الفاتحة) فيُرسَم مبكّرًا موازيًا للـCSS. الشفافية مخبوزة داخل البلاطة، فلا حاجة
+   لطبقة إضافية. لكل نقش نسخة ليلية بتوكنات الثيم الداكن، وإلا اختفى على #241733.
+   الفئة على <body> من $bodyPattern (BackgroundPatternService) أو @section('body_class'). */
 
 /* الرئيسية — شبكة القصص (شفافية 0.07) */
 .pat-storybook-lattice{background-image:url('/images/patterns/storybook-lattice.svg');background-size:160px 160px}

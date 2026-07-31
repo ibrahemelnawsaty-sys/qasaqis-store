@@ -13,7 +13,10 @@
             /* الشرائح متراكبة في نفس الموضع (لا تتكدّس عموديًا فتقفز الصفحة) */
             .hslide{position:absolute;inset:0;display:grid;align-items:end}
             .hslide-media{position:absolute;inset:0;z-index:0;overflow:hidden}
-            .hslide-media img{width:100%;height:100%;object-fit:cover;display:block;animation:hs-kenburns 7s ease-out both;will-change:transform}
+            /* مجمّد على أوّل إطار (scale 1.03) حتى اكتمال التحميل فيستقرّ عنصر LCP
+               وقت قياس Speed Index، ثم يبدأ التكبير (motion-ready على body). */
+            .hslide-media img{width:100%;height:100%;object-fit:cover;display:block;animation:hs-kenburns 7s ease-out both;animation-play-state:paused;will-change:transform}
+            body.motion-ready .hslide-media img{animation-play-state:running}
             @keyframes hs-kenburns{from{transform:scale(1.03)}to{transform:scale(1.12)}}
             @media (prefers-reduced-motion:reduce){.hslide-media img{animation:none}}
             .hslide-fallback{position:absolute;inset:0;z-index:0}
