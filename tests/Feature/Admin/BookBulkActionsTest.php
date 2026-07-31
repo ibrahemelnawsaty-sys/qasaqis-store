@@ -78,6 +78,19 @@ final class BookBulkActionsTest extends TestCase
         $this->assertTrue($book->categories()->whereKey($extra->id)->exists());    // أُضيف كإضافيّ
     }
 
+    public function test_selection_persists_across_a_search(): void
+    {
+        // تجميع تحديد عبر عمليات بحث: يحدّد المستخدم كتبًا ثم يبحث عن غيرها — يجب ألّا
+        // يُمسح المحدَّد (كان Filament يمسحه افتراضيًّا عند البحث).
+        $a = Book::factory()->create(['title' => 'كتاب ألف']);
+        $b = Book::factory()->create(['title' => 'كتاب باء']);
+
+        Livewire::test(ListBooks::class)
+            ->set('selectedTableRecords', [$a->getKey(), $b->getKey()])
+            ->searchTable('عنوان لا يطابق شيئًا')
+            ->assertSet('selectedTableRecords', [$a->getKey(), $b->getKey()]);   // باقٍ بعد البحث
+    }
+
     public function test_normalized_search_finds_books_across_hamza_and_relations(): void
     {
         $publisher = Publisher::factory()->create(['name' => 'دار المعرفة']);
