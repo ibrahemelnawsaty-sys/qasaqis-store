@@ -31,6 +31,15 @@
     <link rel="preload" href="{{ asset('fonts/tajawal-400-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="{{ asset('fonts/baloo-800-ar.woff2') }}" as="font" type="font/woff2" crossorigin>
 
+    {{-- استباق نقش خلفية الصفحة (النسخة الفاتحة، الافتراضيّة لأغلب الزوّار): يُكتشف
+         مبكّرًا موازيًا للـCSS بدل انتظار تحليلها، فتُرسَم خلفيّة المنفذ الكاملة أبكر
+         (يعالج تأخّر رسمها بعد إخراج النقوش من app.css إلى ملفّات). المسار جذريّ
+         ليطابق url() في الـCSS تمامًا فيُدمَج الطلب. الداكن ملفّ منفصل يُحسَم بالعميل
+         فلا يُستبَق كي لا يزاحم صورة LCP على النطاق الضيّق. --}}
+    @if (($bodyPattern ?? '') !== '' && \Illuminate\Support\Str::startsWith($bodyPattern, 'pat-'))
+        <link rel="preload" as="image" href="/images/patterns/{{ \Illuminate\Support\Str::after($bodyPattern, 'pat-') }}.svg">
+    @endif
+
     {{-- أيقونة المتصفح ونتائج البحث.
          Google يشترط أيقونة مربّعة (1:1) بصيغة ICO/PNG/SVG/JPEG/GIF/BMP ولا يدعم WebP،
          ويوصي بأكبر من 48×48. لذلك نخدم ICO متعدد الأحجام + PNG مربّعًا 512.
@@ -212,6 +221,11 @@
 
     {{-- رسائل تحقّق المتصفح بالعربية لكل النماذج (M11). --}}
     @include('partials.native-validation')
+
+    {{-- لا-حركة أثناء التحميل: الزخارف المتحرّكة تبقى ساكنة حتى اكتمال التحميل فيستقرّ
+         المنفذ مبكّرًا (Speed Index أدنى + حمل GPU/معالج أخفّ على الهواتف الضعيفة وقت
+         الفتح)، ثم تدبّ الحياة. بلا JS تبقى ساكنة — تحلّلٌ لطيف والموقع كامل الوظيفة. --}}
+    <script>addEventListener('load',function(){document.body.classList.add('motion-ready')})</script>
 
     @stack('scripts')
 </body>
