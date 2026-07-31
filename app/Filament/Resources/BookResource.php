@@ -11,6 +11,8 @@ use App\Filament\Resources\BookResource\RelationManagers\ReviewsRelationManager;
 use App\Filament\Support\SeoPlaceholder;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Publisher;
+use App\Models\Series;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Support\Text\Slug;
 use Filament\Forms;
@@ -389,15 +391,24 @@ class BookResource extends Resource
 
                 Tables\Columns\TextColumn::make('title')
                     ->label('العنوان')
-                    ->searchable()
+                    // بحث مُطبَّع عربيًّا: يلاقي الكتب رغم اختلاف الهمزة/التاء/التشكيل، عبر
+                    // عمود title_normalized المخزّن مُطبَّعًا (كان البحث الخام يفوّت النُّسخ).
+                    // ويشمل المؤلف/الدار/السلسلة في استعلام واحد موحّد.
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(
+                        fn (Builder $q): Builder => $q
+                            ->where('title_normalized', 'like', '%'.Book::normalizeArabic($search).'%')
+                            ->orWhere('author', 'like', '%'.$search.'%')
+                            ->orWhereHas('publisher', fn (Builder $p) => $p->where('name', 'like', '%'.$search.'%'))
+                            ->orWhereHas('series', fn (Builder $s) => $s->where('name', 'like', '%'.$search.'%'))
+                    ))
                     ->sortable()
                     ->wrap(),
 
                 // الأعمدة الثانوية مخفية افتراضيًا كي يظهر الجدول كاملًا بلا سحب أفقي؛
-                // تُفعَّل بنقرة من قائمة «الأعمدة» أعلى الجدول عند الحاجة.
+                // تُفعَّل بنقرة من قائمة «الأعمدة» أعلى الجدول عند الحاجة. (المؤلف يُبحث
+                // ضمن الاستعلام الموحّد على العنوان أعلاه، فلا حاجة لـ searchable مستقلّ.)
                 Tables\Columns\TextColumn::make('author')
                     ->label('المؤلف')
-                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('category.name')
@@ -635,6 +646,104 @@ class BookResource extends Resource
 
                             Notification::make()
                                 ->title('تم نقل '.$records->count().' كتابًا إلى القسم المحدَّد')
+                                ->success()
+                                ->send();
+                        }),
+
+                    // إضافة تراكمية لقسم إضافيّ (book_category) دون تغيير القسم الرئيسيّ.
+                    Tables\Actions\BulkAction::make('addCategory')
+                        ->label('إضافة لقسم إضافي')
+                        ->icon('heroicon-o-folder-plus')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\Select::make('category_id')
+                                ->label('القسم الإضافي')
+                                ->options(fn (): array => Category::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required()
+                                ->helperText('يُضاف كقسمٍ إضافيّ للكتب المحدَّدة دون تغيير قسمها الرئيسيّ.'),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $categoryId = (int) $data['category_id'];
+
+                            // syncWithoutDetaching: يضيف بلا حذف الأقسام الإضافية القائمة،
+                            // وبلا تكرار الصفّ نفسه (آمن لإعادة التطبيق).
+                            $records->each(fn (Book $book) => $book->categories()->syncWithoutDetaching([$categoryId]));
+
+                            Notification::make()
+                                ->title('تمت إضافة '.$records->count().' كتابًا إلى القسم الإضافيّ')
+                                ->success()
+                                ->send();
+                        }),
+
+                    // إسناد دار النشر للكتب المحدَّدة (يستبدل الناشر الحاليّ — الكتاب له دار واحدة).
+                    Tables\Actions\BulkAction::make('setPublisher')
+                        ->label('إضافة إلى دار')
+                        ->icon('heroicon-o-building-library')
+                        ->requiresConfirmation()
+                        ->modalDescription('يُضبَط ناشر الكتب المحدَّدة على الدار المختارة (يستبدل الناشر الحاليّ).')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\Select::make('publisher_id')
+                                ->label('دار النشر')
+                                ->options(fn (): array => Publisher::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $publisherId = (int) $data['publisher_id'];
+
+                            // update() لا استعلام جماعي: تعمل المراقِبات (إعادة بناء فهرس البحث).
+                            $records->each(fn (Book $book) => $book->update(['publisher_id' => $publisherId]));
+
+                            Notification::make()
+                                ->title('تم إسناد '.$records->count().' كتابًا إلى الدار المحدَّدة')
+                                ->success()
+                                ->send();
+                        }),
+
+                    // إسناد سلسلة للكتب المحدَّدة، وترتيب تلقائيّ متتابع بعد آخر كتاب فيها.
+                    Tables\Actions\BulkAction::make('setSeries')
+                        ->label('إضافة إلى سلسلة')
+                        ->icon('heroicon-o-queue-list')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn (): bool => static::userCan('update'))
+                        ->form([
+                            Forms\Components\Select::make('series_id')
+                                ->label('السلسلة')
+                                ->options(fn (): array => Series::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required()
+                                ->helperText('تُسنَد للكتب المحدَّدة، ويأخذ كلٌّ ترتيبه تلقائيًّا بعد آخر كتاب في السلسلة.'),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $seriesId = (int) $data['series_id'];
+
+                            // الترتيب التالي بعد آخر كتاب في السلسلة (يشمل غير المحدَّد)،
+                            // فيُلحَق المحدَّد بترتيب متتابع بلا تصادم.
+                            $position = (int) (Book::query()->where('series_id', $seriesId)->max('series_position') ?? 0);
+
+                            $records->each(function (Book $book) use ($seriesId, &$position): void {
+                                $position++;
+                                $book->update([
+                                    'series_id' => $seriesId,
+                                    'series_position' => $position,
+                                ]);
+                            });
+
+                            Notification::make()
+                                ->title('تمت إضافة '.$records->count().' كتابًا إلى السلسلة')
                                 ->success()
                                 ->send();
                         }),
