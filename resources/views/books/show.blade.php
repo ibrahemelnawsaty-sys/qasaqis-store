@@ -284,6 +284,7 @@
         <div class="pdp">
             {{-- معرض صور الكتاب: صورة رئيسية تتبدّل تلقائيًا وبالنقر على المصغّرات؛
                  التكبير في وضع الشاشة الكاملة عبر زر التكبير فقط. --}}
+            <div class="pdp-media">
             @if ($hasGallery)
             <div x-data="{
                     images: JSON.parse(document.getElementById('pdpGalleryData').textContent),
@@ -407,6 +408,10 @@
                     @endif
                 </x-book-cover>
             @endif
+
+                {{-- شريط مشاركة الكتاب تحت الصور (نسخ + مشاركة أصليّة + سوشيال). --}}
+                @include('partials.share-book', ['book' => $book])
+            </div>{{-- /pdp-media --}}
 
             <div>
                 <div class="metaline">
