@@ -59,6 +59,12 @@ Options -Indexes
     <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico|avif)$">
         Header set Cache-Control "public, max-age=2592000"
     </FilesMatch>
+    # مشتقّات الأغلفة في media-cache مبصومة بالمحتوى (sha1+mtime في الاسم) => سنة
+    # immutable. يتجاوز قاعدة الصور أعلاه لهذا المسار وحده، فلا يُعيد العائد تنزيل
+    # أثقل أصول الصفحة (الأغلفة). في .htaccess الرئيسيّ ليصمد أمام مسح media-cache.
+    <If "%{REQUEST_URI} =~ m#^/media-cache/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
 </IfModule>
 
 # ضغط النصوص (LiteSpeed/Apache) — يقلّل حجم HTML/CSS/JS بشكل كبير

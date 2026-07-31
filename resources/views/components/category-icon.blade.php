@@ -2,13 +2,13 @@
 
 @php
     // أولوية عرض القسم: (١) الصورة المرفوعة من اللوحة (image_path على قرص public)،
-    // ثم (٢) أيقونة مرسومة ثابتة للأقسام الأصلية (public/images/categories/<slug>.png،
-    // مطابقة بالـ slug)، ثم (٣) أيقونة SVG بلونه (احتياطي، بلا اختلاق).
+    // ثم (٢) أيقونة مرسومة ثابتة للأقسام الأصلية (public/images/categories/<slug>.webp،
+    // WebP أخفّ ~٨٤٪ من PNG، مطابقة بالـ slug)، ثم (٣) أيقونة SVG بلونه (احتياطي).
     // كان image_path يُتجاهَل تمامًا فلا تظهر صورة الأدمن — هذا الإصلاح.
     $uploaded = $cat->imageUrl();
     $imageSlugs = ['novels', 'science', 'behavior-emotions', 'stories', 'early-childhood', 'religious', 'language'];
     $staticPng = in_array($cat->slug, $imageSlugs, true)
-        ? asset('images/categories/' . $cat->slug . '.png')
+        ? asset('images/categories/' . $cat->slug . '.webp')
         : null;
     $img = $uploaded ?? $staticPng;
 @endphp
