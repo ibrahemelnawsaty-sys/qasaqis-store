@@ -79,10 +79,14 @@ class CoverWatermark
 
     private function load(string $path, string $mime): ?\GdImage
     {
+        // ملاحظة الصيغ التي يتعذّر على GD رسترتها فتُخدَم بالأصل عبر البديل الصامد:
+        // SVG (متجهيّة، لا رسترة)، وWebP/AVIF المتحرّكة أو المتغايرة. AVIF يُعالَج هنا
+        // حيث يدعمه GD؛ وإلا يرتدّ getimagesize فوق فيُخدَم الأصل.
         $img = match ($mime) {
             'image/jpeg' => @imagecreatefromjpeg($path),
             'image/png' => @imagecreatefrompng($path),
             'image/webp' => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : false,
+            'image/avif' => function_exists('imagecreatefromavif') ? @imagecreatefromavif($path) : false,
             'image/gif' => @imagecreatefromgif($path),
             default => false,
         };
