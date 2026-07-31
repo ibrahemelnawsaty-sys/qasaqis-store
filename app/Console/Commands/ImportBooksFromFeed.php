@@ -598,36 +598,40 @@ class ImportBooksFromFeed extends Command
     private function importImages(Book $book, array $urls, array &$stats): void
     {
         $force = (bool) $this->option('force-images');
+        $dir = "books/{$book->slug}";
         $coverPath = null;
+
+        // نسرد المجلّد مرّة واحدة: المصدر قد يخدم صيغة (webp) بامتداد مختلف عن الرابط،
+        // فنكشف «موجود مسبقًا» بالاسم الأساس لا بالامتداد.
+        $existingFiles = Storage::disk(self::PUBLIC_DISK)->files($dir);
 
         foreach (array_values($urls) as $i => $url) {
             $isCover = $i === 0;
-            $ext = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'jpg';
-            $dest = $isCover
-                ? "books/{$book->slug}/cover.{$ext}"
-                : "books/{$book->slug}/gallery-{$i}.{$ext}";
+            $baseName = $isCover ? 'cover' : "gallery-{$i}";
 
-            $alreadyOnDisk = Storage::disk(self::PUBLIC_DISK)->exists($dest);
+            $existing = null;
+            foreach ($existingFiles as $f) {
+                if (str_starts_with(basename($f), $baseName.'.')) {
+                    $existing = $f;
+                    break;
+                }
+            }
 
-            if (! $alreadyOnDisk || $force) {
-                try {
-                    $response = Http::timeout(25)->get($url);
+            if ($existing !== null && ! $force) {
+                $dest = $existing;
+            } else {
+                [$body, $ext] = $this->downloadImage($url);
 
-                    if (! $response->successful()) {
-                        $this->warn("    تعذّر تنزيل صورة ({$response->status()}): {$url}");
-                        $stats['imageFails']++;
-
-                        continue;
-                    }
-
-                    Storage::disk(self::PUBLIC_DISK)->put($dest, $response->body());
-                    $stats['images']++;
-                } catch (\Throwable $e) {
-                    $this->warn('    فشل تنزيل صورة: '.$e->getMessage());
+                if ($body === null) {
+                    $this->warn("    تعذّر تنزيل صورة: {$url}");
                     $stats['imageFails']++;
 
                     continue;
                 }
+
+                $dest = "{$dir}/{$baseName}.{$ext}";
+                Storage::disk(self::PUBLIC_DISK)->put($dest, $body);
+                $stats['images']++;
             }
 
             // يُكتب صفّ الصورة دائمًا حتى لو كان الملف موجودًا مسبقًا — وجود الملف
@@ -653,6 +657,47 @@ class ImportBooksFromFeed extends Command
 
         if ($coverPath !== null && $book->cover_image !== $coverPath) {
             $book->forceFill(['cover_image' => $coverPath])->save();
+        }
+    }
+
+    /**
+     * ينزّل صورة بمرونة: يطلب صيغة صغيرة (webp عبر Accept) بترويسة متصفّح ومهلة سخيّة
+     * وإعادة محاولات — يتجنّب مهلة تنزيل الأصل الضخم أو خنق الـCDN لطلبات الخادم. يشتقّ
+     * الامتداد من نوع المحتوى الفعليّ (فقد يخدم المصدر webp رغم امتداد الرابط .png).
+     *
+     * @return array{0: string|null, 1: string|null} [البايتات, الامتداد] أو [null, null]
+     */
+    private function downloadImage(string $url): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (compatible; QasaqisBooksImport/1.0; +https://qasaqis.store)',
+                'Accept' => 'image/avif,image/webp,image/png,image/jpeg,*/*',
+            ])->timeout(60)->connectTimeout(15)->retry(2, 800, null, false)->get($url);
+
+            if (! $response->successful()) {
+                return [null, null];
+            }
+
+            $body = $response->body();
+
+            if ($body === '') {
+                return [null, null];
+            }
+
+            $type = strtolower((string) $response->header('Content-Type'));
+            $ext = match (true) {
+                str_contains($type, 'webp') => 'webp',
+                str_contains($type, 'avif') => 'avif',
+                str_contains($type, 'png') => 'png',
+                str_contains($type, 'gif') => 'gif',
+                str_contains($type, 'jpeg') || str_contains($type, 'jpg') => 'jpg',
+                default => strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) ?: 'jpg',
+            };
+
+            return [$body, $ext];
+        } catch (\Throwable $e) {
+            return [null, null];
         }
     }
 
