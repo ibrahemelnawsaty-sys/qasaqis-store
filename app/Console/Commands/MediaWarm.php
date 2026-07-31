@@ -9,6 +9,7 @@ use App\Models\Book;
 use App\Models\BookImage;
 use App\Services\Media\MediaCache;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * يولّد كل المشتقّات الموسومة الثابتة في public/media-cache سلفًا (أغلفة الكتب + صور
@@ -27,10 +28,21 @@ class MediaWarm extends Command
     public function handle(): int
     {
         $done = 0;
-        $failed = 0;
+        /** @var list<string> $missing مصدر مفقود على القرص — يُخدَم بالبديل، غير معطِّل. */
+        $missing = [];
+        /** @var list<string> $failed مصدر موجود لكن تعذّرت المعالجة/الكتابة — يستحق التحقّق. */
+        $failed = [];
 
-        $warm = function (?string $path) use (&$done, &$failed): void {
+        $warm = function (?string $path) use (&$done, &$missing, &$failed): void {
             if (! $this->isStored($path)) {
+                return;
+            }
+
+            // مصدر مفقود على القرص (مثل غلاف لم يُرفَع بعد، BOOK10): تخطٍّ لا فشل —
+            // يُخدَم بالبديل المحايد، ولا سبيل لتوليد مشتقٍّ من ملفٍّ غير موجود.
+            if (! is_file(Storage::disk('public')->path($path))) {
+                $missing[] = $path;
+
                 return;
             }
 
@@ -41,7 +53,7 @@ class MediaWarm extends Command
                 }
             }
 
-            MediaCache::ensure($path) !== null ? $done++ : $failed++;
+            MediaCache::ensure($path) !== null ? $done++ : $failed[] = $path;
         };
 
         $this->info('توليد أغلفة الكتب…');
@@ -56,9 +68,27 @@ class MediaWarm extends Command
         Article::query()->withTrashed()->select(['id', 'cover_image'])->lazy()
             ->each(fn (Article $a) => $warm($a->cover_image));
 
-        $this->info("تمّ: {$done} مشتقًّا".($failed > 0 ? " — تعذّر {$failed} (تحقّق من صلاحية كتابة public/media-cache)" : ''));
+        $this->newLine();
+        $this->info("تمّ توليد {$done} مشتقًّا.");
 
-        return $failed > 0 ? self::FAILURE : self::SUCCESS;
+        // تشخيص دقيق بدل تلميح مضلِّل: نميّز «مصدر مفقود» (متوقّع، غير معطِّل) عن
+        // «تعذّرت المعالجة» (المصدر موجود — يستحق التحقّق فعلًا).
+        if ($missing !== []) {
+            $this->warn(count($missing).' بلا ملفّ مصدر على القرص (تُخدَم بالبديل المحايد — غير معطِّلة):');
+            foreach ($missing as $p) {
+                $this->line("  - {$p}");
+            }
+        }
+
+        if ($failed !== []) {
+            $this->error(count($failed).' مصدرها موجود لكن تعذّرت معالجتها (تحقّق من GD أو صلاحية كتابة public/media-cache):');
+            foreach ($failed as $p) {
+                $this->line("  ✗ {$p}");
+            }
+        }
+
+        // فشلٌ فعليّ فقط يُرجِع رمز خطأ؛ المصادر المفقودة متوقّعة ولا تُفشِل النشر.
+        return $failed !== [] ? self::FAILURE : self::SUCCESS;
     }
 
     /**

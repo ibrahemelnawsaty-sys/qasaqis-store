@@ -129,6 +129,15 @@ final class CoverWatermarkTest extends TestCase
         $this->assertStringContainsString('media-cache/', (string) $book->fresh()->coverUrl());
     }
 
+    public function test_media_warm_skips_a_missing_source_without_failing(): void
+    {
+        // غلاف مساره مضبوط لكن بلا ملفٍّ على القرص (لم يُرفَع بعد، أو BOOK10) — يُتخطّى
+        // لا يُعدّ فشلًا، فلا يُفشِل النشر ولا يُلبِس الرسالة سببًا خاطئًا (صلاحية الكتابة).
+        $this->book(['cover_image' => 'books/covers/never-uploaded.jpg']);
+
+        $this->artisan('media:warm')->assertSuccessful();
+    }
+
     public function test_media_route_404_when_file_missing(): void
     {
         $book = $this->book(['cover_image' => 'books/covers/nope.jpg']);
