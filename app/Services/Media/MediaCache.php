@@ -28,6 +28,15 @@ final class MediaCache
     public const PUBLIC_DIR = 'media-cache';
 
     /**
+     * امتداد المشتقّ: webp إن توفّر imagewebp (الدستور 5.3)، وإلا jpg. **يجب** أن
+     * يتبع الشرط نفسه في CoverWatermark::apply كي يوافق الاسمُ البايتاتِ المكتوبة.
+     */
+    public static function ext(): string
+    {
+        return function_exists('imagewebp') ? 'webp' : 'jpg';
+    }
+
+    /**
      * اسم المشتقّ الثابت (نسبةً لـ public/) للمسار المخزَّن، أو null إن غاب الأصل.
      * يتضمّن mtime فيتجدّد الاسم تلقائيًا عند تغيّر الصورة (تُهمَل النسخة القديمة).
      */
@@ -39,7 +48,7 @@ final class MediaCache
             return null;
         }
 
-        return self::PUBLIC_DIR.'/'.sha1($storagePath).'-'.$mtime.'.jpg';
+        return self::PUBLIC_DIR.'/'.sha1($storagePath).'-'.$mtime.'.'.self::ext();
     }
 
     /**
