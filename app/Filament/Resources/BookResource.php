@@ -490,6 +490,11 @@ class BookResource extends Resource
             ->reorderable('sort_order', fn (): bool => static::userCan('update'))
             ->defaultPaginationPageOption(25)
             ->paginated([25, 50, 100, 'all'])
+            // إبقاء التحديد عند البحث/الفلترة: Filament يمسح المحدَّد افتراضيًّا عند
+            // تغيّر البحث، فتضيع الكتب المختارة. تعطيله يتيح تجميع تحديد عبر عدة عمليات
+            // بحث (حدِّد كتبًا، ابحث عن غيرها، حدِّدها، ثم طبّق إجراءً جماعيًّا على الكل).
+            // الإجراء الجماعي يجلب المحدَّد بمفاتيحه من الاستعلام الأساس لا المُفلتَر.
+            ->deselectAllRecordsWhenFiltered(false)
             ->filters([
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('القسم')
