@@ -35,7 +35,9 @@ class CatalogFilterRequest extends FormRequest
      *
      * @var array<int, string>
      */
-    protected array $sorts = ['newest', 'price_asc', 'price_desc', 'rating', 'popular'];
+    // «curated» = الترتيب اليدويّ للقسم (الافتراضيّ بصفحات الأقسام) — مُدرَج هنا كي لا
+    // يُرفض بـ422 عند إرساله من نموذج القسم (نفس علّة الفلاتر السابقة).
+    protected array $sorts = ['newest', 'price_asc', 'price_desc', 'rating', 'popular', 'curated'];
 
     /**
      * @return array<string, mixed>

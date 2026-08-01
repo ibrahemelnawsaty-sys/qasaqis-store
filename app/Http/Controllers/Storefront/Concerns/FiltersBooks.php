@@ -107,9 +107,36 @@ trait FiltersBooks
             $query->where('stock_status', 'in_stock');
         }
 
-        $this->applySort($query, (string) $request->input('sort', 'newest'));
+        // صفحة القسم تفتح على الترتيب اليدويّ للأدمن افتراضيًّا: عند غياب فرز صريح، أو
+        // عند الفرز «المُقترَح» (curated) الذي يرسله نموذج القسم افتراضيًّا مع أي فلترة.
+        // أي فرز صريح آخر (الأحدث/السعر…) يتجاوزه. باقي الصفحات: الفرز الافتراضي (الأحدث).
+        $sort = (string) $request->input('sort', '');
+        if ($category !== null && ($sort === '' || $sort === 'curated')) {
+            $this->applyCategoryManualOrder($query, $category);
+        } else {
+            $this->applySort($query, $sort !== '' ? $sort : 'newest');
+        }
 
         return $query->paginate(12)->withQueryString();
+    }
+
+    /**
+     * الترتيب اليدويّ لكتب القسم (category_book_positions): المرتّبة أولًا حسب position
+     * تصاعديًّا، ثم غير المرتّبة بالأحدث. استعلام مترابط واحد (بلا JOIN فلا التباس
+     * أعمدة) مع ربط المعامل؛ coalesce بحارس أقصى يضع غير المرتّب في النهاية.
+     *
+     * ملاحظة: كتاب أُزيل من القسم ثم أُعيد إليه قبل مزامنة أخرى يحتفظ برتبته السابقة
+     * (صفّه لم يُحذف) — سلوك مقبول (نُبقي الرتبة التي اختارها الأدمن للكتاب العائد).
+     */
+    protected function applyCategoryManualOrder(Builder $query, Category $category): void
+    {
+        $positionSub = 'select position from category_book_positions '
+            .'where category_book_positions.book_id = books.id '
+            .'and category_book_positions.category_id = ?';
+
+        $query->orderByRaw("coalesce(($positionSub), 2147483647)", [$category->id])
+            ->orderByDesc('books.published_at')
+            ->orderByDesc('books.id');
     }
 
     protected function applyAgeFilter(Builder $query, array $ages): void

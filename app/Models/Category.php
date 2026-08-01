@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\NotifiesIndexNow;
 use App\Models\Concerns\TracksSlugRedirects;
+use Database\Factories\CategoryFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Category extends Model
 {
-    /** @use HasFactory<\Database\Factories\CategoryFactory> */
+    /** @use HasFactory<CategoryFactory> */
     use HasFactory, NotifiesIndexNow, TracksSlugRedirects;
 
     protected $fillable = [
@@ -60,6 +61,20 @@ class Category extends Model
     public function allBooks(): BelongsToMany
     {
         return $this->belongsToMany(Book::class, 'book_category');
+    }
+
+    /**
+     * كتب القسم مرتّبةً بترتيب الظهور اليدويّ (عمود pivot `position` في
+     * category_book_positions). طبقة ترتيب فوق العضويّة (الرئيسي + الإضافي)، تُملأ
+     * عبر SyncCategoryBookOrder. السحب في الأدمن يكتب `position` (تصاعديّ = الأول).
+     *
+     * @return BelongsToMany<Book>
+     */
+    public function orderedBooks(): BelongsToMany
+    {
+        return $this->belongsToMany(Book::class, 'category_book_positions', 'category_id', 'book_id')
+            ->withPivot('position')
+            ->orderByPivot('position');
     }
 
     public function seo(): MorphOne

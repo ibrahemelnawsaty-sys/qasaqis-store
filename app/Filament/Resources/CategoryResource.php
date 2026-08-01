@@ -6,9 +6,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\CategoryResource\Pages;
+use App\Filament\Resources\CategoryResource\RelationManagers\BooksOrderRelationManager;
+use App\Filament\Support\SeoFieldset;
 use App\Models\Category;
 use App\Providers\Filament\AdminPanelProvider;
-use App\Filament\Support\SeoFieldset;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -17,6 +18,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Sections/categories resource (the six sections — kept even when empty,
@@ -212,7 +214,7 @@ class CategoryResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->action(function (\Illuminate\Support\Collection $records, Tables\Actions\DeleteBulkAction $action): void {
+                        ->action(function (Collection $records, Tables\Actions\DeleteBulkAction $action): void {
                             // Guard bulk delete the same way as the single delete.
                             $blocked = $records->filter(fn (Category $record): bool => $record->books()->exists());
 
@@ -229,6 +231,14 @@ class CategoryResource extends Resource
                         }),
                 ]),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            // ترتيب ظهور كتب القسم بالسحب (يكتب category_book_positions.position).
+            BooksOrderRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
