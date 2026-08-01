@@ -58,7 +58,15 @@ class MediaWarm extends Command
 
         $this->info('توليد أغلفة الكتب…');
         Book::query()->withTrashed()->select(['id', 'cover_image'])->lazy()
-            ->each(fn (Book $b) => $warm($b->cover_image));
+            ->each(function (Book $b) use ($warm): void {
+                $warm($b->cover_image);
+                // مصغّر قائمة الأدمن أيضًا (صغير، static) للأغلفة المخزَّنة الموجودة فقط،
+                // فلا يدفع أوّل فتح للقائمة كلفة توليد عشرات/مئات المصغّرات.
+                if ($this->isStored($b->cover_image)
+                    && is_file(Storage::disk('public')->path($b->cover_image))) {
+                    MediaCache::ensureThumb($b->cover_image);
+                }
+            });
 
         $this->info('توليد صور المعرض…');
         BookImage::query()->select(['id', 'path'])->lazy()

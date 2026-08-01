@@ -86,6 +86,8 @@ Route::withoutMiddleware([
     \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
 ])->group(function () {
     Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
+    // مصغّر غلاف لقائمة أدمن الكتب (صغير، static بعد أوّل توليد، بلا جلسة كالبقيّة).
+    Route::get('/media/thumb/book/{book:slug}', [MediaController::class, 'bookThumb'])->name('media.book-thumb');
     Route::get('/media/image/{image}', [MediaController::class, 'bookImage'])->name('media.image');
     Route::get('/media/article/{article:slug}', [MediaController::class, 'articleCover'])->name('media.article');
 });
