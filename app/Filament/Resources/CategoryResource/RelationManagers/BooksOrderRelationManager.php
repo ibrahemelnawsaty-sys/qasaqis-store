@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CategoryResource\RelationManagers;
 
+use App\Models\Book;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -40,6 +41,21 @@ class BooksOrderRelationManager extends RelationManager
             // العرض خفيفًا للأقسام الكبيرة) — مطابقةً لمدير كتب أقسام الرئيسية.
             ->reorderable('position', $canManage)
             ->columns([
+                // عمود رقم ترتيب قابل للكتابة مباشرةً (بديل عن السحب حين تكثر الكتب).
+                // الأصغر = الأول. يقرأ/يكتب على عمود pivot (category_book_positions.position)
+                // لا على الكتاب — عبر updateExistingPivot على علاقة orderedBooks.
+                Tables\Columns\TextInputColumn::make('position')
+                    ->label('الترتيب')
+                    ->type('number')
+                    ->rules(['integer', 'min:0'])
+                    ->disabled(! $canManage)
+                    ->getStateUsing(fn (Book $record): int => (int) ($record->pivot->position ?? 0))
+                    // الكتابة على صفّ pivot المحمَّل مباشرةً (category_book_positions) — نفس آليّة
+                    // السحب في Filament، بلا حاجة لحقن $livewire أو جلب القسم المالك.
+                    ->updateStateUsing(function (Book $record, $state): void {
+                        $record->pivot->update(['position' => (int) $state]);
+                    }),
+
                 Tables\Columns\ImageColumn::make('cover_image')
                     ->label('الغلاف')
                     ->disk('public')
