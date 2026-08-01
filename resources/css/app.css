@@ -266,11 +266,12 @@
   .cover .cmotif{ position:absolute; font-size:60px; opacity:.9; filter:drop-shadow(0 3px 5px rgba(0,0,0,.2)); bottom:8px; inset-inline-start:10px; z-index:1; }
   .disc{ position:absolute; top:10px; inset-inline-start:10px; z-index:3; background:var(--pink); color:#fff; font-weight:900; font-size:12px; padding:8px; border-radius:50%; width:46px; height:46px; display:grid; place-items:center; text-align:center; line-height:1; box-shadow:0 6px 14px -5px rgba(236,78,150,.7); transform:rotate(-8deg); }
   .disc small{ font-size:8px; font-weight:700; display:block; }
-  /* شارة «جديد» القطريّة على ركن الغلاف (الزاوية المقابلة لشارة الخصم). الحاوية
-     تُثبَّت منطقيًّا بـ inset-inline-end (= يسار في RTL). داخلها direction:ltr ليكون
-     الشريط المائل قطعةً مرآتيّةً قياسيّةً ثابتة الاتّجاه (الدوران فيزيائيّ بطبعه)،
-     ويُقصّ فائضها بـ overflow:hidden على الغلاف. تعمل على .cover و.pdp-cover معًا. */
-  .new-badge{ position:absolute; inset-block-start:0; inset-inline-end:0; width:78px; height:78px; overflow:hidden; z-index:3; pointer-events:none; direction:ltr; }
+  /* شارة «جديد» القطريّة على ركن الغلاف: الزاوية العليا المقابلة لشارة الخصم.
+     الخصم على inset-inline-start (= يمين في RTL)، والشارة على inset-inline-end
+     (= يسار في RTL) — فلا تتعارضان. الشريط الداخليّ يستعمل خصائص فيزيائيّة (left +
+     rotate) لأن الدوران فيزيائيّ بطبعه، فلا يلزم قلب اتجاه الحاوية (كان direction:ltr
+     يقلب inset-inline-end لليمين فيصطدم بالخصم — أُزيل). overflow:hidden يقصّ الفائض. */
+  .new-badge{ position:absolute; inset-block-start:0; inset-inline-end:0; width:78px; height:78px; overflow:hidden; z-index:3; pointer-events:none; }
   .new-badge span{ position:absolute; left:-30px; top:15px; width:118px; padding:6px 0; text-align:center; transform:rotate(-45deg); background:var(--teal-deep); color:#fff; font-weight:900; font-size:11px; line-height:1.1; box-shadow:0 3px 8px -3px rgba(0,0,0,.4); }
   .book-body{ padding:14px 15px 16px; display:flex; flex-direction:column; gap:8px; flex:1; }
   .book-cat{ font-size:11px; font-weight:800; color:var(--teal); background:var(--teal-soft); align-self:flex-start; padding:3px 10px; border-radius:var(--r-pill); text-decoration:none; }
