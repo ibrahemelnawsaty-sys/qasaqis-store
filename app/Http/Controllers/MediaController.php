@@ -38,6 +38,15 @@ class MediaController extends Controller
         return $this->serve($article->cover_image);
     }
 
+    /**
+     * مصغّر غلاف الكتاب للوحة الإدارة (قائمة الكتب): يولّد المصغّر الصغير الثابت عند
+     * أوّل طلب ويخدمه، فتعيد adminThumbUrl() بعده رابطه الثابت (static بلا PHP).
+     */
+    public function bookThumb(Book $book): mixed
+    {
+        return $this->serveThumb($book->cover_image);
+    }
+
     private function serve(?string $path): mixed
     {
         // مسار خارجي (http) لا يُخدَم هنا — النموذج يُرجِعه مباشرةً فلا يصل لهذا المسار.
@@ -64,6 +73,33 @@ class MediaController extends Controller
 
         // تعذّر توليد/كتابة المشتقّ العام (تعليم فاشل أو public غير قابل للكتابة) —
         // نخدم الأصل عبر المسار نفسه (يبقى اسم الملف مخفيًّا).
+        return response()->file(Storage::disk('public')->path($path), $headers);
+    }
+
+    /**
+     * مثل serve لكن يولّد/يخدم مصغّرًا صغيرًا (MediaCache::ensureThumb). أي فشل توليد
+     * يخدم الأصل عبر المسار نفسه فلا تنكسر الصورة (أثقل قليلًا مؤقّتًا حتى يُولَّد).
+     */
+    private function serveThumb(?string $path): mixed
+    {
+        if (blank($path) || Str::startsWith($path, ['http://', 'https://'])) {
+            abort(404);
+        }
+
+        if (! is_file(Storage::disk('public')->path($path))) {
+            abort(404);
+        }
+
+        $headers = ['Cache-Control' => 'public, max-age=31536000, immutable'];
+
+        $publicFile = MediaCache::ensureThumb($path);
+
+        if ($publicFile !== null) {
+            $mime = str_ends_with($publicFile, '.webp') ? 'image/webp' : 'image/jpeg';
+
+            return response()->file($publicFile, ['Content-Type' => $mime] + $headers);
+        }
+
         return response()->file(Storage::disk('public')->path($path), $headers);
     }
 }

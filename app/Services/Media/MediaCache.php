@@ -27,6 +27,9 @@ final class MediaCache
     /** المجلّد العام تحت docroot — يخدمه خادم الويب مباشرة بلا PHP. */
     public const PUBLIC_DIR = 'media-cache';
 
+    /** أقصى ضلع لمصغّر لوحة الإدارة (px) — أصغر بكثير من نسخة العرض (MAX_EDGE=1400). */
+    public const THUMB_MAX = 110;
+
     /**
      * امتداد المشتقّ: webp إن توفّر imagewebp (الدستور 5.3)، وإلا jpg. **يجب** أن
      * يتبع الشرط نفسه في CoverWatermark::apply كي يوافق الاسمُ البايتاتِ المكتوبة.
@@ -87,6 +90,71 @@ final class MediaCache
         }
 
         $binary = app(CoverWatermark::class)->apply(Storage::disk('public')->path($storagePath));
+
+        if ($binary === null) {
+            return null;
+        }
+
+        $dir = dirname($target);
+
+        if (! is_dir($dir) && ! @mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            return null;
+        }
+
+        return @file_put_contents($target, $binary) === false ? null : $target;
+    }
+
+    /**
+     * اسم مصغّر لوحة الإدارة الثابت (نسبةً لـ public/) للمسار المخزَّن، أو null إن غاب
+     * الأصل. تحت مجلّد thumbs/ فرعيّ، والحجم THUMB_MAX في الاسم فيتجدّد لو تغيّر، وmtime
+     * فيتجدّد لو تغيّرت الصورة.
+     */
+    public static function thumbRelPath(string $storagePath): ?string
+    {
+        $mtime = @filemtime(Storage::disk('public')->path($storagePath));
+
+        if ($mtime === false) {
+            return null;
+        }
+
+        return self::PUBLIC_DIR.'/thumbs/'.sha1($storagePath).'-'.$mtime.'-'.self::THUMB_MAX.'.'.self::ext();
+    }
+
+    /**
+     * رابط المصغّر الثابت إن وُجد فعلًا (بلا توليد — للاستدعاء الكثيف من قائمة الأدمن).
+     * null إن لم يُولَّد بعد أو غاب الأصل — فيسقط النموذج إلى مسار media.book-thumb.
+     */
+    public static function thumbUrlIfReady(string $storagePath): ?string
+    {
+        $rel = self::thumbRelPath($storagePath);
+
+        if ($rel === null || ! is_file(public_path($rel))) {
+            return null;
+        }
+
+        return asset($rel);
+    }
+
+    /**
+     * يضمن وجود مصغّر لوحة الإدارة (يولّده صغيرًا بـ THUMB_MAX إن غاب) ويعيد مساره
+     * المطلق، أو null على أي فشل. صغير الضلع فبايتاته وفكّ ترميزه أخفّ بكثير من نسخة
+     * العرض حين تُصفّ ٢٥+ صورة في قائمة الأدمن.
+     */
+    public static function ensureThumb(string $storagePath): ?string
+    {
+        $rel = self::thumbRelPath($storagePath);
+
+        if ($rel === null) {
+            return null;
+        }
+
+        $target = public_path($rel);
+
+        if (is_file($target)) {
+            return $target;
+        }
+
+        $binary = app(CoverWatermark::class)->apply(Storage::disk('public')->path($storagePath), self::THUMB_MAX);
 
         if ($binary === null) {
             return null;

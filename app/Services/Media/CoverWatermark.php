@@ -29,9 +29,14 @@ class CoverWatermark
      * يعيد بايتات الصورة المعالَجة (مصغّرة + موسومة): WebP إن توفّر imagewebp (الدستور
      * 5.3، أخفّ ~٢٥–٣٥٪ بنفس الجودة)، وإلا JPEG. null عند تعذّر المعالجة. الامتداد في
      * MediaCache::ext() يتبع الشرط نفسه فيوافق الاسمُ البايتات.
+     *
+     * $maxEdge: أقصى ضلع للناتج (px)؛ null = MAX_EDGE (نسخة العرض). تُمرَّر قيمة صغيرة
+     * لمصغّرات لوحة الإدارة فتخفّ بايتاتها وفكّ ترميزها جدًّا (نفس الرسترة والعلامة).
      */
-    public function apply(string $sourceAbsPath): ?string
+    public function apply(string $sourceAbsPath, ?int $maxEdge = null): ?string
     {
+        $maxEdge ??= self::MAX_EDGE;
+
         if (! function_exists('imagecreatetruecolor') || ! is_file($sourceAbsPath)) {
             return null;
         }
@@ -49,12 +54,12 @@ class CoverWatermark
         $w = imagesx($src);
         $h = imagesy($src);
 
-        // دقّة الهدف: تصغير إن تجاوز الضلع الأطول MAX_EDGE (يحمي قيمة الأصل عالي الدقّة).
+        // دقّة الهدف: تصغير إن تجاوز الضلع الأطول maxEdge (يحمي قيمة الأصل عالي الدقّة).
         $targetW = $w;
         $targetH = $h;
-        $maxEdge = max($w, $h);
-        if ($maxEdge > self::MAX_EDGE) {
-            $ratio = self::MAX_EDGE / $maxEdge;
+        $longest = max($w, $h);
+        if ($longest > $maxEdge) {
+            $ratio = $maxEdge / $longest;
             $targetW = max(1, (int) round($w * $ratio));
             $targetH = max(1, (int) round($h * $ratio));
         }

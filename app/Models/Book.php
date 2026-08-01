@@ -166,6 +166,28 @@ class Book extends Model
         return MediaCache::publicUrlIfReady($this->cover_image) ?? route('media.book', $this);
     }
 
+    /**
+     * رابط مصغّر صغير للغلاف للوحة الإدارة (قائمة الكتب): بايتاته وفكّ ترميزه أخفّ بكثير
+     * من نسخة العرض حين تُصفّ ٢٥+ صورة. المصغّر الثابت إن جهز (static بلا PHP)، وإلا مسار
+     * media.book-thumb الذي يولّده عند أوّل طلب فيصير static. null/خارجيّ/ثابت كما coverUrl.
+     */
+    public function adminThumbUrl(): ?string
+    {
+        if (blank($this->cover_image)) {
+            return null;
+        }
+
+        if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+            return $this->cover_image;
+        }
+
+        if (str_starts_with($this->cover_image, 'images/')) {
+            return asset($this->cover_image);
+        }
+
+        return MediaCache::thumbUrlIfReady($this->cover_image) ?? route('media.book-thumb', $this);
+    }
+
     public function images(): HasMany
     {
         return $this->hasMany(BookImage::class)->orderBy('sort_order');

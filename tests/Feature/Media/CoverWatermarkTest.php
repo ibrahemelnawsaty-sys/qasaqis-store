@@ -145,6 +145,29 @@ final class CoverWatermarkTest extends TestCase
         $this->get(route('media.book', $book))->assertNotFound();
     }
 
+    public function test_admin_thumb_route_serves_a_small_derivative_and_switches_admin_thumb_url(): void
+    {
+        $this->putRealCover('books/covers/thumb-test.jpg');
+        $book = $this->book(['cover_image' => 'books/covers/thumb-test.jpg']);
+
+        // قبل التوليد: adminThumbUrl تشير لمسار التوليد (لا static، لا /storage).
+        $this->assertSame(route('media.book-thumb', $book), $book->adminThumbUrl());
+
+        $response = $this->get(route('media.book-thumb', $book));
+        $response->assertOk();
+        $expectedMime = \App\Services\Media\MediaCache::ext() === 'webp' ? 'image/webp' : 'image/jpeg';
+        $this->assertStringContainsString($expectedMime, (string) $response->headers->get('Content-Type'));
+
+        // المصغّر صغير فعلًا: أقصى ضلع ≤ THUMB_MAX (الأصل 240×320 يُصغَّر).
+        $size = getimagesizefromstring($this->fileResponseBytes($response));
+        $this->assertNotFalse($size);
+        $this->assertLessThanOrEqual(\App\Services\Media\MediaCache::THUMB_MAX, max((int) $size[0], (int) $size[1]));
+
+        // بعد التوليد: adminThumbUrl صارت static (media-cache/thumbs) بلا PHP.
+        $book->refresh();
+        $this->assertStringContainsString('media-cache/thumbs/', (string) $book->adminThumbUrl());
+    }
+
     private function fileResponseBytes(\Illuminate\Testing\TestResponse $response): string
     {
         $r = $response->baseResponse;
