@@ -41,7 +41,7 @@ trait FiltersBooks
     protected array $cardColumns = [
         'id', 'category_id', 'publisher_id', 'title', 'slug', 'author',
         'price', 'old_price', 'cover_image', 'age_label', 'age_min', 'age_max',
-        'stock_status', 'is_featured', 'avg_rating', 'reviews_count', 'published_at',
+        'stock_status', 'is_featured', 'is_new', 'avg_rating', 'reviews_count', 'published_at',
     ];
 
     protected function filteredBooks(Request $request, ?Category $category = null): LengthAwarePaginator
@@ -99,6 +99,9 @@ trait FiltersBooks
         }
         if ($request->boolean('featured')) {
             $query->where('is_featured', true);
+        }
+        if ($request->boolean('new')) {
+            $query->newArrivals(); // هجين: is_new اليدوي أو منشور خلال المدّة المحدّدة.
         }
         if ($request->boolean('stock')) {
             $query->where('stock_status', 'in_stock');

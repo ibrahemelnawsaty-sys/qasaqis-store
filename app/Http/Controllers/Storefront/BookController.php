@@ -32,9 +32,18 @@ class BookController extends Controller
             request()->merge(['sale' => 1]);
         }
 
-        $heading = $request->boolean('sale')
-            ? __('catalog.offers_heading')
-            : __('catalog.all_heading');
+        // /new يفرض فلتر «وصل حديثًا» بنفس آلية /offers (دمج في الطلبين معًا: الاستعلام
+        // يقرأ $request، وخانة الفلتر في القالب تقرأ request() المساعدة).
+        if ($request->routeIs('books.new')) {
+            $request->merge(['new' => 1]);
+            request()->merge(['new' => 1]);
+        }
+
+        $heading = match (true) {
+            $request->boolean('sale') => __('catalog.offers_heading'),
+            $request->boolean('new') => __('catalog.new_heading'),
+            default => __('catalog.all_heading'),
+        };
 
         return view('catalog.index', [
             'books' => $this->filteredBooks($request),

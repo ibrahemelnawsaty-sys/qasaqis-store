@@ -23,6 +23,7 @@
         $seoCategory !== null => route('categories.show', $seoCategory),
         $seoSeries !== null => route('series.show', $seoSeries),
         request()->routeIs('books.offers') => route('books.offers'),
+        request()->routeIs('books.new') => route('books.new'),
         request()->routeIs('search') => null,
         default => route('books.index'),
     };
@@ -120,6 +121,11 @@
             // ويسقط فلتر الخصم عند أول فلترة أو فرز.
             $formAction = route('books.offers');
             $clearUrl = route('books.offers');
+        } elseif (request()->routeIs('books.new')) {
+            // /new صفحة 200 قائمة بذاتها بفلتر «الجديد» المفروض — النموذج يبقى عليها
+            // كي لا يسقط الفلتر عند أول فلترة/فرز (نفس علّة /offers).
+            $formAction = route('books.new');
+            $clearUrl = route('books.new');
         } else {
             $formAction = route('books.index');
             $clearUrl = route('books.index');
@@ -144,6 +150,9 @@
                 {{-- نصّ تعريفيّ فريد لصفحة العروض كي لا تكون نسخة مطابقة من /books
                      (يمنع «Crawled – currently not indexed» بإعطائها قيمة مستقلّة). --}}
                 <p class="sec-desc">{{ __('catalog.offers_intro') }}</p>
+            @elseif (request()->routeIs('books.new'))
+                {{-- نصّ تعريفيّ فريد لصفحة «وصل حديثًا» (قيمة فهرسة مستقلّة عن /books). --}}
+                <p class="sec-desc">{{ __('catalog.new_intro') }}</p>
             @endif
         </div>
 
@@ -243,6 +252,9 @@
                             @elseif (request()->routeIs('books.offers'))
                                 <h2 class="sec-title" style="font-size:22px">{{ __('catalog.offers_empty_title') }}</h2>
                                 <p class="sec-desc">{{ __('catalog.offers_empty_hint') }}</p>
+                            @elseif (request()->routeIs('books.new'))
+                                <h2 class="sec-title" style="font-size:22px">{{ __('catalog.new_empty_title') }}</h2>
+                                <p class="sec-desc">{{ __('catalog.new_empty_hint') }}</p>
                             @else
                                 <h2 class="sec-title" style="font-size:22px">{{ __('catalog.empty_title') }}</h2>
                                 <p class="sec-desc">{{ __('catalog.empty_hint') }}</p>

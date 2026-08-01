@@ -30,7 +30,7 @@ class BlogController extends Controller
         'books.id', 'books.category_id', 'books.publisher_id', 'books.title', 'books.slug',
         'books.author', 'books.price', 'books.old_price', 'books.cover_image', 'books.age_label',
         'books.age_min', 'books.age_max', 'books.stock_status', 'books.is_featured',
-        'books.avg_rating', 'books.reviews_count', 'books.published_at',
+        'books.is_new', 'books.avg_rating', 'books.reviews_count', 'books.published_at',
     ];
 
     /**

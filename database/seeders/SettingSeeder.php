@@ -64,6 +64,12 @@ class SettingSeeder extends Seeder
             // figure from the panel.
             ['shipping', 'free_shipping_threshold', '', 'string'],
 
+            // --- Catalog badges (catalog) -----------------------------------
+            // عدد أيام بقاء شارة «جديد» تلقائيًّا على الكتاب بعد نشره (Book::newBadgeVisible).
+            // 30 افتراض معقول؛ يعدّله المالك من إعدادات المتجر. `group` عمود نصّي لا enum
+            // فـ«catalog» مجموعة جديدة مقبولة (تحقّقنا من الهجرة — string(50)).
+            ['catalog', 'new_badge_days', '30', 'string'],
+
             // --- Social media (social) — روابط العلامة الرسمية (تُغذّي sameAs + الفوتر).
             // فيسبوك = الصفحة الرسمية (كيان العلامة) لا المجموعة؛ المجموعة مجتمع يُذكر في «من نحن».
             ['social', 'social_facebook', 'https://www.facebook.com/p/%D9%82%D8%B5%D8%A7%D9%82%D9%8A%D8%B5-%D8%A3%D8%B7%D9%81%D8%A7%D9%84-100076208663362/', 'string'],

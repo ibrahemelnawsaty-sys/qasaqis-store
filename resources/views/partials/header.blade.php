@@ -324,6 +324,10 @@
                 <a class="catlink" href="{{ route('books.offers') }}">
                     <span class="e" aria-hidden="true">🎁</span> {{ __('nav.offers') }}
                 </a>
+                <a class="catlink" href="{{ route('books.new') }}"
+                    @if (request()->routeIs('books.new')) aria-current="page" @endif>
+                    <span class="e" aria-hidden="true">✨</span> {{ __('nav.new') }}
+                </a>
                 <a class="catlink" href="{{ route('blog.index') }}"
                     @if (request()->routeIs('blog.*')) aria-current="page" @endif>
                     <span class="e" aria-hidden="true">📖</span> {{ __('nav.blog') }}
@@ -404,6 +408,7 @@
             @else
                 <a href="{{ route('books.index') }}">🧸 {{ __('nav.all_books') }}</a>
                 <a href="{{ route('books.offers') }}">🎁 {{ __('nav.offers') }}</a>
+                <a href="{{ route('books.new') }}">✨ {{ __('nav.new') }}</a>
                 <a href="{{ route('blog.index') }}">📖 {{ __('nav.blog') }}</a>
             @endif
             @if ($showNavCategories)

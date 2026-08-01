@@ -109,6 +109,10 @@ Route::get('/books', [BookController::class, 'index'])->name('books.index');
 // رغم أن عنوانها و<h1> مختلفان. الفلتر يُفرض في BookController::index.
 Route::get('/offers', [BookController::class, 'index'])->name('books.offers');
 
+// «وصل حديثًا» = تصفّح الكتب مع فلتر «الجديد» مفعّلًا (نفس نمط /offers، مسار 200
+// حقيقي لا تحويلًا). الفلتر يُفرض في BookController::index (routeIs('books.new')).
+Route::get('/new', [BookController::class, 'index'])->name('books.new');
+
 // البحث (نتائج قابلة للمشاركة). throttle لمنع الإساءة.
 Route::get('/search', [SearchController::class, 'index'])
     ->middleware('throttle:60,1')

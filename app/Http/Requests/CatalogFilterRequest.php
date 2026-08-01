@@ -59,6 +59,7 @@ class CatalogFilterRequest extends FormRequest
 
             'sale' => ['nullable', 'boolean'],
             'featured' => ['nullable', 'boolean'],
+            'new' => ['nullable', 'boolean'],
             'stock' => ['nullable', 'boolean'],
 
             'sort' => ['nullable', Rule::in($this->sorts)],

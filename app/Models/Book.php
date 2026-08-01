@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Services\Media\MediaCache;
-use Database\Factories\BookFactory;
-use Illuminate\Database\Eloquent\Builder;
 use App\Models\Concerns\NotifiesIndexNow;
 use App\Models\Concerns\TracksSlugRedirects;
+use App\Services\Media\MediaCache;
+use App\Support\Audit\RecordsAdminActivity;
+use Database\Factories\BookFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +22,8 @@ class Book extends Model
 {
     /** @use HasFactory<BookFactory> */
     use HasFactory, NotifiesIndexNow, SoftDeletes, TracksSlugRedirects;
-    use \App\Support\Audit\RecordsAdminActivity;
+
+    use RecordsAdminActivity;
 
     protected $fillable = [
         'category_id',
@@ -53,6 +55,7 @@ class Book extends Model
         'is_published',
         'is_featured',
         'is_bestseller',
+        'is_new',
         'published_at',
         'sort_order',
         'views_count',
@@ -87,6 +90,7 @@ class Book extends Model
             'is_published' => 'boolean',
             'is_featured' => 'boolean',
             'is_bestseller' => 'boolean',
+            'is_new' => 'boolean',
             'published_at' => 'datetime',
         ];
     }
@@ -129,7 +133,7 @@ class Book extends Model
     public function indexNowUrl(): ?string
     {
         return $this->is_published && filled($this->slug)
-            ? rtrim((string) config('seo.site_url'), '/') . '/books/' . $this->slug
+            ? rtrim((string) config('seo.site_url'), '/').'/books/'.$this->slug
             : null;
     }
 
@@ -202,6 +206,56 @@ class Book extends Model
     public function scopeInStock(Builder $query): Builder
     {
         return $query->where('stock_status', 'in_stock');
+    }
+
+    /**
+     * «الكتب الجديدة» — منطق هجين: العلم اليدوي `is_new` (إظهار قسريّ) أو أي كتاب
+     * نُشر خلال آخر N يوم من تاريخ نشره. تُستعمَل في فلتر/صفحة «وصل حديثًا».
+     * N = عدد أيام شارة «جديد» (إعداد قابل للتعديل من الأدمن، افتراضه 30) — يُمرَّر
+     * صراحةً ليبقى النطاق نقيًّا/قابلًا للاختبار، ويُشتقّ من الإعداد عند غيابه.
+     */
+    public function scopeNewArrivals(Builder $query, ?int $days = null): Builder
+    {
+        $cutoff = now()->subDays($days ?? static::newBadgeDays());
+        $now = now();
+
+        return $query->where(function (Builder $q) use ($cutoff, $now): void {
+            // فرع التاريخ محصور بين [الآن − N يوم، الآن]: كتاب بتاريخ نشر مستقبليّ ليس
+            // «وصل حديثًا» (يبقى الفرع اليدوي is_new مستقلًّا عن التاريخ).
+            $q->where('is_new', true)
+                ->orWhere(function (Builder $inner) use ($cutoff, $now): void {
+                    $inner->where('published_at', '>=', $cutoff)
+                        ->where('published_at', '<=', $now);
+                });
+        });
+    }
+
+    /**
+     * هل تظهر شارة «جديد» على غلاف هذا الكتاب؟ نفس منطق scopeNewArrivals لكن على
+     * مستوى الصف (بلا استعلام) — يحتاج is_new و published_at المحمَّلين في القائمة.
+     */
+    public function newBadgeVisible(): bool
+    {
+        if ($this->is_new) {
+            return true;
+        }
+
+        // فرع التاريخ: نُشر خلال آخر N يوم وليس تاريخًا مستقبليًّا (يطابق scopeNewArrivals).
+        return $this->published_at !== null
+            && $this->published_at->gte(now()->subDays(static::newBadgeDays()))
+            && $this->published_at->lte(now());
+    }
+
+    /**
+     * عدد الأيام التي يبقى فيها الكتاب «جديدًا» تلقائيًّا بعد نشره. يُقرأ من إعداد
+     * المتجر `new_badge_days` (مربوط singleton مرّة لكل طلب في AppServiceProvider)،
+     * مع رجوع آمن إلى 30 إن لم يُربَط أو كانت قيمته غير صالحة.
+     */
+    public static function newBadgeDays(): int
+    {
+        $days = (int) (app()->bound('shop.new_badge_days') ? app('shop.new_badge_days') : 30);
+
+        return $days > 0 ? $days : 30;
     }
 
     // ----- Search normalization (Arabic) ---------------------------------

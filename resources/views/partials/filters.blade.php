@@ -63,6 +63,10 @@
     <span>{{ __('catalog.facet_featured') }}</span>
 </label>
 <label class="filter-row">
+    <input type="checkbox" name="new" value="1" @checked(request()->boolean('new'))>
+    <span>{{ __('catalog.facet_new') }}</span>
+</label>
+<label class="filter-row">
     <input type="checkbox" name="stock" value="1" @checked(request()->boolean('stock'))>
     <span>{{ __('catalog.facet_stock') }}</span>
 </label>

@@ -25,6 +25,8 @@ use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
 use App\Support\Cache\StorefrontCache;
+use App\Support\Verification\EmailVerificationChannel;
+use App\Support\Verification\VerificationChannel;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,11 +46,25 @@ class AppServiceProvider extends ServiceProvider
         // قناة كود التحقق (M9) تُحلّ من config/verification.php — الانتقال إلى OTP
         // الجوال لاحقًا تبديلُ مفتاح + صنف قناة جديد، بلا تعديل الخدمة.
         $this->app->bind(
-            \App\Support\Verification\VerificationChannel::class,
-            static fn (): \App\Support\Verification\VerificationChannel => match (config('verification.channel', 'email')) {
-                default => new \App\Support\Verification\EmailVerificationChannel,
+            VerificationChannel::class,
+            static fn (): VerificationChannel => match (config('verification.channel', 'email')) {
+                default => new EmailVerificationChannel,
             },
         );
+
+        // عدد أيام بقاء شارة «جديد» تلقائيًّا (Book::newBadgeVisible/scopeNewArrivals) —
+        // إعداد قابل للتعديل من الأدمن (new_badge_days). singleton = قراءة واحدة لكل
+        // طلب مهما تعدّدت البطاقات، ورجوع آمن إلى 30 قبل الهجرة/الزرع أو عند قيمة غير
+        // صالحة. تُبنى الحاوية كل طلب فيُقرأ الإعداد المحدَّث تلقائيًّا (بلا كاش عالق).
+        $this->app->singleton('shop.new_badge_days', static function (): int {
+            $days = (int) rescue(
+                fn () => Setting::query()->where('key', 'new_badge_days')->value('value'),
+                0,
+                report: false,
+            );
+
+            return $days > 0 ? $days : 30;
+        });
     }
 
     public function boot(): void

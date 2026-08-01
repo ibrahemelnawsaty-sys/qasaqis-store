@@ -8,6 +8,7 @@ use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\BookResource\Pages;
 use App\Filament\Resources\BookResource\RelationManagers\ImagesRelationManager;
 use App\Filament\Resources\BookResource\RelationManagers\ReviewsRelationManager;
+use App\Filament\Support\ContentSeoAnalysis;
 use App\Filament\Support\SeoPlaceholder;
 use App\Models\Book;
 use App\Models\Category;
@@ -181,7 +182,7 @@ class BookResource extends Resource
                 ]),
 
             // تحليل SEO المباشر (نظير Yoast): كلمة مفتاحية + نقاط تتحدّث مع الكتابة.
-            \App\Filament\Support\ContentSeoAnalysis::make(
+            ContentSeoAnalysis::make(
                 titleField: 'title',
                 descriptionField: 'short_description',
                 bodyFields: ['long_description', 'short_description'],
@@ -306,6 +307,10 @@ class BookResource extends Resource
 
                     Forms\Components\Toggle::make('is_bestseller')
                         ->label('الأكثر مبيعًا'),
+
+                    Forms\Components\Toggle::make('is_new')
+                        ->label('جديد')
+                        ->helperText('تظهر شارة «جديد» تلقائيًّا على أي كتاب نُشر حديثًا (خلال المدّة المحدّدة في إعدادات المتجر). فعّل هذا الخيار لإبقاء الشارة بعد انتهاء المدّة أو لكتاب بلا تاريخ نشر حديث.'),
 
                     Forms\Components\DateTimePicker::make('published_at')
                         ->label('تاريخ النشر'),
@@ -469,6 +474,11 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                Tables\Columns\IconColumn::make('is_new')
+                    ->label('جديد (يدوي)')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 // عمود «الترتيب» قابل للكتابة مباشرةً (بديل عن السحب حين تكون الكتب
                 // كثيرة). الأصغر يظهر أولًا. للمحرّرين فقط؛ لغيرهم للقراءة.
                 Tables\Columns\TextInputColumn::make('sort_order')
@@ -524,6 +534,9 @@ class BookResource extends Resource
 
                 Tables\Filters\TernaryFilter::make('is_bestseller')
                     ->label('الأكثر مبيعًا'),
+
+                Tables\Filters\TernaryFilter::make('is_new')
+                    ->label('جديد (يدوي)'),
 
                 Tables\Filters\TrashedFilter::make(),
             ])

@@ -85,6 +85,8 @@ class ManageStoreSettings extends Page implements HasForms
         // Shipping.
         'shipping_note' => ['shipping', 'text'],
         'free_shipping_threshold' => ['shipping', 'string'],
+        // Catalog — «new arrival» badge auto-duration (days). Stored as a numeric string.
+        'new_badge_days' => ['catalog', 'string'],
         // Social media (public profile URLs, non-secret).
         'social_facebook' => ['social', 'string'],
         'social_instagram' => ['social', 'string'],
@@ -200,6 +202,20 @@ class ManageStoreSettings extends Page implements HasForms
                             ->numeric()
                             ->minValue(0)
                             ->helperText('تُحتسب على إجمالي الطلب بعد الخصم. اتركيها فارغة فلا تكون هناك عتبة (لا شحن مجاني).'),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('شارة «جديد»')
+                    ->description('مدّة ظهور شارة «جديد» تلقائيًّا على غلاف الكتاب بعد نشره. يمكنكِ أيضًا تفعيل الشارة يدويًّا لأي كتاب من صفحة الكتاب (خيار «جديد»).')
+                    ->schema([
+                        // مخزَّن كنصّ (type=string) لكن مُتحقَّق كعدد صحيح موجب — يُقرأ عبر
+                        // singleton «shop.new_badge_days». سقف 365 حدّ طبيعي (سنة) لا اعتباطي.
+                        Forms\Components\TextInput::make('new_badge_days')
+                            ->label('مدّة «جديد» (بالأيام)')
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(365)
+                            ->helperText('افتراضيًّا 30 يومًا. أي كتاب نُشر خلال هذه المدّة يظهر بشارة «جديد» تلقائيًّا. اتركيه فارغًا للرجوع إلى 30.'),
                     ])
                     ->columns(2),
 

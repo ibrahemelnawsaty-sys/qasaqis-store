@@ -338,6 +338,9 @@
                     @if ($discount)
                         <span class="disc" style="width:56px;height:56px;pointer-events:none">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
                     @endif
+                    @if ($book->newBadgeVisible())
+                        <span class="new-badge"><span>{{ __('book.new_badge') }}</span></span>
+                    @endif
 
                     {{-- زر إيقاف/تشغيل التبديل التلقائي (يظهر فقط عند تفعيل التبديل) — متطلّب وصولية WCAG 2.2.2 --}}
                     @if ($showThumbs)
@@ -405,6 +408,9 @@
                 <x-book-cover :book="$book" variant="pdp">
                     @if ($discount)
                         <span class="disc" style="width:56px;height:56px">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
+                    @endif
+                    @if ($book->newBadgeVisible())
+                        <span class="new-badge"><span>{{ __('book.new_badge') }}</span></span>
                     @endif
                 </x-book-cover>
             @endif

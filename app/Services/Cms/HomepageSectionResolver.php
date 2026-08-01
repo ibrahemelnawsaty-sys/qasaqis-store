@@ -25,7 +25,7 @@ final class HomepageSectionResolver
     private array $cardColumns = [
         'id', 'category_id', 'publisher_id', 'title', 'slug', 'author',
         'price', 'old_price', 'cover_image', 'age_label', 'age_min', 'age_max',
-        'stock_status', 'is_featured', 'avg_rating', 'reviews_count', 'published_at',
+        'stock_status', 'is_featured', 'is_new', 'avg_rating', 'reviews_count', 'published_at',
     ];
 
     /**

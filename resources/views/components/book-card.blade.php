@@ -44,6 +44,9 @@
         @if ($discount)
             <span class="disc">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
         @endif
+        @if ($book->newBadgeVisible())
+            <span class="new-badge"><span>{{ __('book.new_badge') }}</span></span>
+        @endif
     </x-book-cover>
 
     <div class="book-body">

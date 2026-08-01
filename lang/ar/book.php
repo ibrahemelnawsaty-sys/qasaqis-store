@@ -7,6 +7,7 @@ return [
     'by_illustrator' => 'رسم: :name',
     'publisher' => 'دار النشر: :name',
     'featured_pill' => '⭐ الأكثر حبًا',
+    'new_badge' => 'جديد',
 
     'description_title' => 'عن الكتاب',
     'learning_title' => 'ماذا يتعلّم طفلك؟',
