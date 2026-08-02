@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Actions\Category\MoveCategoryBookToPosition;
 use App\Actions\Category\SyncCategoryBookOrder;
 use App\Models\Book;
 use App\Models\Category;
@@ -134,5 +135,79 @@ final class CategoryBookOrderTest extends TestCase
         ]);
 
         $this->assertSame([$b->id, $a->id], $cat->orderedBooks->pluck('id')->all());
+    }
+
+    // ----- إعادة الترقيم التلقائيّ عند كتابة رقم (MoveCategoryBookToPosition) -----
+
+    /**
+     * يهيّئ قسمًا بـ n كتاب بمواضع 1..n بترتيب الإنشاء، ويعيد مصفوفة الكتب.
+     *
+     * @return array<int, Book>
+     */
+    private function seedOrdered(Category $cat, int $n): array
+    {
+        $books = [];
+        for ($i = 1; $i <= $n; $i++) {
+            $book = $this->book(['category_id' => $cat->id]);
+            DB::table('category_book_positions')->insert([
+                'category_id' => $cat->id, 'book_id' => $book->id, 'position' => $i,
+            ]);
+            $books[] = $book;
+        }
+
+        return $books;
+    }
+
+    /** @return array<int, int> معرّفات الكتب بترتيب position الحاليّ. */
+    private function orderIds(Category $cat): array
+    {
+        return DB::table('category_book_positions')
+            ->where('category_id', $cat->id)
+            ->orderBy('position')
+            ->pluck('book_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    public function test_typing_a_position_moves_the_book_and_renumbers_without_conflict(): void
+    {
+        $cat = Category::factory()->create();
+        [$a, $b, $c, $d] = $this->seedOrdered($cat, 4); // 1..4
+
+        // الأدمن يكتب «2» للكتاب d (والرقم 2 يملكه b حاليًّا): يُدرَج d في الرتبة 2 ويُزاح الباقي.
+        app(MoveCategoryBookToPosition::class)->execute($cat->id, $d->id, 2);
+
+        $this->assertSame([$a->id, $d->id, $b->id, $c->id], $this->orderIds($cat));
+
+        // كل المواضع فريدة ومتسلسلة 1..4 (لا تعارض ولا فجوات).
+        $positions = DB::table('category_book_positions')->where('category_id', $cat->id)
+            ->orderBy('position')->pluck('position')->map(static fn ($p): int => (int) $p)->all();
+        $this->assertSame([1, 2, 3, 4], $positions);
+    }
+
+    public function test_typing_one_beyond_count_sends_the_book_last(): void
+    {
+        $cat = Category::factory()->create();
+        [$a, $b, $c] = $this->seedOrdered($cat, 3);
+
+        // رقم أكبر من العدد → يذهب للأخير (يُحصر ضمن المدى).
+        app(MoveCategoryBookToPosition::class)->execute($cat->id, $a->id, 99);
+
+        $this->assertSame([$b->id, $c->id, $a->id], $this->orderIds($cat));
+    }
+
+    public function test_typing_a_position_reflects_on_the_storefront_order(): void
+    {
+        $cat = Category::factory()->create(['is_active' => true]);
+        [$a, $b, $c] = $this->seedOrdered($cat, 3);
+        $a->update(['title' => 'عنوان ألف']);
+        $b->update(['title' => 'عنوان باء']);
+        $c->update(['title' => 'عنوان جيم']);
+
+        // ارفع «جيم» للأول عبر كتابة الرقم 1.
+        app(MoveCategoryBookToPosition::class)->execute($cat->id, $c->id, 1);
+
+        $this->get(route('categories.show', $cat))->assertOk()
+            ->assertSeeInOrder(['عنوان جيم', 'عنوان ألف', 'عنوان باء']);
     }
 }

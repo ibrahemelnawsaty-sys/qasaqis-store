@@ -77,23 +77,6 @@ final class CategoryBooksOrderRelationManagerTest extends TestCase
         $this->assertLessThan($pos($b1->id), $pos($b2->id));
     }
 
-    public function test_typing_a_position_updates_the_pivot(): void
-    {
-        // يحاكي ما يفعله updateStateUsing للعمود القابل للكتابة بالضبط: $record->pivot->update.
-        $this->asRole('super_admin');
-        $cat = Category::factory()->create();
-        $book = Book::factory()->create(['category_id' => $cat->id, 'is_published' => true]);
-        DB::table('category_book_positions')->insert([
-            'category_id' => $cat->id, 'book_id' => $book->id, 'position' => 1,
-        ]);
-
-        $loaded = $cat->orderedBooks()->firstOrFail();      // كتاب مع pivot محمَّل (كما في الجدول).
-        $loaded->pivot->update(['position' => 7]);           // نفس عمليّة العمود القابل للكتابة.
-
-        $this->assertSame(7, (int) DB::table('category_book_positions')
-            ->where('category_id', $cat->id)->where('book_id', $book->id)->value('position'));
-    }
-
     public function test_view_requires_categories_view_permission(): void
     {
         Filament::setCurrentPanel(Filament::getPanel('admin'));

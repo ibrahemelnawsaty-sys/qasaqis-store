@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CategoryResource\RelationManagers;
 
+use App\Actions\Category\MoveCategoryBookToPosition;
 use App\Models\Book;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -47,13 +48,17 @@ class BooksOrderRelationManager extends RelationManager
                 Tables\Columns\TextInputColumn::make('position')
                     ->label('الترتيب')
                     ->type('number')
-                    ->rules(['integer', 'min:0'])
+                    ->rules(['integer', 'min:1'])
                     ->disabled(! $canManage)
                     ->getStateUsing(fn (Book $record): int => (int) ($record->pivot->position ?? 0))
-                    // الكتابة على صفّ pivot المحمَّل مباشرةً (category_book_positions) — نفس آليّة
-                    // السحب في Filament، بلا حاجة لحقن $livewire أو جلب القسم المالك.
+                    // كتابة رقم = نقل الكتاب لتلك الرتبة وإعادة ترقيم الباقي تلقائيًّا (1..N)
+                    // فلا تتعارض الأرقام؛ يغيّر الأدمن الكتب التي يريد فقط. category_id من الـpivot.
                     ->updateStateUsing(function (Book $record, $state): void {
-                        $record->pivot->update(['position' => (int) $state]);
+                        app(MoveCategoryBookToPosition::class)->execute(
+                            (int) $record->pivot->category_id,
+                            (int) $record->getKey(),
+                            (int) $state,
+                        );
                     }),
 
                 Tables\Columns\ImageColumn::make('cover_image')
