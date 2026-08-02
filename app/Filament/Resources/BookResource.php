@@ -482,12 +482,14 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // عمود «الترتيب» قابل للكتابة مباشرةً (بديل عن السحب حين تكون الكتب
-                // كثيرة). الأصغر يظهر أولًا. للمحرّرين فقط؛ لغيرهم للقراءة.
+                // عمود «الترتيب» قابل للكتابة مباشرةً (بديل عن السحب حين تكون الكتب كثيرة).
+                // كتابة رقم = نقل الكتاب لتلك الرتبة وإعادة ترقيم الباقي تلقائيًّا (1..N بلا
+                // تعارض)، لا ضبط القيمة الخام. الأصغر أولًا. للمحرّرين فقط؛ لغيرهم للقراءة.
                 Tables\Columns\TextInputColumn::make('sort_order')
                     ->label('الترتيب')
                     ->type('number')
-                    ->rules(['integer', 'min:0'])
+                    ->rules(['integer', 'min:1'])
+                    ->updateStateUsing(fn (Book $record, $state) => Book::moveToSortPosition((int) $record->getKey(), (int) $state))
                     ->sortable()
                     ->disabled(fn (): bool => ! static::userCan('update'))
                     ->toggleable(),

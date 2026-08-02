@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Book extends Model
 {
@@ -278,6 +279,45 @@ class Book extends Model
         $days = (int) (app()->bound('shop.new_badge_days') ? app('shop.new_badge_days') : 30);
 
         return $days > 0 ? $days : 30;
+    }
+
+    /**
+     * ينقل كتابًا إلى رتبة عامّة (books.sort_order) ثم يعيد ترقيم الكتب تسلسليًّا (1..N)
+     * بلا تعارض: كتابة الأدمن رقمًا تُدرِجه في تلك الرتبة وتُزيح الباقي (كالسحب لكن
+     * بالكتابة). يؤثّر ترتيب sort_order على كتب أقسام الرئيسية «مختارات/عروض/قسم» فقط.
+     *
+     * دالّة على الموديل (لا صنف Action جديد) لتعمل بـgit pull بلا composer dump-autoload.
+     * تُحدَّث الصفوف المتغيّرة فقط عبر DB::table (بلا أحداث موديل/مراقبين ولا إعادة فهرسة)
+     * تخفيفًا للعملية على كتالوج كبير (١٦٠٠+ كتابًا).
+     */
+    public static function moveToSortPosition(int $bookId, int $target): void
+    {
+        $current = DB::table('books')
+            ->whereNull('deleted_at')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'sort_order']);
+
+        $ids = $current->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+        $old = [];
+        foreach ($current as $row) {
+            $old[(int) $row->id] = (int) $row->sort_order;
+        }
+
+        // انزع الكتاب من موضعه ثم أدرِجه في الرتبة المطلوبة (محصورة ضمن [1، العدد]).
+        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id !== $bookId));
+        $target = max(1, min($target, count($ids) + 1));
+        array_splice($ids, $target - 1, 0, [$bookId]);
+
+        // أعِد الترقيم 1..N، محدِّثًا الصفوف المتغيّرة فقط، في معاملة واحدة.
+        DB::transaction(function () use ($ids, $old): void {
+            foreach ($ids as $index => $id) {
+                $new = $index + 1;
+                if (($old[$id] ?? null) !== $new) {
+                    DB::table('books')->where('id', $id)->update(['sort_order' => $new]);
+                }
+            }
+        });
     }
 
     // ----- Search normalization (Arabic) ---------------------------------
