@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CategoryResource\RelationManagers;
 
-use App\Actions\Category\MoveCategoryBookToPosition;
 use App\Models\Book;
+use App\Models\Category;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -50,12 +50,12 @@ class BooksOrderRelationManager extends RelationManager
                     ->type('number')
                     ->rules(['integer', 'min:1'])
                     ->disabled(! $canManage)
-                    ->getStateUsing(fn (Book $record): int => (int) ($record->pivot->position ?? 0))
+                    ->getStateUsing(fn (Book $record): int => (int) ($record->pivot?->position ?? 0))
                     // كتابة رقم = نقل الكتاب لتلك الرتبة وإعادة ترقيم الباقي تلقائيًّا (1..N)
-                    // فلا تتعارض الأرقام؛ يغيّر الأدمن الكتب التي يريد فقط. category_id من الـpivot.
-                    ->updateStateUsing(function (Book $record, $state): void {
-                        app(MoveCategoryBookToPosition::class)->execute(
-                            (int) $record->pivot->category_id,
+                    // فلا تتعارض الأرقام؛ يغيّر الأدمن الكتب التي يريد فقط. القسم من مالك المدير.
+                    ->updateStateUsing(function (Book $record, $state, RelationManager $livewire): void {
+                        Category::moveBookToPosition(
+                            (int) $livewire->getOwnerRecord()->getKey(),
                             (int) $record->getKey(),
                             (int) $state,
                         );

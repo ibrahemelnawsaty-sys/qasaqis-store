@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Actions\Category\MoveCategoryBookToPosition;
 use App\Actions\Category\SyncCategoryBookOrder;
 use App\Models\Book;
 use App\Models\Category;
@@ -137,7 +136,7 @@ final class CategoryBookOrderTest extends TestCase
         $this->assertSame([$b->id, $a->id], $cat->orderedBooks->pluck('id')->all());
     }
 
-    // ----- إعادة الترقيم التلقائيّ عند كتابة رقم (MoveCategoryBookToPosition) -----
+    // ----- إعادة الترقيم التلقائيّ عند كتابة رقم (Category::moveBookToPosition) -----
 
     /**
      * يهيّئ قسمًا بـ n كتاب بمواضع 1..n بترتيب الإنشاء، ويعيد مصفوفة الكتب.
@@ -175,7 +174,7 @@ final class CategoryBookOrderTest extends TestCase
         [$a, $b, $c, $d] = $this->seedOrdered($cat, 4); // 1..4
 
         // الأدمن يكتب «2» للكتاب d (والرقم 2 يملكه b حاليًّا): يُدرَج d في الرتبة 2 ويُزاح الباقي.
-        app(MoveCategoryBookToPosition::class)->execute($cat->id, $d->id, 2);
+        Category::moveBookToPosition($cat->id, $d->id, 2);
 
         $this->assertSame([$a->id, $d->id, $b->id, $c->id], $this->orderIds($cat));
 
@@ -191,7 +190,7 @@ final class CategoryBookOrderTest extends TestCase
         [$a, $b, $c] = $this->seedOrdered($cat, 3);
 
         // رقم أكبر من العدد → يذهب للأخير (يُحصر ضمن المدى).
-        app(MoveCategoryBookToPosition::class)->execute($cat->id, $a->id, 99);
+        Category::moveBookToPosition($cat->id, $a->id, 99);
 
         $this->assertSame([$b->id, $c->id, $a->id], $this->orderIds($cat));
     }
@@ -205,7 +204,7 @@ final class CategoryBookOrderTest extends TestCase
         $c->update(['title' => 'عنوان جيم']);
 
         // ارفع «جيم» للأول عبر كتابة الرقم 1.
-        app(MoveCategoryBookToPosition::class)->execute($cat->id, $c->id, 1);
+        Category::moveBookToPosition($cat->id, $c->id, 1);
 
         $this->get(route('categories.show', $cat))->assertOk()
             ->assertSeeInOrder(['عنوان جيم', 'عنوان ألف', 'عنوان باء']);

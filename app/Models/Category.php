@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class Category extends Model
@@ -75,6 +76,39 @@ class Category extends Model
         return $this->belongsToMany(Book::class, 'category_book_positions', 'category_id', 'book_id')
             ->withPivot('position')
             ->orderByPivot('position');
+    }
+
+    /**
+     * ينقل كتابًا إلى رتبة محدّدة داخل القسم ثم يعيد ترقيم كل كتبه تسلسليًّا (1..N) بلا
+     * تعارض: كتابة الأدمن رقمًا لكتابٍ تُدرِجه في تلك الرتبة وتُزيح الباقي تلقائيًّا
+     * (كالسحب لكن بالكتابة). عمدًا دالّة على موديل موجود مسبقًا لا صنف Action جديد:
+     * الخادم يستعمل classmap مُحسَّنًا والنشر بـgit pull فقط (بلا composer)، فالصنف
+     * الجديد لا يُحمَّل حتى dump-autoload — بينما تعديل موديل قائم يعمل فورًا بالسحب.
+     */
+    public static function moveBookToPosition(int $categoryId, int $bookId, int $target): void
+    {
+        $ids = DB::table('category_book_positions')
+            ->where('category_id', $categoryId)
+            ->orderBy('position')
+            ->orderBy('book_id')
+            ->pluck('book_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+
+        // انزع الكتاب من موضعه ثم أدرِجه في الرتبة المطلوبة (محصورة ضمن [1، العدد]).
+        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id !== $bookId));
+        $target = max(1, min($target, count($ids) + 1));
+        array_splice($ids, $target - 1, 0, [$bookId]);
+
+        // أعِد الترقيم تسلسليًّا 1..N في معاملة واحدة (أرقام فريدة بلا فجوات ولا تكرار).
+        DB::transaction(function () use ($ids, $categoryId): void {
+            foreach ($ids as $index => $id) {
+                DB::table('category_book_positions')
+                    ->where('category_id', $categoryId)
+                    ->where('book_id', $id)
+                    ->update(['position' => $index + 1]);
+            }
+        });
     }
 
     public function seo(): MorphOne
