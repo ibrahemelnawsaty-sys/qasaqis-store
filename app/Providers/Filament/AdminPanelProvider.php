@@ -99,8 +99,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->sidebarCollapsibleOnDesktop()
             // جرس إشعارات الأدمن من قاعدة البيانات (طلب جديد/إثبات دفع) — M4.
+            // الاستطلاع كل ٦٠ث لا ٣٠: كلّ استطلاع طلب Livewire كامل يعيد إقلاع اللوحة
+            // (قراءة/كتابة جلسة + استعلام إشعارات) لكلّ تبويب مفتوح، فالتخفيف يقصّ حِملًا
+            // خلفيًّا ثابتًا على قاعدة مشتركة. الإشعارات تصل خلال دقيقة (والطلبات تصل
+            // واتساب/بريدًا فورًا أيضًا). المكسب الأكبر خادميّ (سائقو الجلسة/الكاش file).
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('60s')
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
