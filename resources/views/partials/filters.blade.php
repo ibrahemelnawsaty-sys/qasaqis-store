@@ -6,23 +6,12 @@
 ])
 
 @php
-    $selCat = array_map('strval', (array) request('cat', []));
     $selPub = array_map('strval', (array) request('pub', []));
     $selAge = (array) request('age', []);
 @endphp
 
-{{-- فلتر القسم — يُخفى داخل صفحة قسم مثبّت --}}
-@if (! $category)
-    <h3>{{ __('catalog.facet_category') }}</h3>
-    @foreach ($categories as $cat)
-        <label class="filter-row {{ $cat->books_count === 0 ? 'zero' : '' }}">
-            <input type="checkbox" name="cat[]" value="{{ $cat->id }}"
-                @checked(in_array((string) $cat->id, $selCat, true))>
-            <span>{{ $cat->name }}</span>
-            <span class="cnt">({{ $cat->books_count }})</span>
-        </label>
-    @endforeach
-@endif
+{{-- فلتر القسم انتقل إلى قائمة ملاحة في شريط الأدوات (بجانب الفئة العمرية)؛ القسم
+     المختار يُحمَل مخفيًّا في النموذج فيبقى محفوظًا عند تطبيق فلاتر هذه اللوحة. --}}
 
 @if ($publishers->isNotEmpty())
     <h3>{{ __('catalog.facet_publisher') }}</h3>
