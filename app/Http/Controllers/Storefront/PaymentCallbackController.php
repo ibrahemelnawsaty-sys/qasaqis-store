@@ -12,6 +12,7 @@ use App\Services\Payment\PaymentGatewayFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -31,8 +32,7 @@ class PaymentCallbackController extends Controller
     public function __construct(
         private readonly PaymentGatewayFactory $gateways,
         private readonly OrderNotifier $notifier,
-    ) {
-    }
+    ) {}
 
     /** عودة المتصفّح من صفحة كاشير المستضافة (GET، موقَّعة من كاشير). */
     public function kashierCallback(Request $request): RedirectResponse
@@ -49,7 +49,7 @@ class PaymentCallbackController extends Controller
                 'method' => $request->method(),
                 'keys' => array_keys($params),
                 'signatureKeys' => is_scalar($params['signatureKeys'] ?? null) ? $params['signatureKeys'] : null,
-                'safe' => \Illuminate\Support\Arr::only($params, [
+                'safe' => Arr::only($params, [
                     'paymentStatus', 'status', 'merchantOrderId', 'orderId',
                     'amount', 'currency', 'transactionId', 'mode',
                 ]),
@@ -208,6 +208,18 @@ class PaymentCallbackController extends Controller
 
         if (! $changed) {
             return;
+        }
+
+        // مسح سلة العميلة المسجّلة المحفوظة على الخادم عند تأكيد الدفع الأونلاين: هذا
+        // المسار يوجّه لبوابة خارجية بلا مسح localStorage، فقد تُعيد مزامنةٌ خلفيّة
+        // إنشاء الصفّ أثناء نافذة الدفع — فنمسحه في لحظة تأكيد الدفع (callback أو
+        // webhook، idempotent) كي لا يظهر طلبٌ مدفوع كسلّة متروكة. للزائرة لا customer_id.
+        if ($order->customer_id !== null) {
+            try {
+                CartController::forgetPersistedCart((int) $order->customer_id);
+            } catch (\Throwable $e) {
+                report($e); // best-effort: لا يُسقط تأكيد الدفع
+            }
         }
 
         // بعد الـ commit: إشعار العميلة (ShouldQueue فلا يحجب). حدث الشراء يُطلقه

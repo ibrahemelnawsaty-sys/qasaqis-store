@@ -52,11 +52,48 @@ function readCart() {
     }
 }
 
+// ----- مزامنة سلة العميل المسجَّل إلى الخادم (متابعة «السلات المتروكة») -----------
+// خلفيّة ومؤجّلة (debounce)، وللمسجَّلين فقط: سمة data-cart-authed على <html> تُرسَم
+// خادميًّا في كل طلب (لا كاش صفحة كامل)، فالزائر لا يُرسِل شيئًا (بند 5.1). نرسل id +
+// qty فقط — الأسعار خادمية (بند 4.1). best-effort خالص: منفصلة عن مسار الدفع
+// (cart.update)، وأيّ فشل يُبتلَع بهدوء لأن localStorage يبقى مصدر السلة الحقيقيّ.
+let cartSyncTimer = null;
+function syncCartToServer(items) {
+    const html = document.documentElement;
+    if (html.getAttribute('data-cart-authed') !== '1') return; // الزائر: لا مزامنة
+    const url = html.getAttribute('data-cart-sync-url');
+    if (!url) return;
+
+    const payload = items.map((i) => ({ book_id: i.id, qty: i.qty || 1 }));
+    clearTimeout(cartSyncTimer);
+    cartSyncTimer = setTimeout(() => {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token,
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({ items: payload }),
+            keepalive: true, // يصمد لو غادرت الصفحة بُعيد التعديل مباشرة
+        }).catch(() => {});
+    }, 800);
+}
+
 Alpine.store('cart', {
     items: readCart(),
     open: false,
+    // عند تحميل الصفحة: التقاط سلة موجودة أصلًا لعميلٍ سجّل دخوله بعد الإضافة (يمرّ
+    // عبر الفحص الداخليّ فلا يُرسِل الزائر شيئًا). لا شيء لسلةٍ فارغة.
+    init() {
+        if (this.items.length) {
+            syncCartToServer(this.items);
+        }
+    },
     persist() {
         localStorage.setItem(CART_KEY, JSON.stringify(this.items));
+        syncCartToServer(this.items);
     },
     get count() {
         return this.items.reduce((n, i) => n + (i.qty || 1), 0);

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="rtl"
-    data-wa-order-intro="{{ __('common.wa_order_intro') }}">
+    data-wa-order-intro="{{ __('common.wa_order_intro') }}"
+    data-cart-sync-url="{{ route('cart.sync') }}"
+    data-cart-authed="{{ auth('customer')->check() ? '1' : '0' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

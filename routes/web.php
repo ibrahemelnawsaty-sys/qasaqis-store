@@ -2,21 +2,22 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\PaymentProofController as AdminPaymentProofController;
+use App\Http\Controllers\Auth\UnifiedLoginController;
+use App\Http\Controllers\Customer\AddressController as CustomerAddressController;
 use App\Http\Controllers\Customer\DashboardController as CustomerDashboardController;
 use App\Http\Controllers\Customer\EmailVerificationController as CustomerEmailVerificationController;
 use App\Http\Controllers\Customer\LoginController as CustomerLoginController;
 use App\Http\Controllers\Customer\LogoutController as CustomerLogoutController;
 use App\Http\Controllers\Customer\OrderHistoryController as CustomerOrderHistoryController;
 use App\Http\Controllers\Customer\OrderLinkController as CustomerOrderLinkController;
-use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\PasswordResetController as CustomerPasswordResetController;
-use App\Http\Controllers\Customer\AddressController as CustomerAddressController;
+use App\Http\Controllers\Customer\PostPurchaseAccountController;
 use App\Http\Controllers\Customer\ProfileController as CustomerProfileController;
-use App\Http\Controllers\Auth\UnifiedLoginController;
-use App\Http\Controllers\EmailUnsubscribeController;
-use App\Http\Controllers\TaskRunnerController;
-use App\Http\Controllers\Admin\PaymentProofController as AdminPaymentProofController;
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
+use App\Http\Controllers\EmailUnsubscribeController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
 use App\Http\Controllers\Storefront\CartController;
@@ -26,14 +27,16 @@ use App\Http\Controllers\Storefront\CouponController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
-use App\Http\Controllers\Storefront\PaymentCallbackController;
-use App\Http\Controllers\MediaController;
-use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\PageController;
+use App\Http\Controllers\Storefront\PaymentCallbackController;
 use App\Http\Controllers\Storefront\ReviewController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\SeriesController;
+use App\Http\Controllers\TaskRunnerController;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /*
 | مسارات المتجر العامة (Storefront) — «قصص أطفال»
@@ -63,10 +66,10 @@ Route::post('/email/unsubscribe/{token}', [EmailUnsubscribeController::class, 's
 Route::get('/tasks/run/{token}', TaskRunnerController::class)
     ->middleware('throttle:30,1')
     ->withoutMiddleware([
-        \Illuminate\Session\Middleware\StartSession::class,
-        \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        StartSession::class,
+        ShareErrorsFromSession::class,
         // CSRF يعتمد على الجلسة لكتابة كوكي XSRF؛ يُسقَط هنا (GET لا يحتاجه أصلًا).
-        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        VerifyCsrfToken::class,
     ])
     ->name('tasks.run');
 
@@ -81,9 +84,9 @@ Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 // معظم الأغلفة تُخدَم static من public/media-cache (coverUrl) فلا تصل هنا أصلًا؛ هذا
 // المسار للتوليد الأوّل والاحتياط فقط.
 Route::withoutMiddleware([
-    \Illuminate\Session\Middleware\StartSession::class,
-    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-    \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    VerifyCsrfToken::class,
 ])->group(function () {
     Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
     // مصغّر غلاف لقائمة أدمن الكتب (صغير، static بعد أوّل توليد، بلا جلسة كالبقيّة).
@@ -160,6 +163,10 @@ Route::get('/pages/{page:slug}', [PageController::class, 'show'])->name('pages.s
 // السلة (عرض/تحديث). التخزين في الجلسة كخريطة {book_id: qty}.
 Route::get('/cart', [CartController::class, 'show'])->name('cart.show');
 Route::post('/cart', [CartController::class, 'update'])->name('cart.update');
+// حفظ سلة العميل المسجَّل خلفيًّا (لمتابعة السلات المتروكة). throttle خفيف ضد الإساءة.
+Route::post('/cart/sync', [CartController::class, 'persist'])
+    ->middleware('throttle:60,1')
+    ->name('cart.sync');
 
 // نموذج الدفع + إنشاء الطلب. throttle على الإنشاء لمنع الإساءة.
 Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');

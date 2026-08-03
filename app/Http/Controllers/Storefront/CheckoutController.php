@@ -13,6 +13,7 @@ use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Country;
 use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\Order;
 use App\Services\Cart\CartService;
 use App\Services\Payment\PaymentMethodResolver;
@@ -78,7 +79,7 @@ class CheckoutController extends Controller
      * تأخذ العناوين مُحمّلةً بأمان من show() (rescue) فلا تلمس customer_addresses
      * مباشرةً؛ بقية القيم من جدول customers الحاضر دائمًا، فلا تُسقط الدفع.
      *
-     * @param  Collection<int, \App\Models\CustomerAddress>  $addresses
+     * @param  Collection<int, CustomerAddress>  $addresses
      * @return array<string, string>
      */
     private function prefill(?Customer $customer, Collection $addresses): array
@@ -163,6 +164,16 @@ class CheckoutController extends Controller
         }
 
         $this->forgetSessionCart($request);
+
+        // مسح سلة العميلة المسجّلة المحفوظة على الخادم: الطلب اكتمل فلم تعُد «متروكة».
+        // best-effort كبقيّة ما بعد الإنشاء — لا يُسقط استجابة طلبٍ تمّ. للزائرة لا شيء.
+        if (($customer = auth('customer')->user()) !== null) {
+            try {
+                CartController::forgetPersistedCart((int) $customer->getKey());
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         // حفظ آخر عنوان للعميلة المسجّلة كي يُملأ تلقائيًّا في الطلب القادم (لا تُعيد
         // إدخاله). لا يمسّ الطلب نفسه، وللزائرة لا شيء.

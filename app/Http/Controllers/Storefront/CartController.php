@@ -11,6 +11,8 @@ use App\Services\Cart\CartService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The cart lives in the session as a plain map {book_id: qty}. Prices are always
@@ -20,9 +22,7 @@ class CartController extends Controller
 {
     use InteractsWithSessionCart;
 
-    public function __construct(private readonly CartService $cartService)
-    {
-    }
+    public function __construct(private readonly CartService $cartService) {}
 
     public function show(Request $request): View
     {
@@ -50,5 +50,63 @@ class CartController extends Controller
         return redirect()
             ->route('cart.show')
             ->with('status', __('payment.cart.updated'));
+    }
+
+    /**
+     * يحفظ سلة العميل المسجَّل على الخادم لمتابعة «السلات المتروكة». يُستدعى خلفيًّا
+     * من متجر السلة (localStorage) عند كل تغيير — معرّف الكتاب والكمية فقط، فالأسعار
+     * تُحسَب من قاعدة البيانات عند العرض (بند 4.1). الزائر لا يُخزَّن له شيء (السلة
+     * جلسة/متصفّح فقط). سلة فارغة تمسح الصفّ. صفٌّ واحد لكل عميل (customer_id فريد).
+     *
+     * best-effort خالص: منفصل تمامًا عن مسار الشراء، وأيّ فشل هنا لا يمسّ العميل —
+     * السلة الحقيقية تبقى في localStorage والدفع يعمل عبر cart.update المستقلّ.
+     */
+    public function persist(Request $request): Response
+    {
+        $data = $request->validate([
+            'items' => ['present', 'array', 'max:200'],
+            'items.*.book_id' => ['required', 'integer', 'min:1'],
+            'items.*.qty' => ['required', 'integer', 'min:1', 'max:99'],
+        ]);
+
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return response()->noContent(); // الزائر: لا سجلّ خادميّ للسلة
+        }
+
+        // تطبيع: دمج تكرار المعرّف وحدّ الكمية، ونُخزّن id + qty فقط (بند 4.1).
+        $merged = [];
+        foreach ($data['items'] as $row) {
+            $id = (int) $row['book_id'];
+            $merged[$id] = min(($merged[$id] ?? 0) + (int) $row['qty'], 99);
+        }
+
+        $items = [];
+        foreach ($merged as $id => $qty) {
+            $items[] = ['id' => $id, 'qty' => $qty];
+        }
+
+        if ($items === []) {
+            DB::table('customer_carts')->where('customer_id', $customer->getKey())->delete();
+
+            return response()->noContent();
+        }
+
+        DB::table('customer_carts')->updateOrInsert(
+            ['customer_id' => $customer->getKey()],
+            ['items' => json_encode($items), 'updated_at' => now()],
+        );
+
+        return response()->noContent();
+    }
+
+    /**
+     * يمسح سلة العميل المسجَّل المحفوظة على الخادم (عند إتمام الطلب أو تفريغها).
+     * ثابتة لإعادة الاستخدام من CheckoutController بلا تكرار منطق الجدول.
+     */
+    public static function forgetPersistedCart(int $customerId): void
+    {
+        DB::table('customer_carts')->where('customer_id', $customerId)->delete();
     }
 }
