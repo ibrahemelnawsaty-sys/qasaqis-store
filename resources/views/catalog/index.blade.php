@@ -149,12 +149,14 @@
             $clearUrl = route('books.index');
         }
 
-        // صفحة القسم: خيار «المُقترَح» (الترتيب اليدويّ للأدمن) هو الافتراضي المُحدَّد،
+        // «المُقترَح» (الترتيب اليدويّ) هو الافتراضي المُحدَّد في صفحة القسم و/books معًا،
         // فأي فلترة/إرسال للنموذج تُبقيه (لا تُرسل sort=newest فتُلغي الترتيب اليدويّ).
-        $sortOptions = $category
+        // صفحتا العروض/وصل حديثًا تبقيان على «الأحدث».
+        $useCurated = $category !== null || request()->routeIs('books.index');
+        $sortOptions = $useCurated
             ? ['curated', 'newest', 'price_asc', 'price_desc', 'rating', 'popular']
             : ['newest', 'price_asc', 'price_desc', 'rating', 'popular'];
-        $currentSort = request('sort', $category ? 'curated' : 'newest');
+        $currentSort = request('sort', $useCurated ? 'curated' : 'newest');
     @endphp
 
     <div class="wrap" style="padding-block:clamp(20px,4vw,34px)">

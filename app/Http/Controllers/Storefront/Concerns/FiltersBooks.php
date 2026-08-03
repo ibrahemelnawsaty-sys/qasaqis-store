@@ -112,12 +112,31 @@ trait FiltersBooks
         // أي فرز صريح آخر (الأحدث/السعر…) يتجاوزه. باقي الصفحات: الفرز الافتراضي (الأحدث).
         $sort = (string) $request->input('sort', '');
         if ($category !== null && ($sort === '' || $sort === 'curated')) {
+            // صفحة القسم: الترتيب اليدويّ للقسم افتراضيًّا (أو عند «المُقترَح»).
             $this->applyCategoryManualOrder($query, $category);
+        } elseif (($sort === 'curated' || $sort === '') && $request->routeIs('books.index')) {
+            // صفحة /books فقط: «المثبَّت أولًا ثم الأحدث» افتراضيًّا (والفلترة ترسل curated
+            // فتبقيه). مقصور على books.index كي لا تنقلب /offers و/new والبحث عبر رابط يدويّ.
+            $this->applyGlobalManualOrder($query);
         } else {
+            // فرز صريح (السعر/التقييم/الأحدث…) أو صفحات أخرى: الفرز الافتراضي.
             $this->applySort($query, $sort !== '' ? $sort : 'newest');
         }
 
         return $query->paginate(12)->withQueryString();
+    }
+
+    /**
+     * الترتيب العامّ لـ/books: «الأحدث إلا لو ثُبّت». الكتب المثبَّتة (books.sort_order > 0)
+     * أولًا بترتيبها التصاعديّ، ثم غير المثبَّتة (sort_order = 0) بالأحدث. بلا معامل مربوط
+     * (0 حرفيّ) ولا JOIN. يطابق ترتيب Book::moveToSortPosition وكاروسيلات الرئيسية.
+     */
+    protected function applyGlobalManualOrder(Builder $query): void
+    {
+        $query->orderByRaw('sort_order = 0') // المثبَّت (false=0) قبل غير المثبَّت (true=1)
+            ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id');
     }
 
     /**

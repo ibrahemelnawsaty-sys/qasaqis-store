@@ -7,67 +7,84 @@ namespace Tests\Feature;
 use App\Models\Book;
 use App\Models\Category;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * الترتيب العامّ للكتب (books.sort_order): كتابة رقم في عمود «الترتيب» بجدول الكتب
- * تنقل الكتاب لتلك الرتبة وتعيد ترقيم الباقي تلقائيًّا (1..N بلا تعارض) — عبر
- * Book::moveToSortPosition. يؤثّر على ترتيب كتب أقسام الرئيسية «مختارات/عروض/قسم».
+ * الترتيب العامّ «المثبَّت أولًا ثم الأحدث» على /books (نموذج التثبيت):
+ * books.sort_order = 0 يعني غير مثبَّت (يُرتَّب بالأحدث)، و> 0 يعني مثبَّت. كتابة رقم في
+ * عمود «الترتيب» تُثبّت الكتاب وتعيد ترقيم المثبَّتة بلا تعارض (Book::moveToSortPosition)،
+ * و0 تُلغي التثبيت. صفحة /books تفتح على المثبَّت أولًا ثم الأحدث.
  */
 final class BookSortOrderTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @return array<int, Book> كتب بترتيب sort_order 1..n. */
-    private function seedBooks(int $n): array
+    private function book(string $title, int $daysOld = 0): Book
     {
-        $cat = Category::factory()->create();
-        $books = [];
-        for ($i = 1; $i <= $n; $i++) {
-            $books[] = Book::factory()->create(['category_id' => $cat->id, 'sort_order' => $i]);
-        }
-
-        return $books;
+        return Book::factory()->create([
+            'category_id' => Category::factory(),
+            'is_published' => true,
+            'sort_order' => 0,
+            'title' => $title,
+            'published_at' => now()->subDays($daysOld),
+        ]);
     }
 
-    /** @return array<int, int> معرّفات الكتب بترتيب sort_order الحاليّ. */
-    private function order(): array
+    public function test_typing_a_number_pins_the_book_and_leaves_others_unpinned(): void
     {
-        return DB::table('books')->orderBy('sort_order')->orderBy('id')
-            ->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+        $a = $this->book('أ');
+        $b = $this->book('ب');
+
+        Book::moveToSortPosition($a->id, 1);
+
+        $this->assertSame(1, (int) $a->fresh()->sort_order); // مثبَّت
+        $this->assertSame(0, (int) $b->fresh()->sort_order); // يبقى غير مثبَّت
     }
 
-    public function test_typing_a_number_moves_the_book_and_renumbers_without_conflict(): void
+    public function test_pinning_to_an_occupied_rank_shifts_existing_pins_without_conflict(): void
     {
-        [$a, $b, $c, $d] = $this->seedBooks(4); // 1..4
+        $a = $this->book('أ');
+        $b = $this->book('ب');
 
-        // كتابة «2» للكتاب d (والرقم 2 يملكه b): يُدرَج d في الرتبة 2 ويُزاح الباقي.
-        Book::moveToSortPosition($d->id, 2);
+        Book::moveToSortPosition($a->id, 1); // أ = 1
+        Book::moveToSortPosition($b->id, 1); // ب = 1، وأ تُزاح إلى 2
 
-        $this->assertSame([$a->id, $d->id, $b->id, $c->id], $this->order());
-
-        // مواضع فريدة متسلسلة 1..4 (لا تعارض).
-        $positions = Book::query()->orderBy('sort_order')->pluck('sort_order')
-            ->map(static fn ($p): int => (int) $p)->all();
-        $this->assertSame([1, 2, 3, 4], $positions);
+        $this->assertSame(1, (int) $b->fresh()->sort_order);
+        $this->assertSame(2, (int) $a->fresh()->sort_order);
     }
 
-    public function test_typing_one_moves_the_book_to_the_top(): void
+    public function test_typing_zero_unpins_and_renumbers_remaining(): void
     {
-        [$a, $b, $c] = $this->seedBooks(3);
+        $a = $this->book('أ');
+        $b = $this->book('ب');
+        Book::moveToSortPosition($a->id, 1); // أ = 1
+        Book::moveToSortPosition($b->id, 2); // ب = 2
 
-        Book::moveToSortPosition($c->id, 1);
+        Book::moveToSortPosition($a->id, 0); // إلغاء تثبيت أ
 
-        $this->assertSame([$c->id, $a->id, $b->id], $this->order());
+        $this->assertSame(0, (int) $a->fresh()->sort_order); // عاد غير مثبَّت
+        $this->assertSame(1, (int) $b->fresh()->sort_order); // ب أُعيد ترقيمه إلى 1
     }
 
-    public function test_typing_beyond_count_sends_the_book_last(): void
+    public function test_books_page_shows_pinned_first_then_newest(): void
     {
-        [$a, $b, $c] = $this->seedBooks(3);
+        $newest = $this->book('كتاب حديث', 1);
+        $old = $this->book('كتاب قديم', 30);
 
-        Book::moveToSortPosition($a->id, 99);
+        Book::moveToSortPosition($old->id, 1); // ثبّت القديم في القمّة
 
-        $this->assertSame([$b->id, $c->id, $a->id], $this->order());
+        // المثبَّت (القديم) أولًا رغم أنه أقدم، ثم غير المثبَّت بالأحدث.
+        $this->get(route('books.index'))->assertOk()
+            ->assertSeeInOrder(['كتاب قديم', 'كتاب حديث']);
+    }
+
+    public function test_books_page_defaults_to_newest_when_nothing_pinned(): void
+    {
+        $this->book('ألف حديث', 1);
+        $this->book('ياء قديم', 30);
+
+        // لا تثبيت → الأحدث أولًا (السلوك الافتراضي محفوظ).
+        $this->get(route('books.index'))->assertOk()
+            ->assertSeeInOrder(['ألف حديث', 'ياء قديم']);
     }
 }

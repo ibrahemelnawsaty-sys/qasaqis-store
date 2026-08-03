@@ -282,40 +282,42 @@ class Book extends Model
     }
 
     /**
-     * ينقل كتابًا إلى رتبة عامّة (books.sort_order) ثم يعيد ترقيم الكتب تسلسليًّا (1..N)
-     * بلا تعارض: كتابة الأدمن رقمًا تُدرِجه في تلك الرتبة وتُزيح الباقي (كالسحب لكن
-     * بالكتابة). يؤثّر ترتيب sort_order على كتب أقسام الرئيسية «مختارات/عروض/قسم» فقط.
+     * تثبيت الكتاب في رتبة على /books («الأحدث إلا لو ثُبّت»). نموذج «تثبيت»:
+     * sort_order = 0 يعني غير مثبَّت (يُرتَّب بالأحدث)، و> 0 يعني مثبَّت في تلك الرتبة.
+     * كتابة رقم تُدرِج الكتاب في المجموعة المثبَّتة وتُعيد ترقيمها تسلسليًّا (1..M) بلا
+     * تعارض، وتبقى بقيّة الكتب على 0 (بالأحدث). كتابة 0 (أو أقل) تُلغي التثبيت.
      *
-     * دالّة على الموديل (لا صنف Action جديد) لتعمل بـgit pull بلا composer dump-autoload.
-     * تُحدَّث الصفوف المتغيّرة فقط عبر DB::table (بلا أحداث موديل/مراقبين ولا إعادة فهرسة)
-     * تخفيفًا للعملية على كتالوج كبير (١٦٠٠+ كتابًا).
+     * لا يُرقِّم إلا المثبَّتة (مجموعة صغيرة) فيبقى خفيفًا على الكتالوج الكبير. يؤثّر أيضًا
+     * على ترتيب كتب أقسام الرئيسية «مختارات/عروض/قسم» (المثبَّت أولًا). دالّة على موديل
+     * قائم (لا صنف Action جديد) لتعمل بـgit pull بلا composer dump-autoload.
      */
     public static function moveToSortPosition(int $bookId, int $target): void
     {
-        $current = DB::table('books')
-            ->whereNull('deleted_at')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get(['id', 'sort_order']);
+        DB::transaction(function () use ($bookId, $target): void {
+            // الكتب المثبَّتة حاليًّا فقط (sort_order > 0) بترتيبها، مع قفلها لتسلسل
+            // التعديلات المتزامنة (يمنع تكرار المواضع)، بعد نزع الكتاب المستهدف.
+            $pinned = DB::table('books')
+                ->whereNull('deleted_at')
+                ->where('sort_order', '>', 0)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->reject(static fn (int $id): bool => $id === $bookId)
+                ->values()
+                ->all();
 
-        $ids = $current->pluck('id')->map(static fn ($id): int => (int) $id)->all();
-        $old = [];
-        foreach ($current as $row) {
-            $old[(int) $row->id] = (int) $row->sort_order;
-        }
+            if ($target < 1) {
+                // إلغاء التثبيت: يعود الكتاب إلى 0 (الأحدث)، ونعيد ترقيم بقيّة المثبَّتة.
+                DB::table('books')->where('id', $bookId)->update(['sort_order' => 0]);
+            } else {
+                // أدرِج الكتاب في الرتبة المطلوبة ضمن المجموعة المثبَّتة (محصورة).
+                array_splice($pinned, min($target, count($pinned) + 1) - 1, 0, [$bookId]);
+            }
 
-        // انزع الكتاب من موضعه ثم أدرِجه في الرتبة المطلوبة (محصورة ضمن [1، العدد]).
-        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id !== $bookId));
-        $target = max(1, min($target, count($ids) + 1));
-        array_splice($ids, $target - 1, 0, [$bookId]);
-
-        // أعِد الترقيم 1..N، محدِّثًا الصفوف المتغيّرة فقط، في معاملة واحدة.
-        DB::transaction(function () use ($ids, $old): void {
-            foreach ($ids as $index => $id) {
-                $new = $index + 1;
-                if (($old[$id] ?? null) !== $new) {
-                    DB::table('books')->where('id', $id)->update(['sort_order' => $new]);
-                }
+            foreach ($pinned as $index => $id) {
+                DB::table('books')->where('id', $id)->update(['sort_order' => $index + 1]);
             }
         });
     }

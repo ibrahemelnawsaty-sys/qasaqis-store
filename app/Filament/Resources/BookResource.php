@@ -482,13 +482,13 @@ class BookResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // عمود «الترتيب» قابل للكتابة مباشرةً (بديل عن السحب حين تكون الكتب كثيرة).
-                // كتابة رقم = نقل الكتاب لتلك الرتبة وإعادة ترقيم الباقي تلقائيًّا (1..N بلا
-                // تعارض)، لا ضبط القيمة الخام. الأصغر أولًا. للمحرّرين فقط؛ لغيرهم للقراءة.
+                // عمود «الترتيب»: تثبيت الكتاب في أعلى /books («الأحدث إلا لو ثُبّت»). كتابة
+                // رقم تُثبّت الكتاب في تلك الرتبة وتُعيد ترقيم المثبَّتة بلا تعارض؛ 0 = إلغاء
+                // التثبيت (يعود للأحدث). يؤثّر أيضًا على كاروسيلات «مختارات/عروض/قسم» بالرئيسية.
                 Tables\Columns\TextInputColumn::make('sort_order')
                     ->label('الترتيب')
                     ->type('number')
-                    ->rules(['integer', 'min:1'])
+                    ->rules(['integer', 'min:0'])
                     ->updateStateUsing(fn (Book $record, $state) => Book::moveToSortPosition((int) $record->getKey(), (int) $state))
                     ->sortable()
                     ->disabled(fn (): bool => ! static::userCan('update'))
@@ -499,10 +499,16 @@ class BookResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('sort_order')
-            // سحب وإفلات لضبط ترتيب ظهور الكتب (يؤثّر على أقسام الرئيسية التي ترتّب
-            // بـsort_order: مختارات/قسم/عروض). تصاعدي = الأعلى أولًا. للمحرّرين فقط.
-            ->reorderable('sort_order', fn (): bool => static::userCan('update'))
+            // ترتيب افتراضيّ يطابق المتجر (نموذج التثبيت): المثبَّت (sort_order>0) أولًا
+            // تصاعديًّا، ثم غير المثبَّت (0) بالأحدث — فيرى الأدمن الكتاب يرتفع فور كتابة رقمه.
+            ->defaultSort(fn (Builder $query) => $query
+                ->orderByRaw('sort_order = 0')
+                ->orderBy('sort_order')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id'))
+            // لا سحب وإفلات: Filament يكتب أرقامًا خامًا (1..N) تتجاوز منطق التثبيت وتُثبّت
+            // كتبًا بلا قصد فتُفسد ترتيب /books. التثبيت حصريًّا بكتابة رقم في عمود «الترتيب»
+            // (0 = إلغاء التثبيت) عبر Book::moveToSortPosition — المسار الآمن الوحيد.
             ->defaultPaginationPageOption(25)
             // «الكل» متاح بطلب المالك: صار أخفّ كثيرًا بعد مصغّرات الأغلفة (~110px بدل
             // 1000×1500) وفهرس sort_order، لكنّه يبقى الأثقل على ١٦٠٠+ كتابًا لأنّ Filament

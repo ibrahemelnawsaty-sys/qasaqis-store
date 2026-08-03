@@ -11,6 +11,7 @@ use App\Models\Book;
 use App\Services\SearchSuggestService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class SearchController extends Controller
 {
@@ -72,6 +73,9 @@ class SearchController extends Controller
         $books = Book::query()
             ->where('is_published', true)
             ->with(['publisher:id,name'])
+            // نموذج التثبيت: المثبَّت (sort_order>0) أولًا، ثم غير المثبَّت (0) بالأحدث —
+            // يطابق ترتيب المتجر فلا تغرق الكتب المثبَّتة أسفل فهرس الاقتراح الفوري.
+            ->orderByRaw('sort_order = 0')
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price']);
@@ -89,7 +93,7 @@ class SearchController extends Controller
                 // رابط الغلاف (خارجي كما هو، أو من التخزين العام) — null لو لا غلاف.
                 $cover = $b->cover_image;
                 $img = filled($cover)
-                    ? (\Illuminate\Support\Str::startsWith($cover, ['http://', 'https://'])
+                    ? (Str::startsWith($cover, ['http://', 'https://'])
                         ? $cover
                         : asset('storage/'.ltrim($cover, '/')))
                     : null;

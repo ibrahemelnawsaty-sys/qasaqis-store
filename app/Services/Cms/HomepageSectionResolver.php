@@ -60,10 +60,10 @@ final class HomepageSectionResolver
         $base = Book::query()->published()->select($this->cardColumns)->with($this->cardWith());
 
         return match ($section->source_type) {
-            'featured' => $base->featured()->orderBy('sort_order')->orderByDesc('published_at'),
+            'featured' => $base->featured()->orderByRaw('sort_order = 0')->orderBy('sort_order')->orderByDesc('published_at'),
             'bestsellers' => $this->bestsellersQuery($base),
             'popular' => $base->orderByDesc('views_count')->orderByDesc('published_at'),
-            'on_sale' => $base->whereNotNull('old_price')->orderBy('sort_order')->orderByDesc('published_at'),
+            'on_sale' => $base->whereNotNull('old_price')->orderByRaw('sort_order = 0')->orderBy('sort_order')->orderByDesc('published_at'),
             'category' => $this->categoryQuery($base, $section),
             // latest والافتراضي.
             default => $base->orderByDesc('published_at')->orderByDesc('id'),
@@ -95,7 +95,7 @@ final class HomepageSectionResolver
         return $base->where(function (Builder $q) use ($categoryId): void {
             $q->where('category_id', $categoryId)
                 ->orWhereHas('categories', fn (Builder $c) => $c->whereKey($categoryId));
-        })->orderBy('sort_order')->orderByDesc('published_at');
+        })->orderByRaw('sort_order = 0')->orderBy('sort_order')->orderByDesc('published_at');
     }
 
     /**
