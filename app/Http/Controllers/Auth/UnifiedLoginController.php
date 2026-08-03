@@ -94,6 +94,7 @@ final class UnifiedLoginController extends Controller
             if (Auth::guard('customer')->attempt(['email' => $identifier, 'password' => $password], $remember)) {
                 RateLimiter::clear($key);
                 $request->session()->regenerate();
+                $this->claimGuestSessionCart($request);
 
                 return redirect()->intended(route('customer.dashboard'));
             }
@@ -101,6 +102,7 @@ final class UnifiedLoginController extends Controller
             && Auth::guard('customer')->attempt(['phone_normalized' => $normalizedPhone, 'password' => $password], $remember)) {
             RateLimiter::clear($key);
             $request->session()->regenerate();
+            $this->claimGuestSessionCart($request);
 
             return redirect()->intended(route('customer.dashboard'));
         }
@@ -110,6 +112,18 @@ final class UnifiedLoginController extends Controller
         throw ValidationException::withMessages([
             'identifier' => __('auth.failed'),
         ]);
+    }
+
+    /**
+     * عزل السلة على الجهاز المشترك: تُنسَب سلة الجلسة إن كانت لزائرٍ (بلا خَتم مالك) إلى
+     * العميل الداخل، فلا تنتقل لاحقًا لعميلٍ آخر يدخل بعده؛ وسلة عميلٍ آخر تبقى مختومة به
+     * فتُسقَط في buildSessionCart. المفتاحان 'cart'/'cart_owner' يوازيان InteractsWithSessionCart.
+     */
+    private function claimGuestSessionCart(Request $request): void
+    {
+        if ($request->session()->has('cart') && (string) $request->session()->get('cart_owner', '') === '') {
+            $request->session()->put('cart_owner', (string) Auth::guard('customer')->id());
+        }
     }
 
     private function ensureNotRateLimited(Request $request, string $key): void

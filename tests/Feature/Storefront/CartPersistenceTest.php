@@ -123,4 +123,106 @@ final class CartPersistenceTest extends TestCase
 
         $this->assertDatabaseCount('customer_carts', 0);
     }
+
+    public function test_mine_returns_empty_for_a_guest(): void
+    {
+        $this->getJson(route('cart.mine'))->assertOk()->assertExactJson(['items' => []]);
+    }
+
+    public function test_mine_is_empty_when_the_customer_has_no_saved_cart(): void
+    {
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($customer, 'customer')
+            ->getJson(route('cart.mine'))
+            ->assertOk()
+            ->assertExactJson(['items' => []]);
+    }
+
+    public function test_mine_returns_the_saved_cart_resolved_from_the_db(): void
+    {
+        $customer = Customer::factory()->create();
+        $book = Book::factory()->create([
+            'category_id' => Category::factory(),
+            'title' => 'كتاب المشاعر',
+            'price' => '120.00',
+        ]);
+        DB::table('customer_carts')->insert([
+            'customer_id' => $customer->id,
+            'items' => json_encode([['id' => $book->id, 'qty' => 2]]),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($customer, 'customer')
+            ->getJson(route('cart.mine'))
+            ->assertOk()
+            ->assertJsonCount(1, 'items')
+            ->assertJsonPath('items.0.id', $book->id)
+            ->assertJsonPath('items.0.title', 'كتاب المشاعر')
+            ->assertJsonPath('items.0.qty', 2)
+            ->assertJsonPath('items.0.price', '120 ج.م'); // السعر من قاعدة البيانات (4.1)
+    }
+
+    public function test_mine_skips_deleted_books(): void
+    {
+        $customer = Customer::factory()->create();
+        $book = $this->book();
+        DB::table('customer_carts')->insert([
+            'customer_id' => $customer->id,
+            'items' => json_encode([['id' => $book->id, 'qty' => 1]]),
+            'updated_at' => now(),
+        ]);
+        $book->delete();
+
+        $this->actingAs($customer, 'customer')
+            ->getJson(route('cart.mine'))
+            ->assertOk()
+            ->assertExactJson(['items' => []]);
+    }
+
+    public function test_a_session_cart_owned_by_another_customer_is_not_shown(): void
+    {
+        // عزل الحسابات على الجهاز المشترك: سلة الجلسة المختومة بعميلٍ آخر لا تُعرَض.
+        $a = Customer::factory()->create();
+        $b = Customer::factory()->create();
+        $book = Book::factory()->create(['category_id' => Category::factory(), 'title' => 'كتاب العميل أ']);
+
+        $this->actingAs($b, 'customer')
+            ->withSession(['cart' => [$book->id => 2], 'cart_owner' => (string) $a->id])
+            ->get(route('cart.show'))
+            ->assertOk()
+            ->assertDontSee('كتاب العميل أ', false);
+    }
+
+    public function test_a_customer_sees_their_own_session_cart(): void
+    {
+        $b = Customer::factory()->create();
+        $book = Book::factory()->create(['category_id' => Category::factory(), 'title' => 'كتاب العميل ب']);
+
+        $this->actingAs($b, 'customer')
+            ->withSession(['cart' => [$book->id => 1], 'cart_owner' => (string) $b->id])
+            ->get(route('cart.show'))
+            ->assertOk()
+            ->assertSee('كتاب العميل ب', false);
+    }
+
+    public function test_mine_skips_unpublished_books(): void
+    {
+        // نفس رؤية الدفع (منشور وله سعر — 0.4/BOOK1): كتابٌ أُلغي نشره لا يظهر عبر الأجهزة.
+        $customer = Customer::factory()->create();
+        $book = Book::factory()->create([
+            'category_id' => Category::factory(),
+            'is_published' => false,
+        ]);
+        DB::table('customer_carts')->insert([
+            'customer_id' => $customer->id,
+            'items' => json_encode([['id' => $book->id, 'qty' => 1]]),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($customer, 'customer')
+            ->getJson(route('cart.mine'))
+            ->assertOk()
+            ->assertExactJson(['items' => []]);
+    }
 }

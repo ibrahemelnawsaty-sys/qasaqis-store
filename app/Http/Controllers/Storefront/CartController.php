@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Storefront;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CartUpdateRequest;
+use App\Models\Book;
 use App\Services\Cart\CartService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -45,7 +47,7 @@ class CartController extends Controller
             }
         }
 
-        $request->session()->put($this->sessionCartKey(), $map);
+        $this->putSessionCart($request, $map); // يختمها بمالكها (عزل الحسابات)
 
         return redirect()
             ->route('cart.show')
@@ -99,6 +101,61 @@ class CartController extends Controller
         );
 
         return response()->noContent();
+    }
+
+    /**
+     * يُعيد سلة العميل المسجَّل المحفوظة على الخادم جاهزةً للعرض (بنفس شكل بطاقة الكتاب:
+     * id/title/price/url + qty) — بيانات العرض والأسعار من قاعدة البيانات (بند 4.1). تُستعمَل
+     * لتحميل السلة عبر الأجهزة عند الدخول (متجر السلة يدمجها في localStorage). الزائر أو من
+     * لا سلة له → قائمة فارغة. تُتجاوَز الكتب غير المتاحة (محذوفة/غير منشورة/بلا سعر) بنفس
+     * رؤية CartService::fromItems و BookController::show (بند 0.4/BOOK1)، فلا يظهر عبر
+     * الأجهزة كتابٌ يُسقطه الدفع أو يُعطي رابطه 404.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $customer = auth('customer')->user();
+
+        if ($customer === null) {
+            return response()->json(['items' => []]);
+        }
+
+        $row = DB::table('customer_carts')->where('customer_id', $customer->getKey())->first();
+
+        if ($row === null) {
+            return response()->json(['items' => []]);
+        }
+
+        $decoded = json_decode((string) $row->items, true);
+        $qtyById = [];
+        foreach (is_array($decoded) ? $decoded : [] as $item) {
+            $qtyById[(int) ($item['id'] ?? 0)] = max(1, (int) ($item['qty'] ?? 1));
+        }
+        unset($qtyById[0]);
+
+        if ($qtyById === []) {
+            return response()->json(['items' => []]);
+        }
+
+        // بيانات العرض (والأسعار) من قاعدة البيانات — بند 4.1، بنفس شكل بطاقة الكتاب،
+        // وبنفس رؤية الدفع (منشور وله سعر — بند 0.4/BOOK1) فلا يُحمَّل ما يُسقطه الدفع.
+        $items = Book::query()
+            ->published()
+            ->whereNotNull('price')
+            ->whereKey(array_keys($qtyById))
+            ->get(['id', 'slug', 'title', 'price'])
+            ->map(static fn (Book $book): array => [
+                'id' => (int) $book->id,
+                'title' => (string) $book->title,
+                'price' => $book->price !== null
+                    ? number_format((float) $book->price, 0).' '.__('common.currency')
+                    : null,
+                'url' => route('books.show', $book),
+                'qty' => $qtyById[(int) $book->id],
+            ])
+            ->values()
+            ->all();
+
+        return response()->json(['items' => $items]);
     }
 
     /**

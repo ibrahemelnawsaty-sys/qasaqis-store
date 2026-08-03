@@ -167,6 +167,10 @@ Route::post('/cart', [CartController::class, 'update'])->name('cart.update');
 Route::post('/cart/sync', [CartController::class, 'persist'])
     ->middleware('throttle:60,1')
     ->name('cart.sync');
+// تحميل سلة العميل المسجَّل المحفوظة (تتبّع السلة للحساب عبر الأجهزة عند الدخول).
+Route::get('/cart/mine', [CartController::class, 'mine'])
+    ->middleware('throttle:60,1')
+    ->name('cart.mine');
 
 // نموذج الدفع + إنشاء الطلب. throttle على الإنشاء لمنع الإساءة.
 Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');

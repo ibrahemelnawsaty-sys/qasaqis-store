@@ -81,18 +81,122 @@ function syncCartToServer(items) {
     }, 800);
 }
 
+// خَتم مالك السلة يُخزَّن في localStorage (لا sessionStorage) — بعُمر السلة نفسه، فيبقى
+// كشف «سلة عميلٍ آخر» صحيحًا حتى بعد إغلاق المتصفّح/التبويب أو انتهاء الجلسة (عائلات
+// تشترك بالجهاز؛ عزل حسابات صارم). قيمته معرّف العميل المالك، أو '' لسلة زائر.
+const CART_OWNER_KEY = 'qasaqis-cart-owner';
+
+function cartOwnerStamp() {
+    try {
+        return localStorage.getItem(CART_OWNER_KEY) || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+// يكتب السلة وخَتم مالكها في localStorage (بعُمرٍ واحد) بلا مزامنة خادميّة. المزامنة
+// منفصلة (persist) كي لا يُرسِل التحميلُ حذفًا خادميًّا حين تكون النتيجة فارغة (سلة
+// كلّ كتبها غير متاحة مؤقّتًا تعود [] من /cart/mine — يجب ألّا نمسح صفّها).
+function stampLocalCart(items) {
+    try {
+        localStorage.setItem(CART_KEY, JSON.stringify(items));
+        localStorage.setItem(CART_OWNER_KEY, document.documentElement.getAttribute('data-cart-owner') || '');
+    } catch (e) {}
+}
+
+// تحميل سلة الحساب من الخادم ودمجها في المتصفّح (تتبّع عبر الأجهزة). تدمج اتحادًا مع أي
+// عناصر محليّة (الكمية الأكبر عند التكرار)، والخادمُ مرجعُ بيانات العرض والسعر فتُحدَّث
+// من نتيجته (بند 4.1). ثم تحفظ (persist يختم المالك ويُعيد المزامنة). best-effort: فشل
+// الشبكة يُبقي السلة المحليّة كما هي (يُعاد المحاولة في تحميلٍ لاحق).
+async function hydrateCartFromServer() {
+    const url = document.documentElement.getAttribute('data-cart-mine-url');
+    if (!url) return;
+    const store = Alpine.store('cart');
+    const hadLocal = store.items.length > 0; // سلة زائرٍ محليّة تُرفَع عند الدمج فقط
+    try {
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        const server = Array.isArray(data.items) ? data.items : [];
+
+        const byId = new Map(store.items.map((i) => [i.id, i]));
+        server.forEach((s) => {
+            if (!s || !s.id) return;
+            const existing = byId.get(s.id);
+            if (existing) {
+                // الخادم مرجع بيانات العرض والسعر — نُحدّثها لا نُبقي القديمة (بند 4.1).
+                existing.qty = Math.max(existing.qty || 1, s.qty || 1);
+                existing.title = s.title || existing.title;
+                existing.price = s.price != null ? s.price : existing.price;
+                existing.url = s.url || existing.url;
+            } else {
+                byId.set(s.id, {
+                    id: s.id,
+                    title: s.title || '',
+                    price: s.price || null,
+                    url: s.url || '#',
+                    cover: '',
+                    qty: s.qty || 1,
+                });
+            }
+        });
+        store.items = Array.from(byId.values());
+
+        // نرفع للخادم فقط حين كان في المتصفّح سلة زائرٍ نُدمجها (union). أما التحميل
+        // الخادميّ الخالص فلا نُعيد رفعه: /cart/mine يُصفّي الكتب غير المتاحة مؤقّتًا،
+        // فإعادة الرفع تستبدل صفّ الحساب وتُسقطها نهائيًّا — نكتب محليًّا فقط ونُبقي الصفّ.
+        if (hadLocal && store.items.length) {
+            store.persist();
+        } else {
+            stampLocalCart(store.items);
+        }
+    } catch (e) {
+        // شبكة ضعيفة — نتجاهل بهدوء
+    }
+}
+
 Alpine.store('cart', {
     items: readCart(),
     open: false,
-    // عند تحميل الصفحة: التقاط سلة موجودة أصلًا لعميلٍ سجّل دخوله بعد الإضافة (يمرّ
-    // عبر الفحص الداخليّ فلا يُرسِل الزائر شيئًا). لا شيء لسلةٍ فارغة.
+    // تتبّع السلة للحساب مع عزلٍ صارم على الجهاز المشترك (الخَتم في localStorage بعُمر
+    // السلة نفسه، فلا يُخدَع بإغلاق التبويب/انتهاء الجلسة):
+    //  • عميل مسجَّل وسلة المتصفّح مختومة بعميلٍ آخر → نُسقطها (لا تتسرّب بين العملاء) ثم
+    //    نُحمّل سلة حسابه؛ وسلة زائرٍ (بلا خَتم) تُدمَج مع حسابه.
+    //  • عميل مسجَّل وسلته مختومة باسمه → موجودة أصلًا، نرفعها عند التغيير.
+    //  • زائر وسلة عميلٍ ما زالت هنا (خرج/انتهت جلسته) → نُفرغها (لا تُعرَض لغيره، وهي
+    //    محفوظة على حسابه وتعود عند الدخول).
     init() {
+        const html = document.documentElement;
+        const authed = html.getAttribute('data-cart-authed') === '1';
+        const owner = html.getAttribute('data-cart-owner') || '';
+        const stamp = cartOwnerStamp();
+
+        if (authed) {
+            if (stamp !== owner) {
+                if (stamp !== '') {
+                    this.items = []; // سلة عميلٍ آخر — لا تُدمَج مع هذا الحساب
+                }
+                hydrateCartFromServer();
+
+                return;
+            }
+        } else if (stamp !== '') {
+            // زائر يحمل سلة عميلٍ سابق: نُفرغها من هذا الجهاز (محفوظة على حسابه).
+            this.items = [];
+            try {
+                localStorage.removeItem(CART_KEY);
+                localStorage.removeItem(CART_OWNER_KEY);
+            } catch (e) {}
+
+            return;
+        }
+
         if (this.items.length) {
             syncCartToServer(this.items);
         }
     },
     persist() {
-        localStorage.setItem(CART_KEY, JSON.stringify(this.items));
+        stampLocalCart(this.items); // يكتب السلة وخَتم المالك (معرّف العميل أو '' للزائر)
         syncCartToServer(this.items);
     },
     get count() {

@@ -29,6 +29,9 @@ final class LogoutController extends Controller
     public function __invoke(Request $request): RedirectResponse
     {
         $cart = $request->session()->get($this->sessionCartKey());
+        // نحفظ خَتم المالك مع السلة: كي إذا دخل عميلٌ آخر على الجهاز نفسه تُسقَط سلة
+        // العميل السابق (عزل الحسابات في buildSessionCart)، ويستعيدها هو عند عودته.
+        $cartOwner = $request->session()->get($this->sessionCartOwnerKey());
 
         Auth::guard(self::GUARD)->logout();
 
@@ -39,6 +42,7 @@ final class LogoutController extends Controller
 
         if (is_array($cart) && $cart !== []) {
             $request->session()->put($this->sessionCartKey(), $cart);
+            $request->session()->put($this->sessionCartOwnerKey(), $cartOwner);
         }
 
         return redirect()
