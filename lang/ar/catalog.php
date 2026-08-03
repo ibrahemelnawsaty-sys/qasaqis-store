@@ -42,6 +42,9 @@ return [
 
     'facet_category' => 'القسم',
     'facet_publisher' => 'دار النشر',
+    'pub_all' => 'كل دور النشر',
+    'pub_search' => 'ابحث عن دار نشر…',
+    'pub_none' => 'لا دار نشر مطابقة',
     'facet_age' => 'الفئة العمرية',
     'age_all' => 'كل الأعمار',
     'age_multiple' => 'أعمار متعددة',
