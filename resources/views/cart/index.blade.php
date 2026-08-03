@@ -7,6 +7,61 @@
 @section('seo_robots', 'noindex, follow')
 
 @section('content')
+    @php
+        // خريطة سلة الجلسة الحاليّة {book_id: qty} (بعد إسقاط غير المتاح في buildSessionCart).
+        $cartSessionMap = [];
+        foreach ($cart->items as $cartItem) {
+            $cartSessionMap[$cartItem->book->id] = $cartItem->quantity;
+        }
+    @endphp
+
+    {{-- سلة المتصفّح الحقيقيّة تعيش في localStorage (الدرج). صفحة /cart تعرض سلة الجلسة
+         الخادميّة (بأسعار قاعدة البيانات والكوبون). إن أضاف العميل كتبًا ولم تُزامَن بعد،
+         نزامنها هنا مرّةً ونعيد التحميل فتظهر فورًا — بلا حاجة للضغط على «إتمام الطلب».
+         حارس بصمة (sessionStorage) يمنع أي تكرار (مثلًا حين تُصفّي الجلسة كتابًا غير متاح). --}}
+    <script>
+        (function () {
+            try {
+                var raw = localStorage.getItem('qasaqis-cart');
+                var local = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(local) || !local.length) return;
+
+                var localMap = {};
+                local.forEach(function (i) { if (i && i.id) localMap[i.id] = Math.min(99, i.qty || 1); });
+
+                var sess = @js((object) $cartSessionMap);
+                var lk = Object.keys(localMap).sort();
+                var sk = Object.keys(sess).sort();
+                var same = lk.length === sk.length && lk.every(function (k) { return String(sess[k]) === String(localMap[k]); });
+                if (same) return; // الجلسة تطابق المتصفّح → اعرض كما هو
+
+                var sig = JSON.stringify(lk.map(function (k) { return k + ':' + localMap[k]; }));
+                if (sessionStorage.getItem('qasaqis-cart-reconciled') === sig) return; // زامنّا هذه السلة سلفًا
+
+                // لا نُعيد التحميل إلا إذا ثبت ضبط الحارس، وإلّا (تخزين معطّل) لتفادي أي تكرار.
+                var guarded = false;
+                try { sessionStorage.setItem('qasaqis-cart-reconciled', sig); guarded = true; } catch (e) {}
+                if (!guarded) return;
+
+                document.documentElement.style.visibility = 'hidden'; // تفادي وميض «سلتك فارغة»
+                var token = document.querySelector('meta[name=csrf-token]').content;
+                var body = new FormData();
+                lk.forEach(function (id, i) {
+                    body.append('items[' + i + '][book_id]', id);
+                    body.append('items[' + i + '][qty]', localMap[id]);
+                });
+                fetch(@js(route('cart.update')), {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': token, Accept: 'text/html' },
+                    body: body,
+                    redirect: 'manual',
+                })
+                    .then(function () { location.reload(); })
+                    .catch(function () { document.documentElement.style.visibility = ''; });
+            } catch (e) {}
+        })();
+    </script>
+
     @include('partials.checkout-styles')
     @include('partials.checkout-scripts')
 
