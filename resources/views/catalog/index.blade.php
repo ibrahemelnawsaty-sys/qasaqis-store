@@ -4,19 +4,17 @@
 @section('title', $heading . ' — ' . __('common.brand'))
 
 @push('head')
-    {{-- تحسين شريط أدوات الكتب على الجوال: القسم/الفئة العمرية/الترتيب قوائمُ كاملة
-         العرض بعناوين ظاهرة صغيرة (تمييز واضح)، وزرّ الفلاتر ممتدّ أعلاها — أنظف وأوضح
-         من صفٍّ مزدحم بلا عناوين. لا يمسّ سطح المكتب. --}}
+    {{-- الجوال (بطلب المالك): زرّ الفلاتر + القسم + الفئة العمرية + الترتيب في صفٍّ
+         واحد مضغوط. زرّ الفلاتر أيقونة فقط لتوفير المساحة، والقوائم تتقاسم العرض
+         بالتساوي فتظهر قيمها كاملة على الهواتف المعتادة. لا يمسّ سطح المكتب. --}}
     <style>
         @media (max-width: 640px) {
             .catalog-toolbar { align-items: stretch; gap: 12px; }
             .catalog-count { align-self: flex-start; }
-            /* القسم / الفئة العمرية / الترتيب: قوائم كاملة العرض بعناوين صغيرة ظاهرة */
-            .catalog-controls { width: 100%; display: flex !important; flex-direction: column; gap: 10px; }
-            .catalog-controls > .filters-toggle { justify-content: center; height: 46px; font-weight: 700; }
-            .catalog-control { width: 100%; flex-direction: column; align-items: stretch !important; gap: 4px !important; }
-            .catalog-control .hide-mobile { display: block !important; font-size: 11.5px; font-weight: 800; opacity: .72; padding-inline-start: 6px; }
-            .catalog-control .sort-select { width: 100%; height: 46px; padding-inline: 12px; }
+            .catalog-controls { width: 100%; flex-wrap: nowrap !important; gap: 6px !important; align-items: stretch; }
+            .catalog-controls > .filters-toggle { flex: 0 0 auto; padding-inline: 13px; height: 44px; font-size: 16px; }
+            .catalog-control { flex: 1 1 0; min-width: 0; }
+            .catalog-control .sort-select { width: 100%; height: 44px; padding-inline: 9px; font-size: 12.5px; text-overflow: ellipsis; }
         }
     </style>
 @endpush
@@ -198,31 +196,35 @@
                     {{-- flex-wrap كي تلتفّ الحبّات (فلاتر/عمر/ترتيب) بدل الفيض أفقيًا على
                          الهواتف الضيّقة (~360px) — جمهور بشبكة/أجهزة ضعيفة (بند 1.6). --}}
                     <div class="catalog-controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true">
-                            🔽 {{ __('catalog.filters_open') }}
+                        <button type="button" class="btn btn-ghost filters-toggle" @click="sheet = true"
+                            aria-label="{{ __('catalog.filters_open') }}">
+                            🔽 <span class="hide-mobile">{{ __('catalog.filters_open') }}</span>
                         </button>
 
                         {{-- الأقسام بجانب الفئة العمرية: قائمة ملاحة مستقلّة (بلا name فلا
                              تتعارض مع النموذج). كل خيار رابطٌ يحفظ باقي الفلاتر ويضبط القسم
                              ويعيد الترقيم للأول. حلّت محلّ فلتر القسم في اللوحة الجانبية. --}}
-                        @if (! $category)
-                            @php $catSel = array_map('strval', (array) request('cat', [])); @endphp
-                            <label class="catalog-control" style="display:flex;align-items:center;gap:6px">
-                                <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.facet_category') }}</span>
-                                <select class="sort-select" aria-label="{{ __('catalog.facet_category') }}"
-                                    onchange="if (this.value) window.location.href = this.value">
-                                    @if (count($catSel) > 1)
-                                        <option selected disabled hidden>{{ __('catalog.category_multiple') }}</option>
-                                    @endif
-                                    <option value="{{ request()->fullUrlWithQuery(['cat' => null, 'page' => null]) }}" @selected($catSel === [])>{{ __('catalog.category_all') }}</option>
-                                    @foreach ($categories as $cat)
-                                        @continue($cat->books_count === 0)
-                                        <option value="{{ request()->fullUrlWithQuery(['cat' => [$cat->id], 'page' => null]) }}"
-                                            @selected(count($catSel) === 1 && $catSel[0] === (string) $cat->id)>{{ $cat->name }}</option>
-                                    @endforeach
-                                </select>
-                            </label>
-                        @endif
+                        {{-- تظهر دائمًا (حتى داخل صفحة قسم) ليتمكّن الزائر من التنقّل بين الأقسام.
+                             كل خيار يوجّه لصفحة القسم (categories.show) ويحفظ العمر/الترتيب. --}}
+                        @php
+                            $catSel = array_map('strval', (array) request('cat', []));
+                            $catKeep = request()->except(['page', 'cat']);
+                        @endphp
+                        <label class="catalog-control" style="display:flex;align-items:center;gap:6px">
+                            <span class="hide-mobile" style="font-size:13px;color:var(--ink-soft)">{{ __('catalog.facet_category') }}</span>
+                            <select class="sort-select" aria-label="{{ __('catalog.facet_category') }}"
+                                onchange="if (this.value) window.location.href = this.value">
+                                @if (count($catSel) > 1)
+                                    <option selected disabled hidden>{{ __('catalog.category_multiple') }}</option>
+                                @endif
+                                <option value="{{ route('books.index', $catKeep) }}" @selected(! $category && $catSel === [])>{{ __('catalog.category_all') }}</option>
+                                @foreach ($categories as $cat)
+                                    @continue($cat->books_count === 0)
+                                    <option value="{{ route('categories.show', array_merge(['category' => $cat->slug], $catKeep)) }}"
+                                        @selected(($category && (int) $category->id === (int) $cat->id) || (count($catSel) === 1 && $catSel[0] === (string) $cat->id))>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
 
                         {{-- الفئة العمرية: قائمة ملاحة مستقلّة (age[]=… يضبط عنصرًا واحدًا). --}}
                         @php $ageSel = array_values((array) request('age', [])); @endphp
