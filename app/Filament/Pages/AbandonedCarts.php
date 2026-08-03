@@ -47,11 +47,8 @@ class AbandonedCarts extends Page
 
     public const PER_PAGE = 25;
 
-    /**
-     * لا تُعرَض السلة إلا بعد سكونها هذه المدّة (كي لا نُظهر سلّةً قيد التعديل الآن).
-     * مؤقّتًا = دقيقة واحدة للتجربة على الموقع؛ تُعاد إلى 60 بعد التأكّد.
-     */
-    public const ABANDONED_AFTER_MINUTES = 1;
+    /** لا تُعرَض السلة إلا بعد سكونها هذه المدّة (كي لا نُظهر سلّةً قيد التعديل الآن). */
+    public const ABANDONED_AFTER_MINUTES = 60;
 
     /** كود الخصم المُولَّد: نسبة مئوية ومدّة صلاحية. */
     public const DISCOUNT_PERCENT = 10;
