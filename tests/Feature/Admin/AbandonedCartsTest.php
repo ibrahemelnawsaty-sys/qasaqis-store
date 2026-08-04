@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Filament\Pages\AbandonedCarts;
+use App\Mail\AbandonedCartRecovery;
 use App\Models\Book;
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\EmailSuppression;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -189,6 +192,91 @@ final class AbandonedCartsTest extends TestCase
         // «التسويق» يملك coupons.manage لا orders.view → يُمنع عند بوابة الصفحة.
         $this->actingAs($this->admin('marketing'))
             ->get(AbandonedCarts::getUrl())
+            ->assertForbidden();
+    }
+
+    public function test_compose_email_prefills_the_recipient_subject_and_body_with_the_db_total(): void
+    {
+        $customer = Customer::factory()->create(['name' => 'أم يوسف']);
+        $book = $this->book('كتاب المشاعر', '120.00');
+        $this->persistCart($customer, [['id' => $book->id, 'qty' => 2]]);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AbandonedCarts::class)
+            ->call('composeEmail', $customer->id)
+            ->assertSet('composeCustomerId', $customer->id)
+            ->assertSet('composeTo', $customer->email)
+            ->assertSet('composeSubject', fn ($v): bool => is_string($v) && $v !== '')
+            ->assertSet('composeBody', fn ($v): bool => is_string($v) && str_contains($v, '240')); // 120×2 من قاعدة البيانات
+    }
+
+    public function test_sending_a_recovery_email_dispatches_the_branded_mailable_and_closes_the_modal(): void
+    {
+        Mail::fake();
+        $customer = Customer::factory()->create();
+        $book = $this->book('كتاب', '50.00');
+        $this->persistCart($customer, [['id' => $book->id, 'qty' => 1]]);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AbandonedCarts::class)
+            ->call('composeEmail', $customer->id)
+            ->call('sendRecoveryEmail')
+            ->assertSet('composeCustomerId', null);
+
+        Mail::assertSent(AbandonedCartRecovery::class, fn (AbandonedCartRecovery $mail): bool => $mail->hasTo($customer->email));
+    }
+
+    public function test_the_compose_modal_can_be_closed_without_sending(): void
+    {
+        // closeCompose يُعيد ضبط الخاصية المقفولة خادميًّا (لا يمكن عبر ->set لأنها #[Locked]).
+        $customer = Customer::factory()->create();
+        $book = $this->book('كتاب', '50.00');
+        $this->persistCart($customer, [['id' => $book->id, 'qty' => 1]]);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AbandonedCarts::class)
+            ->call('composeEmail', $customer->id)
+            ->assertSet('composeCustomerId', $customer->id)
+            ->call('closeCompose')
+            ->assertSet('composeCustomerId', null);
+    }
+
+    public function test_it_never_emails_an_unsubscribed_customer(): void
+    {
+        Mail::fake();
+        $customer = Customer::factory()->create();
+        $book = $this->book('كتاب', '50.00');
+        $this->persistCart($customer, [['id' => $book->id, 'qty' => 1]]);
+        EmailSuppression::firstOrCreate(['email' => $customer->email], ['reason' => 'unsubscribe']);
+
+        $this->actingAs($this->admin('super_admin'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AbandonedCarts::class)
+            ->call('composeEmail', $customer->id)
+            ->call('sendRecoveryEmail');
+
+        Mail::assertNothingSent(); // احترام إلغاء الاشتراك
+    }
+
+    public function test_composing_an_email_requires_the_campaigns_send_permission(): void
+    {
+        // «الدعم» يملك orders.view (يرى الصفحة) لا campaigns.send.
+        $customer = Customer::factory()->create();
+        $book = $this->book('كتاب', '50.00');
+        $this->persistCart($customer, [['id' => $book->id, 'qty' => 1]]);
+
+        $this->actingAs($this->admin('support'));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(AbandonedCarts::class)
+            ->call('composeEmail', $customer->id)
             ->assertForbidden();
     }
 

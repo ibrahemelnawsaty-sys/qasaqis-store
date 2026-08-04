@@ -41,6 +41,17 @@
         .abn-pg { background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 16px; font-size:13px; font-weight:700; color:var(--ink); cursor:pointer; }
         .abn-pg.is-off { opacity:.45; cursor:default; }
         .abn-pg-info { font-size:12.5px; color:var(--soft); }
+        .abn-modal-back { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-start; justify-content:center; z-index:50; padding:6vh 16px; overflow-y:auto; }
+        .abn-modal { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px; width:100%; max-width:540px; display:flex; flex-direction:column; gap:12px; }
+        .abn-modal-head { display:flex; align-items:center; justify-content:space-between; font-size:15px; }
+        .abn-modal-x { background:none; border:none; color:var(--soft); font-size:17px; cursor:pointer; line-height:1; padding:4px; }
+        .abn-field { display:flex; flex-direction:column; gap:5px; font-size:12.5px; font-weight:700; color:var(--soft); }
+        .abn-field input, .abn-field textarea { width:100%; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500; color:var(--ink); box-sizing:border-box; }
+        .abn-field input:focus, .abn-field textarea:focus { outline:2px solid var(--accent); outline-offset:1px; }
+        .abn-field input[readonly] { color:var(--soft); }
+        .abn-field textarea { resize:vertical; line-height:1.9; }
+        .abn-modal-foot { display:flex; gap:8px; justify-content:flex-end; margin-top:2px; }
+        .abn-modal-note { font-size:12px; color:var(--faint); margin:0; }
     </style>
 
     <div class="abn">
@@ -57,9 +68,6 @@
                     $msg .= "\n".'🎁 وهديّة لك: كود خصم '.$code.' — خصم '.$percent.'% صالح '.$days.' أيام.';
                 }
                 $waHref = filled($cart->phone_normalized) ? 'https://wa.me/20'.$cart->phone_normalized.'?text='.rawurlencode($msg) : null;
-                $mailHref = filled($cart->email)
-                    ? 'mailto:'.$cart->email.'?subject='.rawurlencode('سلتك في قصاقيص أطفال').'&body='.rawurlencode($msg)
-                    : null;
             @endphp
             <div class="abn-card">
                 <div class="abn-top">
@@ -97,8 +105,10 @@
                         <span class="abn-btn" style="opacity:.5;pointer-events:none">💬 واتساب (رقم غير صالح)</span>
                     @endif
 
-                    @if ($mailHref)
-                        <a class="abn-btn" href="{{ $mailHref }}">✉️ إيميل</a>
+                    @if ($canEmail && filled($cart->email))
+                        <button type="button" class="abn-btn" wire:click="composeEmail({{ $cart->customer_id }})" wire:loading.attr="disabled" wire:target="composeEmail({{ $cart->customer_id }})">
+                            ✉️ إيميل
+                        </button>
                     @endif
 
                     @if ($canCoupon && ! $code)
@@ -128,6 +138,41 @@
                 @else
                     <span class="abn-pg is-off">التالي</span>
                 @endif
+            </div>
+        @endif
+
+        {{-- نافذة مراجعة وإرسال بريد الاستعادة (من المتجر بالعلامة، لا mailto). تُفتَح
+             بـ composeEmail، والأدمن يراجع النصّ ثم يضغط «أرسل». --}}
+        @if ($this->composeCustomerId !== null)
+            <div class="abn-modal-back" wire:click.self="closeCompose" wire:key="compose-{{ $this->composeCustomerId }}">
+                <div class="abn-modal" role="dialog" aria-modal="true" aria-label="إرسال بريد استعادة">
+                    <div class="abn-modal-head">
+                        <strong>✉️ إرسال بريد استعادة</strong>
+                        <button type="button" class="abn-modal-x" wire:click="closeCompose" aria-label="إغلاق">✕</button>
+                    </div>
+
+                    <label class="abn-field">
+                        <span>إلى</span>
+                        <input type="text" value="{{ $this->composeTo }}" dir="ltr" readonly>
+                    </label>
+                    <label class="abn-field">
+                        <span>عنوان الرسالة</span>
+                        <input type="text" wire:model="composeSubject" maxlength="150">
+                    </label>
+                    <label class="abn-field">
+                        <span>نصّ الرسالة (عدّله كما تشاء)</span>
+                        <textarea wire:model="composeBody" rows="7"></textarea>
+                    </label>
+
+                    <div class="abn-modal-foot">
+                        <button type="button" class="abn-btn" wire:click="closeCompose">إلغاء</button>
+                        <button type="button" class="abn-btn gift" wire:click="sendRecoveryEmail" wire:loading.attr="disabled" wire:target="sendRecoveryEmail">
+                            <span wire:loading.remove wire:target="sendRecoveryEmail">📨 أرسل الآن</span>
+                            <span wire:loading wire:target="sendRecoveryEmail">جارٍ الإرسال…</span>
+                        </button>
+                    </div>
+                    <p class="abn-modal-note">تُرسَل من بريد المتجر بعلامة «قصاقيص أطفال». راجِع النصّ قبل الإرسال.</p>
+                </div>
             </div>
         @endif
     </div>
