@@ -9,6 +9,7 @@ use App\Models\Book;
 use App\Models\Category;
 use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -108,6 +109,34 @@ final class CartPersistenceTest extends TestCase
         $this->assertDatabaseCount('customer_carts', 1);
         $row = DB::table('customer_carts')->where('customer_id', $customer->id)->first();
         $this->assertSame([['id' => $new->id, 'qty' => 1]], json_decode((string) $row->items, true));
+    }
+
+    public function test_re_syncing_keeps_the_original_created_at(): void
+    {
+        // العدّاد من لحظة الإنشاء: إعادة المزامنة (تصفّح/تغيير) تُحدّث المحتوى و updated_at
+        // فقط ولا تُغيّر created_at — فلا يتصفّر عدّاد «السلة المتروكة».
+        $customer = Customer::factory()->create();
+        $a = $this->book();
+        $b = $this->book();
+
+        $original = now()->subHours(2);
+        DB::table('customer_carts')->insert([
+            'customer_id' => $customer->id,
+            'items' => json_encode([['id' => $a->id, 'qty' => 1]]),
+            'created_at' => $original,
+            'updated_at' => $original,
+        ]);
+
+        $this->actingAs($customer, 'customer')
+            ->postJson(route('cart.sync'), ['items' => [
+                ['book_id' => $a->id, 'qty' => 1],
+                ['book_id' => $b->id, 'qty' => 1],
+            ]])
+            ->assertNoContent();
+
+        $row = DB::table('customer_carts')->where('customer_id', $customer->id)->first();
+        $this->assertTrue(Carbon::parse($row->created_at)->lt(now()->subHour())); // created_at لم يتصفّر
+        $this->assertTrue(Carbon::parse($row->updated_at)->gt(now()->subMinute())); // updated_at تجدّد
     }
 
     public function test_forget_persisted_cart_clears_the_row(): void

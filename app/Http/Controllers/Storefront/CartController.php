@@ -95,9 +95,17 @@ class CartController extends Controller
             return response()->noContent();
         }
 
-        DB::table('customer_carts')->updateOrInsert(
-            ['customer_id' => $customer->getKey()],
-            ['items' => json_encode($items), 'updated_at' => now()],
+        // upsert: created_at يُضبَط عند أوّل إدراج فقط (خارج أعمدة التحديث) فلا يتصفّر
+        // عدّاد «المتروكة» بإعادة المزامنة عند التصفّح؛ يُحدَّث المحتوى و updated_at فقط.
+        DB::table('customer_carts')->upsert(
+            [[
+                'customer_id' => $customer->getKey(),
+                'items' => json_encode($items),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]],
+            ['customer_id'],
+            ['items', 'updated_at'],
         );
 
         return response()->noContent();

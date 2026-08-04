@@ -54,12 +54,13 @@ final class AbandonedCartsTest extends TestCase
         ]);
     }
 
-    private function persistCart(Customer $customer, array $items, ?Carbon $updatedAt = null): void
+    private function persistCart(Customer $customer, array $items, ?Carbon $createdAt = null): void
     {
         DB::table('customer_carts')->insert([
             'customer_id' => $customer->id,
             'items' => json_encode($items),
-            'updated_at' => $updatedAt ?? now()->subHours(2),
+            'created_at' => $createdAt ?? now()->subHours(2), // العدّاد من الإنشاء
+            'updated_at' => now(), // مُزامَنة حديثًا (تصفّح) — يجب ألّا تؤثّر
         ]);
     }
 
@@ -93,6 +94,24 @@ final class AbandonedCartsTest extends TestCase
         $response->assertOk();
         $response->assertSee('سلة قديمة', false);
         $response->assertDontSee('سلة جديدة', false);
+    }
+
+    public function test_an_old_cart_shows_even_when_recently_synced_by_browsing(): void
+    {
+        // العدّاد من لحظة الإنشاء لا آخر مزامنة: سلة أُنشئت قبل ساعتين لكن زُومنت للتوّ
+        // (العميل يتصفّح) يجب أن تظهر — التصفّح لا يُصفّر العدّاد.
+        $customer = Customer::factory()->create(['name' => 'سلة قديمة نشطة']);
+        $book = $this->book('كتاب', '50.00');
+        DB::table('customer_carts')->insert([
+            'customer_id' => $customer->id,
+            'items' => json_encode([['id' => $book->id, 'qty' => 1]]),
+            'created_at' => now()->subHours(2),
+            'updated_at' => now(), // مُزامَنة للتوّ
+        ]);
+
+        $this->actingAs($this->admin('super_admin'))->get(AbandonedCarts::getUrl())
+            ->assertOk()
+            ->assertSee('سلة قديمة نشطة', false);
     }
 
     public function test_it_excludes_soft_deleted_customers(): void

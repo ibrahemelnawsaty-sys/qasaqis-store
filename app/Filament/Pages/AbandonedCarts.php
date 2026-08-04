@@ -118,11 +118,11 @@ class AbandonedCarts extends Page
         return DB::table('customer_carts')
             ->join('customers', 'customers.id', '=', 'customer_carts.customer_id')
             ->whereNull('customers.deleted_at')
-            ->where('customer_carts.updated_at', '<=', now()->subMinutes(self::ABANDONED_AFTER_MINUTES))
+            ->where('customer_carts.created_at', '<=', now()->subMinutes(self::ABANDONED_AFTER_MINUTES))
             ->select([
                 'customer_carts.id as cart_id',
                 'customer_carts.items',
-                'customer_carts.updated_at',
+                'customer_carts.created_at',
                 'customers.id as customer_id',
                 'customers.name',
                 'customers.email',
@@ -147,9 +147,9 @@ class AbandonedCarts extends Page
 
     private function carts(): LengthAwarePaginator
     {
-        // الأقدم أولًا: الأطول تركًا أولى بالمتابعة.
+        // الأقدم أولًا: الأطول تركًا أولى بالمتابعة (من لحظة إنشاء السلة).
         $paginator = static::baseQuery()
-            ->orderBy('customer_carts.updated_at')
+            ->orderBy('customer_carts.created_at')
             ->orderBy('customer_carts.id')
             ->paginate(self::PER_PAGE);
 
@@ -192,7 +192,7 @@ class AbandonedCarts extends Page
 
             $row->book_lines = $lines;
             $row->cart_total = $total;
-            $row->age = Carbon::parse($row->updated_at)->diffForHumans(null, true);
+            $row->age = Carbon::parse($row->created_at)->diffForHumans(null, true);
         }
 
         // أخفِ السلال التي لم يبقَ فيها كتاب متاح (حُذفت كل كتبها) — لا شيء للاستعادة،
