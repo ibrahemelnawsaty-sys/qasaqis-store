@@ -6,7 +6,7 @@ namespace Tests\Feature\Checkout;
 
 use App\Models\Book;
 use App\Models\CouponUsage;
-use App\Models\User;
+use App\Models\Customer;
 use App\Services\Cart\CartService;
 use App\Services\Coupon\CouponService;
 use App\Support\Cart\Cart;
@@ -128,30 +128,30 @@ final class CouponValidationTest extends TestCase
         $this->assertSame('payment.coupon.usage_limit', $result->messageKey);
     }
 
-    public function test_per_user_limit_is_enforced_for_authenticated_users(): void
+    public function test_per_customer_limit_is_enforced(): void
     {
-        $user = User::factory()->create();
+        $customer = Customer::factory()->create();
         $coupon = CouponFactory::new()->perUserLimit(1)->create();
 
-        // The user already redeemed it once.
+        // العميلة سبق أن استخدمته مرّة (يُحسَب بـ customer_id لا مستخدم اللوحة).
         CouponUsage::create([
             'coupon_id' => $coupon->id,
-            'user_id' => $user->id,
+            'customer_id' => $customer->id,
             'discount_amount' => '20.00',
         ]);
 
-        $result = $this->service()->validate($coupon, $this->cartAt('200.00'), $user->id);
+        $result = $this->service()->validate($coupon, $this->cartAt('200.00'), $customer->id);
 
         $this->assertFalse($result->valid);
         $this->assertSame('payment.coupon.user_limit', $result->messageKey);
     }
 
-    public function test_per_user_limit_is_not_counted_for_guests(): void
+    public function test_per_customer_limit_is_not_counted_for_an_unidentified_guest(): void
     {
         $coupon = CouponFactory::new()->perUserLimit(1)->create();
 
-        // Guest (userId null) is not blocked by the per-user limit (documented
-        // limitation in CouponService: no reliable identity to count against).
+        // زائرة بلا هويّة (لا مُعرّف/جوّال) — لا يُحسَب الحدّ لكل عميل عليها (يُفحَص عند
+        // الدفع بجوّالها). الحدّ العامّ يبقى ساريًا على الجميع.
         $result = $this->service()->validate($coupon, $this->cartAt('200.00'), null);
 
         $this->assertTrue($result->valid);

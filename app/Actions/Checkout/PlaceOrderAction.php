@@ -339,7 +339,7 @@ class PlaceOrderAction
             }
 
             if ($couponResult->valid && $couponResult->coupon instanceof Coupon) {
-                $this->recordCouponUsage($order, $couponResult, $data->userId);
+                $this->recordCouponUsage($order, $couponResult, $data->userId, $data->customerId);
             }
 
             $onlinePaymentId = $this->createPaymentRow($order, $method, $grandTotal);
@@ -421,7 +421,15 @@ class PlaceOrderAction
             return CouponResult::invalid('payment.coupon.required');
         }
 
-        $result = $this->couponService->apply($data->couponCode, $cart, $data->userId);
+        // نمرّر هويّة العميلة (لا مستخدم اللوحة $userId): مُعرّفها المسجّل، وجوّالها/بريدها
+        // للزائرة — كي يُفحَص جمهور الكوبون وحدّ «مرّة لكل عميل» عند الإنشاء (الفحص الموثوق).
+        $result = $this->couponService->apply(
+            $data->couponCode,
+            $cart,
+            $data->customerId,
+            $data->customerPhone,
+            $data->customerEmail,
+        );
 
         if (! $result->valid) {
             throw new CheckoutException($result->messageKey);
@@ -430,7 +438,7 @@ class PlaceOrderAction
         return $result;
     }
 
-    private function recordCouponUsage(Order $order, CouponResult $result, ?int $userId): void
+    private function recordCouponUsage(Order $order, CouponResult $result, ?int $userId, ?int $customerId): void
     {
         /** @var Coupon $coupon */
         $coupon = $result->coupon;
@@ -454,10 +462,13 @@ class PlaceOrderAction
             throw new CheckoutException('payment.coupon.usage_limit');
         }
 
+        // نُسجّل بالعميل الذي تحقّقت منه الخدمة (بمُعرّفه أو مطابقة جوّاله/بريده) لا مُعرّف
+        // الجلسة وحده — وإلا لم يتراكم حدّ «مرّة لكل عميل» على من أتمّ الطلب كزائر بجوّاله.
         CouponUsage::create([
             'coupon_id' => $coupon->id,
             'order_id' => $order->id,
             'user_id' => $userId,
+            'customer_id' => $result->customerId ?? $customerId,
             'discount_amount' => $result->discount,
         ]);
     }

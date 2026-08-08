@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Support\Audit\RecordsAdminActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\QueryException;
@@ -15,6 +16,16 @@ use Illuminate\Support\Str;
 class Coupon extends Model
 {
     use RecordsAdminActivity;
+
+    /** جمهور الكوبون: من يستحقّ استخدامه (يُفحَص خادميًّا في CouponService). */
+    public const AUDIENCES = [
+        'all' => 'كل العملاء',
+        'specific' => 'عميل محدّد',
+        'new' => 'عملاء جدد (أوّل طلب)',
+        'returning' => 'عملاء عائدون',
+        'lapsed' => 'عملاء متوقّفون (منذ مدّة)',
+        'vip' => 'عملاء مميّزون',
+    ];
 
     protected $fillable = [
         'code',
@@ -29,6 +40,11 @@ class Coupon extends Model
         'usage_limit_per_user',
         'used_count',
         'applies_to',
+        'audience',
+        'customer_id',
+        'lapsed_days',
+        'min_orders',
+        'min_spent',
         'is_active',
         'free_shipping',
     ];
@@ -42,11 +58,20 @@ class Coupon extends Model
             'value' => 'decimal:2',
             'min_order_total' => 'decimal:2',
             'max_discount' => 'decimal:2',
+            'min_spent' => 'decimal:2',
+            'lapsed_days' => 'integer',
+            'min_orders' => 'integer',
             'starts_at' => 'datetime',
             'expires_at' => 'datetime',
             'is_active' => 'boolean',
             'free_shipping' => 'boolean',
         ];
+    }
+
+    /** العميل المستهدَف حين audience=specific (وإلا null). */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function books(): BelongsToMany
@@ -81,8 +106,10 @@ class Coupon extends Model
      * (23000) فلا تُسقط الصفحة، وغيره يُرمى. يُعيد الكود أو null إن تعذّر توليد فريد.
      *
      * منطق مشترك لمتابعة «الطلبات المتروكة» و«السلات المتروكة» (خصمٌ نسبيّ لمرّة واحدة).
+     * حين يُمرَّر customerId يصير الكوبون مقصورًا على ذلك العميل (audience=specific) فلا
+     * يستطيع غيره استخدامه ولو تسرّب الكود (يُفحَص خادميًّا في CouponService).
      */
-    public static function createRecovery(string $description, int $percent, int $days, string $prefix = 'BACK'): ?string
+    public static function createRecovery(string $description, int $percent, int $days, string $prefix = 'BACK', ?int $customerId = null): ?string
     {
         $existing = static::query()
             ->where('description', $description)
@@ -109,6 +136,8 @@ class Coupon extends Model
                     'usage_limit' => 1,
                     'usage_limit_per_user' => 1,
                     'applies_to' => 'all',
+                    'audience' => $customerId !== null ? 'specific' : 'all',
+                    'customer_id' => $customerId,
                     'is_active' => true,
                     'free_shipping' => false,
                 ]);

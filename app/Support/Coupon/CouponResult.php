@@ -18,16 +18,19 @@ final readonly class CouponResult
         public string $discount,      // decimal string; '0.00' when invalid.
         public bool $freeShipping,
         public string $messageKey,    // e.g. 'payment.coupon.applied' or a reason key.
-    ) {
-    }
+        // العميل المُتحقَّق منه (بمُعرّفه أو مطابقة جوّاله/بريده). يُسجَّل به الاستخدام كي
+        // يتراكم حدّ «مرّة لكل عميل» على العميل الحقيقيّ ولو أتمّ الطلب كزائر. null لزائرٍ
+        // لا يطابق أي عميل.
+        public ?int $customerId = null,
+    ) {}
 
     public static function invalid(string $messageKey): self
     {
         return new self(false, null, '0.00', false, $messageKey);
     }
 
-    public static function valid(Coupon $coupon, string $discount, bool $freeShipping): self
+    public static function valid(Coupon $coupon, string $discount, bool $freeShipping, ?int $customerId = null): self
     {
-        return new self(true, $coupon, $discount, $freeShipping, 'payment.coupon.applied');
+        return new self(true, $coupon, $discount, $freeShipping, 'payment.coupon.applied', $customerId);
     }
 }

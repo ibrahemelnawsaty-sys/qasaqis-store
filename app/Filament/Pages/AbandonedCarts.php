@@ -231,6 +231,7 @@ class AbandonedCarts extends Page
             self::DISCOUNT_PERCENT,
             self::COUPON_DAYS,
             'CART',
+            $customerId, // مقصور على هذا العميل (audience=specific) فلا يستخدمه غيره
         );
 
         if ($code === null) {

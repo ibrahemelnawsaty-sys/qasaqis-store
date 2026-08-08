@@ -175,6 +175,42 @@ class CouponResource extends Resource
                         ->searchable()
                         ->visible(fn (callable $get): bool => $get('applies_to') === 'products'),
                 ]),
+
+            Section::make('الجمهور المستهدف')
+                ->description('من يستطيع استخدام الكوبون؟ يُفحَص خادميًّا عند إتمام الطلب.')
+                ->schema([
+                    Select::make('audience')
+                        ->label('من يستحقّ الكوبون؟')
+                        ->options(Coupon::AUDIENCES)
+                        ->required()
+                        ->default('all')
+                        ->live(),
+                    Select::make('customer_id')
+                        ->label('العميل المستهدَف')
+                        ->relationship('customer', 'name')
+                        ->searchable(['name', 'phone_normalized', 'email'])
+                        ->getOptionLabelFromRecordUsing(fn (Model $record): string => $record->name.' — '.($record->phone_normalized !== null ? '0'.$record->phone_normalized : (string) $record->email))
+                        ->required(fn (callable $get): bool => $get('audience') === 'specific')
+                        ->visible(fn (callable $get): bool => $get('audience') === 'specific'),
+                    TextInput::make('lapsed_days')
+                        ->label('لم يطلب منذ (أيام)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(60)
+                        ->required(fn (callable $get): bool => $get('audience') === 'lapsed')
+                        ->visible(fn (callable $get): bool => $get('audience') === 'lapsed'),
+                    TextInput::make('min_orders')
+                        ->label('أقلّ عدد طلبات (اختياري)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->visible(fn (callable $get): bool => $get('audience') === 'vip'),
+                    TextInput::make('min_spent')
+                        ->label('أقلّ مبلغ صرف — ج.م (اختياري)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->helperText('حدّد عدد الطلبات أو المبلغ (أو كليهما — يتحقّق أيّهما تحقّق).')
+                        ->visible(fn (callable $get): bool => $get('audience') === 'vip'),
+                ]),
         ]);
     }
 

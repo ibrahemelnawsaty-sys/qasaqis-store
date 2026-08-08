@@ -34,10 +34,12 @@ class CouponController extends Controller
             ]);
         }
 
+        // معاينة السلة: نمرّر العميلة المسجّلة (لا مستخدم اللوحة). الزائرة null هنا (لا
+        // جوّال بعد) فيؤجَّل فحص الجمهور/الحدّ إلى إتمام الطلب حيث يتوفّر جوّالها.
         $result = $couponService->apply(
             (string) $request->validated('coupon'),
             $cart,
-            $request->user()?->id,
+            auth('customer')->id(),
         );
 
         if (! $result->valid) {
