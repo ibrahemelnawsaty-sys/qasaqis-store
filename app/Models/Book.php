@@ -59,6 +59,7 @@ class Book extends Model
         'is_new',
         'published_at',
         'sort_order',
+        'offer_sort_order',
         'views_count',
         'avg_rating',
         'reviews_count',
@@ -318,6 +319,69 @@ class Book extends Model
 
             foreach ($pinned as $index => $id) {
                 DB::table('books')->where('id', $id)->update(['sort_order' => $index + 1]);
+            }
+        });
+    }
+
+    /**
+     * ترتيب صفحة العروض (/offers) — مستقلّ عن sort_order. يعيد ترقيم مجموعة الكتب المخصومة
+     * (old_price غير فارغ) 1..N بإدراج الكتاب في الرتبة المطلوبة (محصورة ضمن [1، العدد])،
+     * فلا تتعارض الأرقام. يُستدعى من عمود «الترتيب» في صفحة أدمن ترتيب العروض. مقفول ذرّيًّا.
+     */
+    public static function moveToOfferPosition(int $bookId, int $target): void
+    {
+        DB::transaction(function () use ($bookId, $target): void {
+            $ids = DB::table('books')
+                ->whereNull('deleted_at')
+                ->whereNotNull('old_price')
+                ->where('is_published', true) // نفس مجموعة المتجر وصفحة الأدمن (منشور + مخصوم)
+                ->orderByRaw('offer_sort_order = 0') // غير المرتَّب (0) في النهاية
+                ->orderBy('offer_sort_order')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id') // كسر تعادل «الأحدث» يطابق المتجر (applyOffersManualOrder)
+                ->lockForUpdate()
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->reject(static fn (int $id): bool => $id === $bookId)
+                ->values()
+                ->all();
+
+            $target = max(1, min($target, count($ids) + 1));
+            array_splice($ids, $target - 1, 0, [$bookId]);
+
+            foreach ($ids as $index => $id) {
+                DB::table('books')->where('id', $id)->update(['offer_sort_order' => $index + 1]);
+            }
+        });
+    }
+
+    /**
+     * يعيد ترقيم مجموعة العروض (منشور + مخصوم) 1..N بالترتيب المعياريّ: المرتَّب أوّلًا
+     * (offer_sort_order تصاعديًّا) ثم غير المرتَّب (0) بالأحدث — يطابق moveToOfferPosition
+     * والمتجر (applyOffersManualOrder). فيُلحَق الجديد، وتُغلَق الفجوات (خصمٌ أُزيل) وتُحلّ أي
+     * أرقام مكرّرة. يُستدعى عند فتح صفحة ترتيب العروض. لا يمسّ إلا العروض المنشورة (لا يلمس
+     * غير المنشور أو غير المخصوم). idempotent (كتابة فقط عند اختلاف القيمة) وآمن للتزامن (قفل).
+     */
+    public static function syncOfferPositions(): void
+    {
+        DB::transaction(function (): void {
+            $rows = DB::table('books')
+                ->whereNull('deleted_at')
+                ->whereNotNull('old_price')
+                ->where('is_published', true) // نفس مجموعة المتجر وصفحة الأدمن (منشور + مخصوم)
+                ->orderByRaw('offer_sort_order = 0') // غير المرتَّب (0) في النهاية
+                ->orderBy('offer_sort_order')
+                ->orderByDesc('published_at')
+                ->orderByDesc('id') // كسر تعادل «الأحدث» يطابق المتجر (applyOffersManualOrder)
+                ->lockForUpdate()
+                ->pluck('offer_sort_order', 'id');
+
+            $rank = 0;
+            foreach ($rows as $id => $current) {
+                $rank++;
+                if ((int) $current !== $rank) {
+                    DB::table('books')->where('id', $id)->update(['offer_sort_order' => $rank]);
+                }
             }
         });
     }

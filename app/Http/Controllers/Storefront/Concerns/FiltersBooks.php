@@ -116,8 +116,11 @@ trait FiltersBooks
             $this->applyCategoryManualOrder($query, $category);
         } elseif (($sort === 'curated' || $sort === '') && $request->routeIs('books.index')) {
             // صفحة /books فقط: «المثبَّت أولًا ثم الأحدث» افتراضيًّا (والفلترة ترسل curated
-            // فتبقيه). مقصور على books.index كي لا تنقلب /offers و/new والبحث عبر رابط يدويّ.
+            // فتبقيه). مقصور على books.index كي لا تنقلب /new والبحث عبر رابط يدويّ.
             $this->applyGlobalManualOrder($query);
+        } elseif (($sort === 'curated' || $sort === '') && $request->routeIs('books.offers')) {
+            // صفحة /offers: ترتيب العروض اليدويّ المستقلّ (المرتَّب أولًا ثم الأحدث).
+            $this->applyOffersManualOrder($query);
         } else {
             // فرز صريح (السعر/التقييم/الأحدث…) أو صفحات أخرى: الفرز الافتراضي.
             $this->applySort($query, $sort !== '' ? $sort : 'newest');
@@ -135,6 +138,19 @@ trait FiltersBooks
     {
         $query->orderByRaw('sort_order = 0') // المثبَّت (false=0) قبل غير المثبَّت (true=1)
             ->orderBy('sort_order')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * ترتيب /offers المستقلّ: المرتَّب يدويًّا (offer_sort_order > 0) أوّلًا تصاعديًّا، ثم غير
+     * المرتَّب (0 — خصمٌ جديد لم يُرتَّب بعد) بالأحدث. بلا معامل مربوط ولا JOIN. يطابق
+     * Book::moveToOfferPosition وصفحة أدمن «ترتيب العروض».
+     */
+    protected function applyOffersManualOrder(Builder $query): void
+    {
+        $query->orderByRaw('offer_sort_order = 0')
+            ->orderBy('offer_sort_order')
             ->orderByDesc('published_at')
             ->orderByDesc('id');
     }
