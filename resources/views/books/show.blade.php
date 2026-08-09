@@ -262,7 +262,7 @@
         .series-item{ flex:0 0 auto; width:88px; text-decoration:none; color:var(--ink); }
         .series-item__cover{ display:grid; place-items:center; width:88px; height:112px; border-radius:10px; overflow:hidden; border:2px solid var(--line); background:var(--purple-soft); transition:border-color .15s, transform .15s; }
         .series-item__cover img{ width:100%; height:100%; object-fit:cover; }
-        .series-item__ph{ font-weight:900; font-size:30px; color:var(--purple); }
+        .series-item__ph{ font-size:34px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,.28)); }
         .series-item__title{ margin-top:6px; font-size:11.5px; font-weight:700; line-height:1.35; text-align:center; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .series-item:hover .series-item__cover{ border-color:var(--purple); transform:translateY(-2px); }
         .series-item.is-current{ pointer-events:none; }
@@ -481,15 +481,20 @@
                                 @php
                                     $isCurrent = (int) $sb->id === (int) $book->id;
                                     $sbCover = $sb->coverUrl(); // موسوم بالعلامة المائية
+                                    // كتابٌ بلا غلاف (المصدر لا يوفّره لبعض مجلّدات السلسلة): عنصر بديل
+                                    // محايد بتدرّج الهوية + أيقونة كتاب (بند 0.4/11.22: لا نختلق غلافًا)،
+                                    // بمعرّف الكتاب كما في x-book-cover/book-thumb فيبدو مقصودًا لا مكسورًا.
+                                    $sbPair = [['#6E2FB0', '#EC4E96'], ['#EC4E96', '#FF8A2A'], ['#12B3A6', '#4FB0E8'], ['#FF8A2A', '#FFC23C'], ['#6E2FB0', '#12B3A6'], ['#4FB0E8', '#12B3A6']][(int) ($sb->id ?? 0) % 6];
                                 @endphp
                                 <a class="series-item {{ $isCurrent ? 'is-current' : '' }}"
                                     @if ($isCurrent) aria-current="true" @else href="{{ route('books.show', $sb) }}" @endif
                                     title="{{ $sb->title }}">
-                                    <span class="series-item__cover">
+                                    <span class="series-item__cover"
+                                        @unless ($sbCover) style="background:linear-gradient(150deg,{{ $sbPair[0] }},{{ $sbPair[1] }})" @endunless>
                                         @if ($sbCover)
                                             <img src="{{ $sbCover }}" loading="lazy" decoding="async" alt="{{ $isCurrent ? '' : $sb->title }}">
                                         @else
-                                            <span class="series-item__ph" aria-hidden="true">{{ mb_substr($sb->title, 0, 1) }}</span>
+                                            <span class="series-item__ph" aria-hidden="true">📖</span>
                                         @endif
                                     </span>
                                     <span class="series-item__title">{{ $sb->title }}</span>
