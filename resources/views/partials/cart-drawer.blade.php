@@ -20,6 +20,13 @@
 
                 <template x-for="item in $store.cart.items" :key="item.id">
                     <div class="cart-item">
+                        {{-- غلاف الكتاب (موسوم عبر coverUrl) أو عنصر بديل للكتاب بلا غلاف --}}
+                        <a :href="item.url" tabindex="-1" aria-hidden="true" style="flex:0 0 auto;line-height:0">
+                            <img class="thumb" x-show="item.cover" :src="item.cover" :alt="item.title"
+                                loading="lazy" decoding="async" width="44" height="56">
+                            <span class="thumb" x-show="!item.cover" aria-hidden="true"
+                                style="display:grid;place-items:center;background:var(--purple-soft);color:var(--purple);font-size:20px">📖</span>
+                        </a>
                         <div style="flex:1">
                             <a :href="item.url" class="book-title" style="font-size:14px" x-text="item.title"></a>
                             <div style="font-size:13px;color:var(--purple);font-weight:800"

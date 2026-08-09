@@ -129,13 +129,14 @@ async function hydrateCartFromServer() {
                 existing.title = s.title || existing.title;
                 existing.price = s.price != null ? s.price : existing.price;
                 existing.url = s.url || existing.url;
+                existing.cover = s.cover || existing.cover || ''; // غلاف من الخادم إن توفّر
             } else {
                 byId.set(s.id, {
                     id: s.id,
                     title: s.title || '',
                     price: s.price || null,
                     url: s.url || '#',
-                    cover: '',
+                    cover: s.cover || '',
                     qty: s.qty || 1,
                 });
             }

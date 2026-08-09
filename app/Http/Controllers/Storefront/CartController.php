@@ -150,7 +150,7 @@ class CartController extends Controller
             ->published()
             ->whereNotNull('price')
             ->whereKey(array_keys($qtyById))
-            ->get(['id', 'slug', 'title', 'price'])
+            ->get(['id', 'slug', 'title', 'price', 'cover_image'])
             ->map(static fn (Book $book): array => [
                 'id' => (int) $book->id,
                 'title' => (string) $book->title,
@@ -158,6 +158,7 @@ class CartController extends Controller
                     ? number_format((float) $book->price, 0).' '.__('common.currency')
                     : null,
                 'url' => route('books.show', $book),
+                'cover' => $book->coverUrl(), // غلاف الدرج عبر الأجهزة (موسوم؛ null إن بلا غلاف)
                 'qty' => $qtyById[(int) $book->id],
             ])
             ->values()

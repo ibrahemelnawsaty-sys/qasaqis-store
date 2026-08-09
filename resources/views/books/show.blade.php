@@ -40,6 +40,7 @@
         'title' => $book->title,
         'price' => $hasPrice ? number_format((float) $book->price, 0) . ' ' . __('common.currency') : null,
         'url' => route('books.show', $book),
+        'cover' => $book->coverUrl(), // غلاف مصغّر للدرج (موسوم؛ null إن بلا غلاف)
     ];
 
     // معرض الصور القابل للتكبير: الغلاف (فهرس 0) ثم الصور الإضافية الحقيقية فقط.
