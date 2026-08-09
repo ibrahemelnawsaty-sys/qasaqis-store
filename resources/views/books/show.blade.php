@@ -290,6 +290,7 @@
             <div x-data="{
                     images: JSON.parse(document.getElementById('pdpGalleryData').textContent),
                     i: 0,
+                    ar: 0,
                     lightboxOpen: false,
                     hovered: false,
                     paused: false,
@@ -330,11 +331,17 @@
 
                 {{-- الصورة الرئيسية المتبدّلة: تتغيّر تلقائيًا كل بضع ثوانٍ (تتوقّف عند مرور المؤشّر)
                      وعند النقر على مصغّرة؛ زر التكبير وحده يفتح وضع الشاشة الكاملة. --}}
-                <div class="pdp-stage" @mouseenter="hovered = canHover" @mouseleave="hovered = false">
+                {{-- الأغلفة العرضيّة فقط (أغلفة السلاسل المجمّعة) تجعل الإطار يتّسع لنسبتها فتظهر
+                     كاملةً لا محشورةً في إطار طوليّ. الكتب الطوليّة (السواد الأعظم) تبقى على الإطار
+                     الطوليّ الافتراضي (aspect .82) بلا أي تغيّر أو قفزة تخطيط. object-fit:contain
+                     يمنع القصّ/التشويه دائمًا. ar يُضبط مرّةً من أوّل صورة عرضيّة (لا يقفز بين الشرائح). --}}
+                <div class="pdp-stage" @mouseenter="hovered = canHover" @mouseleave="hovered = false"
+                    :style="ar ? 'aspect-ratio:' + ar : ''">
                     {{-- src ثابت (يراه ماسح التحميل المسبق) + :src للتبديل؛ fetchpriority لتحسين LCP على الموبايل --}}
                     <img class="pdp-stage__img" src="{{ $galleryImages[0]['src'] }}" :src="current.src"
                         alt="{{ $galleryImages[0]['alt'] }}" :alt="current.alt" fetchpriority="high"
-                        x-init="$watch('i', () => { if (! reduceMotion) $el.animate([{ opacity: .4 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' }); })">
+                        @load="ar = ar || ($el.naturalWidth > $el.naturalHeight ? Math.min(2.5, $el.naturalWidth / ($el.naturalHeight || 1)) : 0)"
+                        x-init="if ($el.complete && $el.naturalWidth > $el.naturalHeight) ar = ar || Math.min(2.5, $el.naturalWidth / $el.naturalHeight); $watch('i', () => { if (! reduceMotion) $el.animate([{ opacity: .4 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' }); })">
 
                     @if ($discount)
                         <span class="disc" style="width:56px;height:56px;pointer-events:none">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
