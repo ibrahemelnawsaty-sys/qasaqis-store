@@ -226,6 +226,16 @@
          خادم الاستضافة بلا بناء أصول (npm)؛ يُنشر عبر git مباشرةً (نفس نهج بند 5.2). --}}
     <style>
         .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+        /* تخطيط الصفحة: منع انهيار عمود الوسائط. صورة المسرح absolute (بلا عرض أدنى) فكان عمود
+           المعلومات يسرق مساحته فتصغر الصورة وتتراصّ أزرار المشاركة عموديًّا. الحلّ: عمود المعلومات
+           يتقلّص (minmax 0) وعمود الوسائط له حدّ أدنى. وتُكدَّس الأعمدة مبكرًا (≤900px) بصورة كاملة
+           العرض لكن محدودة كي لا تطول على الأجهزة اللوحية فيُدفَع زر الشراء تحت الطيّة. خصوصية
+           أعلى (.wrap .pdp) لتفوز على app.css دون إعادة بناء الأصول (الخادم بلا npm). */
+        .wrap .pdp{ grid-template-columns:minmax(300px,.9fr) minmax(0,1.1fr); }
+        @media (max-width:900px){
+            .wrap .pdp{ grid-template-columns:1fr; }
+            .wrap .pdp-media{ max-width:440px; margin-inline:auto; }
+        }
         /* المسرح الرئيسي: صورة متبدّلة (تلقائيًا + بالمصغّرات)؛ التكبير عبر زر مخصّص فقط */
         .pdp-stage{ position:relative; aspect-ratio:.82; border-radius:var(--r-md); overflow:hidden; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow); }
         .pdp-stage__img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
