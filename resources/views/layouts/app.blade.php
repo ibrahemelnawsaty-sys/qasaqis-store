@@ -193,9 +193,12 @@
     @stack('meta')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    {{-- حاجز وقائي: body فيه overflow-x:hidden لكن html لا؛ هذا يمنع أي عنصر
-         (مثل مصيدة السبام سابقًا) من إحداث تمرير أفقي على الجوال في RTL. --}}
-    <style>html{overflow-x:hidden}</style>
+    {{-- حاجز وقائي عامّ ضدّ التمرير الأفقيّ (الجوال/RTL): أيّ عنصر يتجاوز العرض (مصيدة سبام،
+         شبكة تنفجر بمحتوى عريض، …) يُقصّ بدل أن يُمرّر الصفحة جانبيًّا.
+         overflow-x:clip قصٌّ صلب بلا منفذ تمرير (يمنع السحب الذي كان hidden يسمح به أحيانًا
+         على الجوال) ويحفظ position:sticky (شريط التصفّح/ملخّص الدفع) بخلاف hidden. يُبقى hidden
+         بديلًا للمتصفّحات القديمة التي لا تدعم clip. --}}
+    <style>html,body{overflow-x:hidden;overflow-x:clip}</style>
     @include('partials.analytics-head')
     @stack('head')
 </head>
