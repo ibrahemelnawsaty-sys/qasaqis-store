@@ -289,6 +289,37 @@
         .series-item:hover .series-item__cover{ border-color:var(--purple); transform:translateY(-2px); }
         .series-item.is-current{ pointer-events:none; }
         .series-item.is-current .series-item__cover{ border-color:var(--purple); box-shadow:0 0 0 3px var(--purple-soft); }
+
+        /* ===== الطيران إلى السلة + رسالة التأكيد ===== (مضمّن — الخادم بلا npm) */
+        /* نسخة الغلاف الطائرة: عنصر ثابت يُحرَّك بـWeb Animations API من مكان الغلاف إلى أيقونة السلة */
+        .qs-fly{ position:fixed; z-index:1300; border-radius:12px; object-fit:cover; pointer-events:none; will-change:transform,opacity;
+            box-shadow:0 26px 60px -18px rgba(84,34,138,.6), 0 8px 20px rgba(0,0,0,.28); }
+        /* رسالة «تمت الإضافة» */
+        .qs-cart-toast{ position:fixed; z-index:1290; inset-inline:0; bottom:24px; margin-inline:auto; width:max-content; max-width:88vw;
+            background:linear-gradient(135deg,var(--purple),var(--pink)); color:#fff; font-weight:800; font-size:14px; letter-spacing:.2px;
+            padding:11px 20px; border-radius:999px; box-shadow:0 16px 36px -12px rgba(84,34,138,.6);
+            opacity:0; transform:translateY(16px) scale(.92); pointer-events:none;
+            transition:opacity .3s ease, transform .34s cubic-bezier(.2,1.5,.4,1); }
+        .qs-cart-toast.is-in{ opacity:1; transform:translateY(0) scale(1); }
+        @media (max-width:860px){ .qs-cart-toast{ bottom:calc(140px + env(safe-area-inset-bottom)); } }
+        @media (prefers-reduced-motion:reduce){
+            .qs-cart-toast{ transition:opacity .2s ease; transform:none; }
+            .qs-cart-toast.is-in{ transform:none; }
+        }
+@if ($canBuy)
+        /* شريط الشراء الثابت (جوال فقط): سعر + زرّ إضافة ظاهر دائمًا فوق الشريط السفليّ */
+        .pdp-buybar{ display:none; }
+        @media (max-width:860px){
+            .pdp-buybar{ position:fixed; left:0; right:0; bottom:calc(62px + env(safe-area-inset-bottom)); z-index:44;
+                display:flex; align-items:center; gap:12px; padding:10px 14px;
+                background:color-mix(in srgb, var(--surface) 92%, transparent); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+                border-top:1px solid var(--line); box-shadow:0 -10px 24px -16px rgba(84,34,138,.4); }
+            .pdp-buybar__price{ font-weight:900; color:var(--purple); font-size:16px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+            .pdp-buybar__add{ flex:1; min-height:46px; }
+            /* حجز مساحة سفليّة إضافيّة على هذه الصفحة فقط كي لا يغطّي الشريطُ المحتوى/التذييل */
+            body{ padding-bottom:calc(128px + env(safe-area-inset-bottom)) !important; }
+        }
+@endif
     </style>
 @endpush
 
@@ -551,11 +582,22 @@
 
                 <div class="pdp-cta">
                     <button type="button" class="btn btn-primary"
-                        @if ($canBuy) @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }})" @else disabled @endif>
+                        @if ($canBuy) @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))" @else disabled @endif>
                         🛒 {{ __('common.add_to_cart') }}
                     </button>
                     <x-wa-button :book="$book" :class="'btn btn-wa'" :label="__('common.order_whatsapp')" />
                 </div>
+
+                @if ($canBuy)
+                    {{-- شريط شراء ثابت (جوال): السعر + زرّ إضافة ظاهر دائمًا بلا تمرير، بنفس أنيميشن الطيران --}}
+                    <div class="pdp-buybar">
+                        <span class="pdp-buybar__price">{{ number_format((float) $book->price, 0) }} {{ __('common.currency') }}</span>
+                        <button type="button" class="btn btn-primary pdp-buybar__add"
+                            @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))">
+                            🛒 {{ __('common.add_to_cart') }}
+                        </button>
+                    </div>
+                @endif
 
                 @if (filled($book->pages_count) || filled($book->isbn))
                     <div style="margin-top:22px;font-size:13.5px;color:var(--ink-soft);display:flex;gap:18px;flex-wrap:wrap">
@@ -633,3 +675,117 @@
         @endif
     </div>
 @endsection
+
+@push('scripts')
+    {{-- أنيميشن «طيران الكتاب إلى السلة»: نسخة من الغلاف تقفز نحو المستخدم ثم تنكمش داخل أيقونة السلة،
+         مع نطّة للأيقونة والشارة ورسالة تأكيد. مضمّن كـ<script> (الخادم بلا npm). يحترم prefers-reduced-motion. --}}
+    <script>
+        (function () {
+            var TOAST = @js(__('common.added_to_cart'));
+
+            function reduceMotion() {
+                return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            }
+            function inViewport(el) {
+                if (!el) return false;
+                var r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 &&
+                    r.top < innerHeight && r.left < innerWidth;
+            }
+            // أيقونة السلة الظاهرة حاليًا (سطح المكتب أو الشريط السفليّ)
+            function cartTarget() {
+                var els = document.querySelectorAll('[data-fly-cart]');
+                for (var i = 0; i < els.length; i++) {
+                    if (els[i].offsetParent !== null) return els[i];
+                }
+                return els[0] || null;
+            }
+            function showToast() {
+                var el = document.createElement('div');
+                el.className = 'qs-cart-toast';
+                el.setAttribute('role', 'status');
+                el.setAttribute('aria-live', 'polite');
+                el.textContent = TOAST;
+                document.body.appendChild(el);
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () { el.classList.add('is-in'); });
+                });
+                setTimeout(function () {
+                    el.classList.remove('is-in');
+                    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 380);
+                }, 1650);
+            }
+            function bounceCart(t) {
+                if (!t || !t.animate) return;
+                t.animate(
+                    [{ transform: 'scale(1)' }, { transform: 'scale(1.28)' }, { transform: 'scale(.94)' }, { transform: 'scale(1)' }],
+                    { duration: 520, easing: 'cubic-bezier(.2,1.5,.35,1)' }
+                );
+                var badge = t.querySelector('.botbar__badge, .cart-badge');
+                if (badge && badge.animate) {
+                    badge.animate(
+                        [{ transform: 'scale(1)' }, { transform: 'scale(1.75)' }, { transform: 'scale(1)' }],
+                        { duration: 560, easing: 'cubic-bezier(.2,1.6,.35,1)' }
+                    );
+                }
+            }
+
+            window.qsFlyToCart = function (sourceEl, coverSrc) {
+                try {
+                    var t = cartTarget();
+                    if (!t) { showToast(); return; }
+                    if (reduceMotion()) { showToast(); return; } // احترام تفضيل تقليل الحركة: رسالة فقط
+
+                    // إن كان الغلاف ظاهرًا نطيّر الصورة المعروضة نفسها من مكانها (استمراريّة بصريّة)،
+                    // وإلا (تمرير لأسفل/شريط الشراء) نطيّر غلاف الكتاب انطلاقًا من الزرّ المنقور.
+                    var coverEl = document.querySelector('.pdp-stage__img') || document.querySelector('.pdp-cover img');
+                    var displayed = (coverEl && inViewport(coverEl)) ? (coverEl.currentSrc || coverEl.src) : '';
+                    var src = displayed || coverSrc || '';
+                    var startEl = displayed ? coverEl : sourceEl;
+                    if (!src || !startEl || !document.body.animate) { bounceCart(t); showToast(); return; }
+
+                    var s = startEl.getBoundingClientRect();
+                    var e = t.getBoundingClientRect();
+
+                    var fly = new Image();
+                    fly.src = src;
+                    fly.alt = '';
+                    fly.className = 'qs-fly';
+                    fly.style.left = s.left + 'px';
+                    fly.style.top = s.top + 'px';
+                    fly.style.width = s.width + 'px';
+                    fly.style.height = s.height + 'px';
+                    document.body.appendChild(fly);
+
+                    var dx = (e.left + e.width / 2) - (s.left + s.width / 2);
+                    var dy = (e.top + e.height / 2) - (s.top + s.height / 2);
+                    var lift = Math.max(90, Math.abs(dy) * 0.28); // ارتفاع القفزة نحو المستخدم
+
+                    var anim = fly.animate([
+                        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1, offset: 0 },
+                        { transform: 'translate(' + (dx * 0.06) + 'px,' + (-lift) + 'px) scale(1.18) rotate(-6deg)', opacity: 1, offset: 0.22 },
+                        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0.13) rotate(16deg)', opacity: 0.2, offset: 1 }
+                    ], { duration: 800, easing: 'cubic-bezier(.5,-0.12,.3,1)', fill: 'forwards' });
+
+                    var done = false;
+                    var finish = function () {
+                        if (done) return;
+                        done = true;
+                        if (fly.parentNode) fly.parentNode.removeChild(fly);
+                        bounceCart(t);
+                        showToast();
+                    };
+                    anim.onfinish = finish;
+                    anim.oncancel = function () {
+                        if (done) return;
+                        done = true;
+                        if (fly.parentNode) fly.parentNode.removeChild(fly);
+                    };
+                    setTimeout(finish, 1000); // احتياط لو لم يُطلق onfinish
+                } catch (err) {
+                    try { bounceCart(cartTarget()); showToast(); } catch (e2) {}
+                }
+            };
+        })();
+    </script>
+@endpush

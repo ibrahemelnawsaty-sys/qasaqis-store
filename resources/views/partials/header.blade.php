@@ -276,7 +276,7 @@
                 </button>
 
                 <button type="button" class="icon-btn desk-only" @click="$store.cart.open = true"
-                    aria-label="{{ __('nav.cart') }}">
+                    data-fly-cart aria-label="{{ __('nav.cart') }}">
                     <x-ui-icon name="cart" />
                     <span class="cart-badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
                 </button>
@@ -375,7 +375,7 @@
             <x-ui-icon name="grid" :size="24" />
             <span>{{ __('nav.shop') }}</span>
         </a>
-        <button type="button" class="botbar__tab" @click="$store.cart.open = true">
+        <button type="button" class="botbar__tab" @click="$store.cart.open = true" data-fly-cart>
             <span class="botbar__badge" x-show="$store.cart.count > 0" x-text="$store.cart.count" x-cloak></span>
             <x-ui-icon name="cart" :size="24" />
             <span>{{ __('nav.cart') }}</span>

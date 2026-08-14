@@ -26,6 +26,7 @@ return [
     'search_submit' => 'ابحثي',
 
     'add_to_cart' => 'أضيفي للسلة',
+    'added_to_cart' => 'تمت الإضافة إلى السلة 🛒',
     'order_whatsapp' => 'اطلبي عبر واتساب',
     'view_book' => 'عرض الكتاب',
 
