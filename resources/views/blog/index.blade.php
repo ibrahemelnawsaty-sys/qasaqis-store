@@ -85,8 +85,20 @@
                                 <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0">{{ \Illuminate\Support\Str::limit($article->excerpt, 120) }}</p>
                             @endif
 
-                            <a href="{{ $articleUrl }}"
-                                style="margin-top:auto;padding-top:6px;font-weight:800;font-size:13.5px;color:var(--purple);text-decoration:none">{{ __('blog.read_more') }}</a>
+                            <div style="margin-top:auto;padding-top:6px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+                                <a href="{{ $articleUrl }}"
+                                    style="font-weight:800;font-size:13.5px;color:var(--purple);text-decoration:none">{{ __('blog.read_more') }}</a>
+                                {{-- مشاركة المقال (نفس زرّ الكتاب): جوال = مشاركة أصليّة، حاسوب = قائمة صغيرة --}}
+                                <button type="button" class="book-share"
+                                    data-share-url="{{ $articleUrl }}"
+                                    data-share-title="{{ $article->title }}"
+                                    data-share-text="{{ __('blog.share_text', ['title' => $article->title]) }}"
+                                    aria-haspopup="true" aria-expanded="false"
+                                    aria-label="{{ __('blog.share_aria', ['title' => $article->title]) }}"
+                                    title="{{ __('blog.share_label') }}">
+                                    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                </button>
+                            </div>
                         </div>
                     </article>
                 @endforeach
@@ -95,6 +107,9 @@
             <div class="pagination-wrap">
                 {{ $articles->onEachSide(1)->links() }}
             </div>
+
+            {{-- قائمة/معالج المشاركة المشترك لأزرار بطاقات المقالات (مرّة واحدة) --}}
+            @include('partials.share-pop')
         @else
             <div class="empty-state">
                 <div class="em" aria-hidden="true">📝</div>
