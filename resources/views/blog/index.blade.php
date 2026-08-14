@@ -4,10 +4,19 @@
 @section('title', __('blog.index_title') . ' — ' . __('common.brand'))
 @section('meta_description', __('blog.index_meta'))
 
+{{-- ترقيم ذاتيّ المرجعيّة: صفحة 2+ تشير لنفسها لا للأولى. --}}
+@section('seo_canonical', route('blog.index') . (((int) request('page', 1) > 1) ? '?page=' . (int) request('page', 1) : ''))
+
 @push('head')
     {{-- خطّ عناوين الأغلفة المولّدة تلقائيًّا (SVG). يُحمَّل كسولًا: لا يُنزَّل إلا إن ظهر
          غلاف مولّد فعلًا (مقال بلا غلاف مرفوع) — فالصفحة تبقى خفيفة. --}}
     <style>@font-face{font-family:'Lalezar';src:url('{{ asset('fonts/lalezar.woff2') }}') format('woff2');font-display:swap}</style>
+
+    {{-- فتات منظّم (الرئيسية ← المدونة) يقابل الفتات المرئي — يطابق بقيّة أنواع الصفحات. --}}
+    <x-breadcrumb-ld :items="[
+        ['name' => __('nav.home'), 'url' => route('home')],
+        ['name' => __('nav.blog'), 'url' => route('blog.index')],
+    ]" />
 @endpush
 
 {{-- لا نُعيد دفع og:type/og:title/og:description: التخطيط يُصدرها من @section('title')

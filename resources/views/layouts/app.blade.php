@@ -90,19 +90,22 @@
     <meta property="og:title" content="{{ $seoOgTitle }}">
     <meta property="og:description" content="{{ $seoOgDescription }}">
     <meta property="og:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
+    <meta property="og:image:alt" content="{{ $seoOgTitle }}">
 
     {{-- Twitter Card افتراضي. --}}
     <meta name="twitter:card" content="{{ config('seo.twitter_card', 'summary_large_image') }}">
     <meta name="twitter:title" content="{{ $seoOgTitle }}">
     <meta name="twitter:description" content="{{ $seoOgDescription }}">
     <meta name="twitter:image" content="@yield('og_image', asset(config('seo.default_image', 'images/logo.png')))">
+    <meta name="twitter:image:alt" content="{{ $seoOgTitle }}">
 
     {{-- JSON-LD ثابت للموقع: Organization + WebSite (بحث داخلي). أعلام HEX تمنع كسر </script>. --}}
     @php
         $seoSiteUrl = rtrim((string) config('seo.site_url'), '/');
         $seoName = __('common.brand');
         $seoLogo = asset(config('seo.default_image', 'images/logo.png'));
-        // sameAs من روابط السوشيال غير الفارغة المشتركة في $storeSettings (بند 1.1: مفاتيح فعلية موجودة).
+        // sameAs: روابط السوشيال + رابط خرائط المتجر — كلّها نقاط تعريف خارجيّة للكيان
+        // (تقوّي ثقة Google بالعلامة). كلٌّ مشروط بـfilled (بند 1.1: مفاتيح فعليّة موجودة).
         $seoSameAs = array_values(array_filter([
             $storeSettings['social_facebook'] ?? '',
             $storeSettings['social_instagram'] ?? '',
@@ -111,20 +114,63 @@
             $storeSettings['social_twitter'] ?? '',
             $storeSettings['social_snapchat'] ?? '',
             $storeSettings['social_telegram'] ?? '',
+            $storeSettings['store_maps_url'] ?? '',
         ], static fn ($u): bool => filled($u)));
+
+        // شعار مربّع (يشترطه Google لصورة العلامة) عبر ImageObject صريح الأبعاد؛ logo.png
+        // القديم غير مربّع (220×159) فلا يصلح. نستعمل الأيقونة 512 المربّعة.
+        $seoSquareLogo = asset('images/icon-512.png');
 
         $seoOrg = [
             '@context' => 'https://schema.org',
-            '@type' => 'Organization',
+            // OnlineStore: للموقع عنوانٌ فعليّ وبيعٌ مباشر، فالنوع الأدقّ يقوّي بناء الكيان.
+            '@type' => 'OnlineStore',
             '@id' => $seoSiteUrl . '/#organization',
             'name' => $seoName,
             'url' => $seoSiteUrl,
-            'logo' => $seoLogo,
-            // وصف الكيان + مجالات معرفته: إشارات تُعرّف جوجل بماهيّة العلامة وتربطها
-            // بمجال «كتب الأطفال» عند بناء الكيان (يدعم لوحة المعرفة وربط «قصاقيص»).
+            'logo' => [
+                '@type' => 'ImageObject',
+                'url' => $seoSquareLogo,
+                'width' => 512,
+                'height' => 512,
+            ],
+            'image' => $seoSquareLogo,
+            // وصف الكيان + مجالات معرفته + سنة التأسيس: إشارات تُعرّف جوجل بماهيّة العلامة
+            // وتربطها بمجال «كتب الأطفال» عند بناء الكيان (يدعم لوحة المعرفة وربط «قصاقيص»).
             'description' => (string) __('common.brand_description'),
+            'foundingDate' => '2022',
             'knowsAbout' => ['كتب الأطفال', 'قصص الأطفال', 'القراءة للأطفال', 'كتب تعليمية للأطفال'],
         ];
+
+        // بيانات التواصل من إعدادات المتجر (موجودة أصلًا) — كلٌّ مشروط بـfilled فلا يُبعَث فارغًا.
+        if (filled($storeSettings['contact_address'] ?? '')) {
+            $seoOrg['address'] = [
+                '@type' => 'PostalAddress',
+                'streetAddress' => (string) $storeSettings['contact_address'],
+                'addressCountry' => 'EG',
+            ];
+        }
+        if (filled($storeSettings['contact_email'] ?? '')) {
+            $seoOrg['email'] = (string) $storeSettings['contact_email'];
+        }
+        // الهاتف: contact_phone إن وُجد، وإلا رقم واتساب. نضبطه صيغة E.164 (+رقم) لو أرقام صرفة.
+        $seoOrgPhone = trim((string) ($storeSettings['contact_phone'] ?? ''));
+        if ($seoOrgPhone === '') {
+            $seoOrgPhone = trim((string) ($storeSettings['whatsapp_number'] ?? ''));
+        }
+        if ($seoOrgPhone !== '') {
+            if (ctype_digit($seoOrgPhone)) {
+                $seoOrgPhone = '+' . $seoOrgPhone;
+            }
+            $seoOrg['telephone'] = $seoOrgPhone;
+            $seoOrg['contactPoint'] = [
+                '@type' => 'ContactPoint',
+                'telephone' => $seoOrgPhone,
+                'contactType' => 'customer service',
+                'areaServed' => 'EG',
+                'availableLanguage' => ['ar'],
+            ];
+        }
         if ($seoSameAs !== []) {
             $seoOrg['sameAs'] = $seoSameAs;
         }

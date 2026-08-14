@@ -80,7 +80,21 @@ final class SeoDefaults
 
         $derived = self::normalize($derived);
 
-        return $derived !== '' ? $derived : (string) __('common.tagline');
+        if ($derived !== '') {
+            return $derived;
+        }
+
+        // fallback مميّز بعنوان الكيان (بدل tagline العامّ الموحَّد) كي لا تتنافس الصفحات
+        // بلا وصف على مقتطفٍ واحد. Category/Series لهما مشتقّ مميّز في match أعلاه أصلًا.
+        $titled = match (true) {
+            $model instanceof Book => (string) __('seo.book_description', ['title' => (string) $model->title] + $brand),
+            $model instanceof Article => (string) __('seo.article_description', ['title' => (string) $model->title] + $brand),
+            $model instanceof Page => (string) __('seo.page_description', ['title' => (string) $model->title] + $brand),
+            default => '',
+        };
+        $titled = self::normalize($titled);
+
+        return $titled !== '' ? $titled : (string) __('common.tagline');
     }
 
     /** عنوان OpenGraph المشتقّ — يساوي عنوان الميتا افتراضيًا. */

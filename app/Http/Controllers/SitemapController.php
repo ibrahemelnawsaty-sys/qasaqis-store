@@ -153,6 +153,14 @@ class SitemapController extends Controller
             'priority' => '0.7',
         ];
 
+        // «وصل حديثًا» (/new): مسار 200 مفهرَس ذاتيّ المرجعيّة كـ/offers، وكان غائبًا.
+        $urls[] = [
+            'loc' => $this->abs('/new'),
+            'lastmod' => $this->stamp($homeLastmod),
+            'changefreq' => 'weekly',
+            'priority' => '0.7',
+        ];
+
         $blogLastmod = Article::query()
             ->where('is_published', true)
             ->max('updated_at');
@@ -211,17 +219,21 @@ class SitemapController extends Controller
                 ];
             });
 
-        // مقالات المدونة المنشورة فقط (/blog/{slug}) — lastmod من updated_at.
+        // مقالات المدونة المنشورة فقط (/blog/{slug}) — lastmod من updated_at + غلاف الصورة.
         Article::query()
             ->where('is_published', true)
-            ->select(['slug', 'updated_at'])
+            ->select(['slug', 'updated_at', 'cover_image'])
             ->orderBy('id')
             ->each(function (Article $article) use (&$urls): void {
+                // غلاف المقال في خريطة الصور (كالكتب) — null بلا غلاف فلا نُصدر image فارغًا.
+                $cover = $article->coverUrl();
+
                 $urls[] = [
                     'loc' => $this->abs('/blog/'.$article->slug),
                     'lastmod' => $this->stamp($article->updated_at),
                     'changefreq' => 'weekly',
                     'priority' => '0.6',
+                    'images' => $cover !== null ? [$cover] : [],
                 ];
             });
 
@@ -247,7 +259,10 @@ class SitemapController extends Controller
      */
     private function abs(string $path): string
     {
-        return (string) config('seo.site_url').'/'.ltrim($path, '/');
+        // الجذر بلا شرطة أخيرة كي يطابق canonical الرئيسية (بايت-بايت). المسارات الأخرى كالمعتاد.
+        $path = ltrim($path, '/');
+
+        return $path === '' ? (string) config('seo.site_url') : (string) config('seo.site_url').'/'.$path;
     }
 
     /**

@@ -110,6 +110,10 @@
         'publisher' => $book->publisher ? ['@type' => 'Organization', 'name' => $book->publisher->name] : null,
         'offers' => $hasPrice ? array_filter([
             '@type' => 'Offer',
+            // كل الكتب جديدة — حقل مُوصى به في Merchant listings (يُنهي تحذير Search Console).
+            'itemCondition' => 'https://schema.org/NewCondition',
+            // البائع = كيان المتجر عبر @id — يربط المنتج بالعلامة ويسمّي «قصاقيص» بائعًا (تقوية للكيان).
+            'seller' => ['@id' => rtrim((string) config('seo.site_url'), '/') . '/#organization'],
             'price' => (string) $book->price,
             'priceCurrency' => 'EGP',
             // بدء صلاحية العرض (تاريخ نشر الكتاب) — حقل مُوصى به في Merchant listings.
@@ -196,6 +200,8 @@
 
 @section('og_title', $ogTitle)
 @section('og_description', $ogDescription)
+{{-- صفحة منتج: og:type=product بدل الافتراضي website (أدقّ لمعاينات فيسبوك/بينتِرست). --}}
+@section('og_type', 'product')
 
 @if ($seoRobots)
     @section('seo_robots', $seoRobots)

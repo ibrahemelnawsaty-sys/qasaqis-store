@@ -30,17 +30,16 @@
         'inLanguage' => 'ar',
         'author' => filled($article->author_name)
             ? ['@type' => 'Person', 'name' => $article->author_name]
-            : ['@type' => 'Organization', 'name' => __('common.brand')],
+            // بلا كاتب: العلامة كاتبٌ عبر @id (يحلّه Google لكيان Organization المُصدَر في التخطيط).
+            : ['@id' => rtrim((string) config('seo.site_url'), '/') . '/#organization'],
         'datePublished' => $publishedAt?->toIso8601String(),
         'dateModified' => $article->updated_at?->toIso8601String(),
         'image' => [$ogImage],
         'mainEntityOfPage' => route('blog.show', $article),
         'articleSection' => $article->category ?: null,
-        'publisher' => [
-            '@type' => 'Organization',
-            'name' => __('common.brand'),
-            'logo' => ['@type' => 'ImageObject', 'url' => asset(config('seo.default_image', 'images/logo.png'))],
-        ],
+        // الناشر = كيان المتجر عبر @id (يحلّه Google لـOrganization الغنيّ في التخطيط:
+        // اسم + شعار مربّع 512 + عنوان…) بدل تكرار كيانٍ ناقص بشعارٍ غير مربّع.
+        'publisher' => ['@id' => rtrim((string) config('seo.site_url'), '/') . '/#organization'],
     ]);
 
     $breadcrumbLd = [
