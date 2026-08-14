@@ -102,7 +102,7 @@
 
                 <h1 style="margin-top:14px;line-height:1.4">{{ $article->title }}</h1>
 
-                <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:13.5px;color:var(--ink-soft);align-items:center">
+                <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:13.5px;color:var(--ink-soft)">
                     @if (filled($article->author_name))
                         <span>✍️ {{ __('blog.by_author', ['name' => $article->author_name]) }}</span>
                     @endif
@@ -110,17 +110,15 @@
                         <span>📅 {{ $publishedText }}</span>
                     @endif
                     <span>⏱️ {{ trans_choice('blog.read_minutes', (int) $article->reading_minutes, ['count' => (int) $article->reading_minutes]) }}</span>
-                    {{-- مشاركة المقال (نفس زرّ الكتاب): جوال = مشاركة أصليّة، حاسوب = قائمة صغيرة --}}
-                    <button type="button" class="book-share" style="margin-inline-start:auto"
-                        data-share-url="{{ route('blog.show', $article) }}"
-                        data-share-title="{{ $article->title }}"
-                        data-share-text="{{ __('blog.share_text', ['title' => $article->title]) }}"
-                        aria-haspopup="true" aria-expanded="false"
-                        aria-label="{{ __('blog.share_aria', ['title' => $article->title]) }}"
-                        title="{{ __('blog.share_label') }}">
-                        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                    </button>
                 </div>
+
+                {{-- شريط مشاركة المقال الكامل (مشاركة أصليّة + نسخ + واتساب/فيسبوك/تليجرام/إكس ظاهرة) --}}
+                @include('partials.share-social', [
+                    'url' => route('blog.show', $article),
+                    'title' => $article->title,
+                    'text' => __('blog.share_text', ['title' => $article->title]),
+                    'label' => __('blog.share_label'),
+                ])
             </header>
 
             @if ($coverSrc)
@@ -201,8 +199,5 @@
         <div style="text-align:center;margin-top:26px">
             <a class="btn btn-ghost" href="{{ route('blog.index') }}">← {{ __('blog.back_to_blog') }}</a>
         </div>
-
-        {{-- قائمة/معالج المشاركة المشترك لزرّ مشاركة المقال (مرّة واحدة) --}}
-        @include('partials.share-pop')
     </div>
 @endsection

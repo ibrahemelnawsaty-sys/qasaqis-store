@@ -475,10 +475,25 @@
                                 @if (filled($article->excerpt))
                                     <p style="font-size:13.5px;color:var(--ink-soft);line-height:1.7;margin:0">{{ \Illuminate\Support\Str::limit($article->excerpt, 110) }}</p>
                                 @endif
+                                {{-- مشاركة المقال (زرّ مضغوط: جوال = مشاركة أصليّة، حاسوب = قائمة صغيرة) --}}
+                                <div style="margin-top:auto;padding-top:6px;display:flex;justify-content:flex-end">
+                                    <button type="button" class="book-share"
+                                        data-share-url="{{ $articleUrl }}"
+                                        data-share-title="{{ $article->title }}"
+                                        data-share-text="{{ __('blog.share_text', ['title' => $article->title]) }}"
+                                        aria-haspopup="true" aria-expanded="false"
+                                        aria-label="{{ __('blog.share_aria', ['title' => $article->title]) }}"
+                                        title="{{ __('blog.share_label') }}">
+                                        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                                    </button>
+                                </div>
                             </div>
                         </article>
                     @endforeach
                 </div>
+
+                {{-- قائمة/معالج المشاركة المشترك لأزرار بطاقات المقالات (مرّة واحدة للصفحة) --}}
+                @include('partials.share-pop')
                 <div style="text-align:center;margin-top:32px">
                     <a class="btn btn-ghost" href="{{ route('blog.index') }}">{{ __('blog.home_view_all') }}</a>
                 </div>
