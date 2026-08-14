@@ -86,8 +86,14 @@
     {{-- أنماط البحث الفوري (غلاف + عنوان + سعر). مضمّنة (بلا بناء أصول): <style> داخل
          الصفحة يعمل في كل الصفحات لأن الهيدر مُضمَّن دائمًا. --}}
     <style>
-        .s-res{ display:flex; align-items:center; gap:12px; padding:9px 12px; text-decoration:none; color:var(--ink); border-radius:12px; }
+        .s-res{ display:flex; align-items:center; border-radius:12px; }
         .s-res:hover,.s-res.is-active{ background:var(--purple-soft); }
+        .s-res__link{ flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:12px; padding:9px 12px; text-decoration:none; color:var(--ink); border-radius:12px; }
+        /* زرّ الإضافة المباشرة للسلة بجانب كل نتيجة */
+        .s-res__add{ flex:0 0 auto; width:38px; height:38px; margin-inline-end:8px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--purple); display:grid; place-items:center; cursor:pointer; transition:background .15s, color .15s, transform .12s; }
+        .s-res__add:hover{ background:var(--purple); color:#fff; border-color:var(--purple); }
+        .s-res__add:active{ transform:scale(.9); }
+        .s-res__add:focus-visible{ outline:2px solid var(--purple); outline-offset:2px; }
         .s-res__thumb{ flex:0 0 auto; width:42px; height:54px; border-radius:8px; overflow:hidden; background:var(--purple-soft); display:grid; place-items:center; border:1px solid var(--line); }
         .s-res__thumb img{ width:100%; height:100%; object-fit:cover; }
         .s-res__ph{ font-weight:900; font-size:18px; color:var(--purple); }
@@ -104,7 +110,7 @@
         .s-ov-icon{ color:var(--ink-faint); display:grid; place-items:center; flex:0 0 auto; }
         .s-ov-form input{ flex:1; min-width:0; border:0; background:transparent; font-family:inherit; font-size:15px; color:var(--ink); outline:none; }
         .s-results{ margin-top:14px; display:flex; flex-direction:column; gap:8px; max-height:72vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-        .s-results .s-res{ padding:10px 12px; border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow-s); }
+        .s-results .s-res{ border:1px solid var(--line); background:var(--surface); box-shadow:var(--shadow-s); }
         .s-hint{ margin-top:26px; text-align:center; color:var(--ink-soft); font-size:14px; }
 
         /* ===== هيدر جديد: الشعار في المنتصف + توزيع متوازن (بلا بناء أصول) ===== */
@@ -175,7 +181,7 @@
                             if (res.ok) {
                                 const data = await res.json();
                                 this.all = (data.books || []).map((b) => ({
-                                    t: b.t, a: b.a, p: b.p, u: b.u, img: b.img, pr: b.pr,
+                                    id: b.id, t: b.t, a: b.a, p: b.p, u: b.u, img: b.img, pr: b.pr, in: b.in,
                                     title: this.norm(b.t),
                                     hay: this.norm(`${b.t} ${b.a || ''} ${b.p || ''}`),
                                 }));

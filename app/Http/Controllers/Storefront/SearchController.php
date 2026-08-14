@@ -11,7 +11,6 @@ use App\Models\Book;
 use App\Services\SearchSuggestService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 
 class SearchController extends Controller
 {
@@ -78,7 +77,7 @@ class SearchController extends Controller
             ->orderByRaw('sort_order = 0')
             ->orderBy('sort_order')
             ->orderByDesc('id')
-            ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price']);
+            ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price', 'stock_status']);
 
         // دار النشر الافتراضية (اسم المتجر) لا تُدرَج في بيانات البحث حتى لا تُطابق
         // كل الكتب المرتبطة بها عند كتابة أي حرف من اسمها.
@@ -90,20 +89,19 @@ class SearchController extends Controller
             'books' => $books->map(function (Book $b) use ($defaultPublishers, $currency) {
                 $pub = $b->publisher?->name;
 
-                // رابط الغلاف (خارجي كما هو، أو من التخزين العام) — null لو لا غلاف.
-                $cover = $b->cover_image;
-                $img = filled($cover)
-                    ? (Str::startsWith($cover, ['http://', 'https://'])
-                        ? $cover
-                        : asset('storage/'.ltrim($cover, '/')))
-                    : null;
-
                 return [
+                    // المعرّف مطلوب للإضافة المباشرة للسلة من نتائج البحث (cart.add يحتاج id).
+                    'id' => $b->id,
                     't' => $b->title,
                     'a' => $b->author,
                     'p' => in_array($pub, $defaultPublishers, true) ? null : $pub,
                     'u' => route('books.show', $b),
-                    'img' => $img,
+                    // متوفّر للشراء المباشر (سعر + مخزون) — يطابق $canBuy في البطاقة/الصفحة،
+                    // فلا يظهر زرّ الإضافة لِما هو نافد فيقع العميل في طريق مسدود عند الدفع.
+                    'in' => $b->stock_status === 'in_stock',
+                    // الغلاف موسومًا بالعلامة المائية عبر coverUrl (يطابق البطاقات والسلة —
+                    // حماية الصور) بدل asset('storage') المكشوف؛ null لو لا غلاف.
+                    'img' => $b->coverUrl(),
                     // السعر منسّق للعرض؛ null لو لا سعر (لا نختلق قيمة — بند 0.4).
                     'pr' => $b->price !== null
                         ? number_format((float) $b->price, 0).' '.$currency
