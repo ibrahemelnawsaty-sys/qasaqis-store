@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-
-@section('title', $heading . ' — ' . __('common.brand'))
+{{-- ملاحظة: العنوان يُحسب في كتلة الـPHP أدناه (يحترم تجاوز الأدمن meta_title ويطابق معاينة
+     SeoDefaults) ثم يُضبط بعدها — كان ثابتًا هنا فيُهمَل meta_title المُدخَل للقسم/السلسلة. --}}
 
 @push('head')
     {{-- الجوال (بطلب المالك): زرّ الفلاتر + القسم + الفئة العمرية + الترتيب في صفٍّ
@@ -50,6 +50,17 @@
     if (filled($entitySeo?->canonical_url)) {
         $catalogCanonical = $entitySeo->canonical_url;
     }
+    // ترقيم ذاتيّ المرجعيّة: صفحات الترقيم 2+ تشير لنفسها (?page=N) لا للأولى (Google
+    // يكره توحيد صفحات الترقيم في الأولى). نبقى نحذف الفلاتر/الفرز (نظافة التصفّح).
+    // نتجاوزه حين ضبط الأدمن canonical صريحًا: نحترمه كما هو فلا نُلحق ?page (يفسده/يهزمه).
+    $catalogPage = (int) request('page', 1);
+    if ($catalogCanonical !== null && $catalogPage > 1 && blank($entitySeo?->canonical_url)) {
+        $catalogCanonical .= '?page=' . $catalogPage;
+    }
+    // <title>: تجاوز الأدمن meta_title ← مشتقّ الكيان (SeoDefaults، يطابق معاينة الأدمن)
+    // ← العنوان+العلامة (صفحات بلا كيان). كان ثابتًا فيُهمَل meta_title المُدخَل.
+    $catalogTitle = $entitySeo?->meta_title
+        ?: ($seoEntity ? \App\Support\Seo\SeoDefaults::title($seoEntity) : $heading . ' — ' . __('common.brand'));
     $catalogRobots = $entitySeo?->robots ?: null;
     $catalogOgTitle = $entitySeo?->og_title ?: ($heading.' — '.__('common.brand'));
     $catalogOgDescription = $entitySeo?->og_description ?: $catalogMetaDescription;
@@ -60,6 +71,7 @@
         : null;
 @endphp
 
+@section('title', $catalogTitle)
 @section('meta_description', $catalogMetaDescription)
 
 @if ($catalogCanonical !== null)
@@ -103,6 +115,8 @@
             $itemListLd = [
                 '@context' => 'https://schema.org',
                 '@type' => 'ItemList',
+                'name' => $heading,
+                'numberOfItems' => count($books->items()),
                 'itemListElement' => collect($books->items())->map(fn ($b, $i) => [
                     '@type' => 'ListItem',
                     'position' => ($books->firstItem() ?? 1) + $i,
