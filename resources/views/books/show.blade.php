@@ -10,6 +10,7 @@
     $hasPrice = $book->price !== null;
     $inStock = $book->stock_status === 'in_stock';
     $canBuy = $hasPrice && $inStock;
+    $soldOut = ! $inStock; // نفذت الكمية → زرّ شراء مختلف اللون
     $onSale = $hasPrice && $book->old_price !== null && (float) $book->old_price > (float) $book->price;
     $saveAmount = $onSale ? (int) round((float) $book->old_price - (float) $book->price) : 0;
     $discount = $onSale ? (int) round((((float) $book->old_price - (float) $book->price) / (float) $book->old_price) * 100) : null;
@@ -306,6 +307,9 @@
             .qs-cart-toast{ transition:opacity .2s ease; transform:none; }
             .qs-cart-toast.is-in{ transform:none; }
         }
+        /* زرّ «نفذت الكمية» — أحمر معطَّل بدل زرّ الشراء (.btn لا يضع خلفيّة فلا تعارض) */
+        .btn-soldout{ background:linear-gradient(135deg,#a01f4d,#c0392b); color:#fff; cursor:not-allowed; box-shadow:0 10px 24px -12px rgba(192,57,43,.6); }
+        .btn-soldout:hover{ transform:none; filter:none; }
 @if ($canBuy)
         /* شريط الشراء الثابت (جوال فقط): سعر + زرّ إضافة ظاهر دائمًا فوق الشريط السفليّ */
         .pdp-buybar{ display:none; }
@@ -581,10 +585,17 @@
                 @endif
 
                 <div class="pdp-cta">
-                    <button type="button" class="btn btn-primary"
-                        @if ($canBuy) @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))" @else disabled @endif>
-                        🛒 {{ __('common.add_to_cart') }}
-                    </button>
+                    @if ($soldOut)
+                        {{-- نفذت الكمية: زرٌّ أحمر معطَّل بدل «أضيفي للسلة» (لا @click، لا طيران) --}}
+                        <button type="button" class="btn btn-soldout" aria-disabled="true">
+                            🚫 {{ __('common.sold_out_full') }}
+                        </button>
+                    @else
+                        <button type="button" class="btn btn-primary"
+                            @if ($canBuy) @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))" @else disabled @endif>
+                            🛒 {{ __('common.add_to_cart') }}
+                        </button>
+                    @endif
                     <x-wa-button :book="$book" :class="'btn btn-wa'" :label="__('common.order_whatsapp')" />
                 </div>
 

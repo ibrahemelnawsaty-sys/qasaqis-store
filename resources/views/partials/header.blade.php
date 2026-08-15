@@ -101,6 +101,7 @@
         .s-res__title{ font-weight:800; font-size:14px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .s-res__sub{ font-size:11.5px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .s-res__price{ flex:0 0 auto; font-weight:900; font-size:13.5px; color:var(--purple); white-space:nowrap; }
+        .s-res__soldout{ flex:0 0 auto; font-weight:800; font-size:11.5px; color:#fff; white-space:nowrap; background:#c0392b; padding:3px 9px; border-radius:999px; }
         .s-suggest{ padding:6px; }
         .s-empty{ display:flex; align-items:center; gap:10px; padding:16px 14px; color:var(--ink-soft); font-size:13.5px; }
         /* شاشة بحث الموبايل */

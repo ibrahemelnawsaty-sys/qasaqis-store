@@ -20,7 +20,9 @@
                 <span class="s-res__title" x-text="item.t"></span>
                 <span class="s-res__sub" x-show="item.p || item.a" x-text="item.p || item.a"></span>
             </span>
-            <span class="s-res__price" x-show="item.pr" x-text="item.pr"></span>
+            <span class="s-res__price" x-show="item.pr && item.in" x-text="item.pr"></span>
+            {{-- نفذت الكمية: بدل السعر (item.in=false) --}}
+            <span class="s-res__soldout" x-show="!item.in" x-cloak>{{ __('common.sold_out_full') }}</span>
         </a>
         {{-- إضافة مباشرة للسلة بلا فتح صفحة الكتاب. تظهر فقط للمتاح للشراء (سعر + مخزون =
              $canBuy). prevent.stop كي لا ينتقل الرابط؛ cart.add يفتح الدرج فيظهر ما أُضيف. --}}

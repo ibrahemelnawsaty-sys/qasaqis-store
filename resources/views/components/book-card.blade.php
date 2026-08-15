@@ -5,6 +5,7 @@
     $hasPrice = $book->price !== null;
     $inStock = $book->stock_status === 'in_stock';
     $canBuy = $hasPrice && $inStock;
+    $soldOut = ! $inStock; // نفذت الكمية → تغبيش الغلاف + ختم «نفذ»
 
     // Struck-through offer: old_price is the (higher) original, price is what you pay.
     $onSale = $hasPrice && $book->old_price !== null && (float) $book->old_price > (float) $book->price;
@@ -41,13 +42,15 @@
 @endphp
 
 <article class="book">
-    <x-book-cover :book="$book" :href="$url">
-        @if ($discount)
-            <span class="disc">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
-        @endif
-        @if ($book->newBadgeVisible())
-            <span class="new-badge"><span>{{ __('book.new_badge') }}</span></span>
-        @endif
+    <x-book-cover :book="$book" :href="$url" :sold-out="$soldOut">
+        @unless ($soldOut)
+            @if ($discount)
+                <span class="disc">{{ $discount }}%<small>{{ __('common.discount_badge') }}</small></span>
+            @endif
+            @if ($book->newBadgeVisible())
+                <span class="new-badge"><span>{{ __('book.new_badge') }}</span></span>
+            @endif
+        @endunless
     </x-book-cover>
 
     <div class="book-body">

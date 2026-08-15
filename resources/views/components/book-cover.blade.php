@@ -2,6 +2,7 @@
     'book',
     'variant' => 'card', // card | pdp
     'href' => null,
+    'soldOut' => false,  // نفذت الكمية: تغبيش الغلاف + ختم «نفذ»
 ])
 
 @php
@@ -17,10 +18,11 @@
     ];
     $pair = $palettes[(int) ($book->id ?? 0) % count($palettes)];
 
-    // رابط الغلاف موسومًا بالعلامة المائية (عبر مسار بالمعرّف، لا يكشف /storage).
+    // رابط الغلاف موسومًا بالعلامة المائية (عبر مسار بالمعرّف, لا يكشف /storage).
     $src = $book->coverUrl();
 
     $coverClass = $variant === 'pdp' ? 'pdp-cover' : 'cover';
+    $coverClass .= $soldOut ? ' is-soldout' : '';
     $style = 'background:linear-gradient(150deg,' . $pair[0] . ',' . $pair[1] . ')';
 @endphp
 
@@ -32,6 +34,9 @@
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif
+        @if ($soldOut)
+            <span class="soldout-ov" aria-hidden="true"><span class="soldout-ov__tag">{{ __('common.sold_out') }}</span></span>
+        @endif
     </a>
 @else
     <div class="{{ $coverClass }}" style="{{ $style }}">
@@ -41,5 +46,28 @@
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif
+        @if ($soldOut)
+            <span class="soldout-ov" aria-hidden="true"><span class="soldout-ov__tag">{{ __('common.sold_out') }}</span></span>
+        @endif
     </div>
 @endif
+
+@once
+    @push('head')
+        {{-- طبقة «نفذت الكمية»: تغبيش الغلاف (blur + رماديّ) وختمٌ أحمر مائل فوقه. مضمّنة
+             كـ<style> مرّة واحدة للصفحة (الخادم بلا npm)؛ تعمل على البطاقة وصفحة الكتاب. --}}
+        <style>
+            .cover.is-soldout img, .cover.is-soldout .ctitle,
+            .pdp-cover.is-soldout img, .pdp-cover.is-soldout .ctitle{
+                filter:blur(3px) grayscale(.6); opacity:.72; transform:scale(1.06);
+            }
+            .soldout-ov{ position:absolute; inset:0; z-index:5; display:grid; place-items:center;
+                background:rgba(38,18,60,.26); }
+            .soldout-ov__tag{ font-weight:900; font-size:15px; letter-spacing:.5px; color:#fff;
+                background:linear-gradient(135deg,#a01f4d,#c0392b); padding:7px 20px; border-radius:999px;
+                box-shadow:0 10px 24px -8px rgba(0,0,0,.55); transform:rotate(-7deg);
+                border:2px solid rgba(255,255,255,.85); }
+            .pdp-cover.is-soldout .soldout-ov__tag{ font-size:19px; padding:10px 28px; }
+        </style>
+    @endpush
+@endonce

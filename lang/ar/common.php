@@ -32,6 +32,8 @@ return [
 
     'price_unavailable' => 'السعر غير متاح',
     'out_of_stock' => 'غير متوفر حاليًا',
+    'sold_out' => 'نفذ',
+    'sold_out_full' => 'نفذت الكمية',
     'save_amount' => 'وفّري :amount ج.م',
     'discount_badge' => 'خصم',
 
