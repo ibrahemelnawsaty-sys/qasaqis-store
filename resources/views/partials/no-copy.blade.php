@@ -41,3 +41,22 @@
         });
     })();
 </script>
+<script>
+    {{-- طبقة إضافية: تعطيل اختصارات أدوات المطوّر ومصدر الصفحة (رادع سطحيّ فقط —
+         لا يمنع فتح الأدوات من قائمة المتصفح؛ لا نبني عليه أمنًا). نستثني اختصارات
+         التحرير (نسخ/قصّ/لصق/تحديد الكلّ) كي تبقى الحقول سليمة. --}}
+    (function () {
+        document.addEventListener('keydown', function (e) {
+            var k = (e.key || '').toLowerCase();
+            var code = e.keyCode || 0;
+            var mod = e.ctrlKey || e.metaKey; // Ctrl (ويندوز/لينكس) أو Cmd (ماك)
+            var block =
+                k === 'f12' || code === 123 ||                              // F12: أدوات المطوّر
+                (mod && e.shiftKey && (k === 'i' || k === 'j' || k === 'c' || // Ctrl/Cmd+Shift+I/J/C
+                    code === 73 || code === 74 || code === 67)) ||
+                (mod && !e.shiftKey && (k === 'u' || code === 85)) ||        // Ctrl/Cmd+U: عرض المصدر
+                (mod && !e.shiftKey && (k === 's' || code === 83));          // Ctrl/Cmd+S: حفظ الصفحة
+            if (block) { e.preventDefault(); e.stopPropagation(); return false; }
+        }, { capture: true });
+    })();
+</script>
