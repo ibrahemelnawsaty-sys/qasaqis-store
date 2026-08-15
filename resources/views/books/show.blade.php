@@ -310,8 +310,8 @@
         /* زرّ «نفذت الكمية» — أحمر معطَّل بدل زرّ الشراء (.btn لا يضع خلفيّة فلا تعارض) */
         .btn-soldout{ background:linear-gradient(135deg,#a01f4d,#c0392b); color:#fff; cursor:not-allowed; box-shadow:0 10px 24px -12px rgba(192,57,43,.6); }
         .btn-soldout:hover{ transform:none; filter:none; }
-@if ($canBuy)
-        /* شريط الشراء الثابت (جوال فقط): سعر + زرّ إضافة ظاهر دائمًا فوق الشريط السفليّ */
+@if ($canBuy || $soldOut)
+        /* شريط الشراء الثابت (جوال فقط): سعر + زرّ إضافة (أو «نفذت الكمية») ظاهر دائمًا فوق الشريط السفليّ */
         .pdp-buybar{ display:none; }
         @media (max-width:860px){
             .pdp-buybar{ position:fixed; left:0; right:0; bottom:calc(62px + env(safe-area-inset-bottom)); z-index:44;
@@ -320,6 +320,11 @@
                 border-top:1px solid var(--line); box-shadow:0 -10px 24px -16px rgba(84,34,138,.4); }
             .pdp-buybar__price{ font-weight:900; color:var(--purple); font-size:16px; white-space:nowrap; font-variant-numeric:tabular-nums; }
             .pdp-buybar__add{ flex:1; min-height:46px; }
+            /* حالة النفاد: علامة حمراء تملأ مكان الزرّ (غير قابلة للنقر) */
+            .pdp-buybar__soldout{ flex:1; min-height:46px; display:flex; align-items:center; justify-content:center; gap:6px;
+                background:linear-gradient(135deg,#a01f4d,#c0392b); color:#fff; font-weight:800; font-size:15px;
+                border-radius:var(--r-pill); cursor:not-allowed; }
+            .pdp-buybar--soldout .pdp-buybar__price{ color:var(--ink-soft); text-decoration:line-through; }
             /* حجز مساحة سفليّة إضافيّة على هذه الصفحة فقط كي لا يغطّي الشريطُ المحتوى/التذييل */
             body{ padding-bottom:calc(128px + env(safe-area-inset-bottom)) !important; }
         }
@@ -607,6 +612,14 @@
                             @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))">
                             🛒 {{ __('common.add_to_cart') }}
                         </button>
+                    </div>
+                @elseif ($soldOut)
+                    {{-- شريط شراء ثابت (جوال) — حالة النفاد: يبقى ظاهرًا لكن بلون أحمر وعلامة «نفذت الكمية» بلا زرّ إضافة --}}
+                    <div class="pdp-buybar pdp-buybar--soldout">
+                        @if ($hasPrice)
+                            <span class="pdp-buybar__price">{{ number_format((float) $book->price, 0) }} {{ __('common.currency') }}</span>
+                        @endif
+                        <span class="pdp-buybar__soldout" aria-disabled="true">🚫 {{ __('common.sold_out_full') }}</span>
                     </div>
                 @endif
 
