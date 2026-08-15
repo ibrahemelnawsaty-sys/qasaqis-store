@@ -245,6 +245,7 @@
          على الجوال) ويحفظ position:sticky (شريط التصفّح/ملخّص الدفع) بخلاف hidden. يُبقى hidden
          بديلًا للمتصفّحات القديمة التي لا تدعم clip. --}}
     <style>html,body{overflow-x:hidden;overflow-x:clip}</style>
+    @include('partials.no-copy')
     @include('partials.analytics-head')
     @stack('head')
 </head>
