@@ -136,6 +136,11 @@
         .botbar__tab .dot{ position:absolute; top:-5px; width:5px; height:5px; border-radius:50%; background:var(--purple); opacity:0; transition:opacity .15s; }
         .botbar__tab.on .dot,.botbar__tab[aria-current="page"] .dot{ opacity:1; }
         .botbar__badge{ position:absolute; top:-4px; inset-inline-end:calc(50% - 22px); min-width:16px; height:16px; padding:0 4px; border-radius:999px; background:var(--pink); color:#fff; font-size:9.5px; font-weight:800; display:grid; place-items:center; line-height:1; }
+
+        /* زرّ واتساب العائم على الجهة اليسرى (كان على اليمين). تجاوز إنليّ يفوز بترتيب
+           المصدر على قاعدة app.css (الخادم بلا npm). في RTL: النهاية=اليسار، ولا بدّ من
+           إعادة البداية إلى auto وإلا بقيت البداية (22px يمينًا) مسيطرةً مع العرض الثابت. */
+        .wa-float{ inset-inline-start:auto; inset-inline-end:22px; }
         @media (max-width:860px){
             .botbar{ position:fixed; left:0; right:0; bottom:0; z-index:45; display:grid; grid-template-columns:repeat(5,1fr); gap:2px; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); background:color-mix(in srgb,var(--surface) 68%,transparent); -webkit-backdrop-filter:blur(22px) saturate(1.6); backdrop-filter:blur(22px) saturate(1.6); border-top:1px solid var(--line); box-shadow:0 -6px 20px -12px rgba(84,34,138,.3); }
             body{ padding-bottom:calc(66px + env(safe-area-inset-bottom)); }
