@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             SettingSeeder::class,
             PaymentMethodSeeder::class,
+            // عملات العرض (تسعير متعدّد العملات) — بيانات مرجعيّة مستقلّة.
+            CurrencySeeder::class,
             // مناطق الشحن ثم الدول (M5) — الدول تعتمد على المناطق (FK).
             ShippingZoneSeeder::class,
             CountrySeeder::class,

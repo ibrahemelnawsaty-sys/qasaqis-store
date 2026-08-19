@@ -195,6 +195,12 @@ class Book extends Model
         return $this->hasMany(BookImage::class)->orderBy('sort_order');
     }
 
+    /** تجاوزات التسعير اليدويّة لكلّ عملة (تسعير متعدّد العملات). */
+    public function countryPrices(): HasMany
+    {
+        return $this->hasMany(BookCountryPrice::class);
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);

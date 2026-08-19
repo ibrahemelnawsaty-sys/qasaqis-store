@@ -24,6 +24,7 @@ use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CategoryController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CouponController;
+use App\Http\Controllers\Storefront\CurrencyController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\InquiryController;
 use App\Http\Controllers\Storefront\OrderController;
@@ -132,6 +133,13 @@ Route::get('/search/suggest', [SearchController::class, 'suggest'])
 Route::get('/search/index.json', [SearchController::class, 'indexJson'])
     ->middleware('throttle:120,1')
     ->name('search.index');
+
+// تبديل عملة العرض (تسعير متعدّد العملات): يثبّت الاختيار في كوكي ثمّ يعيد للصفحة
+// السابقة. GET ليعمل برابطٍ بسيط بلا JS (تفضيل عرض لا فعلٌ مدمّر).
+Route::get('/currency/{code}', [CurrencyController::class, 'switch'])
+    ->middleware('throttle:30,1')
+    ->whereAlpha('code')
+    ->name('currency.switch');
 
 // نموذج الاستفسارات العام (استفسار/طلب جملة/سؤال/شكوى) — يُغذّي مورد الاستفسارات
 // في لوحة الأدمن. throttle لمنع السبام.

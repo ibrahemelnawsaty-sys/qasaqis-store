@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Enums\PatternSurface;
+use App\Http\Middleware\SetCurrency;
 use App\Models\Article;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\HomepageBlock;
 use App\Models\HomepageSection;
@@ -25,6 +27,7 @@ use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
 use App\Support\Cache\StorefrontCache;
+use App\Support\Pricing\CurrencyContext;
 use App\Support\Verification\EmailVerificationChannel;
 use App\Support\Verification\VerificationChannel;
 use Illuminate\Console\Events\CommandStarting;
@@ -43,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // العملة النشطة للطلب (تسعير متعدّد العملات): مفردة لكلّ طلب، يضبطها وسيط
+        // SetCurrency وتقرؤها PricingService والقوالب. بلا اعتماديّات في الباني.
+        $this->app->singleton(CurrencyContext::class);
+
         // قناة كود التحقق (M9) تُحلّ من config/verification.php — الانتقال إلى OTP
         // الجوال لاحقًا تبديلُ مفتاح + صنف قناة جديد، بلا تعديل الخدمة.
         $this->app->bind(
@@ -123,6 +130,11 @@ class AppServiceProvider extends ServiceProvider
         Category::deleted(static fn (): mixed => StorefrontCache::forgetNavCategories());
         Setting::saved(static fn (): mixed => StorefrontCache::forgetStoreSettings());
         Setting::deleted(static fn (): mixed => StorefrontCache::forgetStoreSettings());
+
+        // إبطال كاش قائمة العملات النشطة (يقرؤها وسيط SetCurrency) عند تعديل عملة
+        // من اللوحة، فيلتقط تغيّر المعدّل/التفعيل فورًا بلا انتظار TTL.
+        Currency::saved(static fn (): mixed => Cache::forget(SetCurrency::CACHE_KEY));
+        Currency::deleted(static fn (): mixed => Cache::forget(SetCurrency::CACHE_KEY));
 
         // قوائم CMS تخزّن روابط route() مُحلّلةً بالـslug. تُبطَل عند تعديل القائمة أو
         // عناصرها، وأيضًا عند تغيّر slug هدفٍ مرتبط (صفحة/قسم/كتاب) أو حذفه — وإلا بقي

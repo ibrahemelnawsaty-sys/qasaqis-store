@@ -1,11 +1,16 @@
 <?php
 
+use App\Http\Middleware\KeepQueueAlive;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetCurrency;
+use App\Models\Redirect;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Sentry\Laravel\Integration;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,10 +44,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // بديل cron ذاتيّ: كل طلب يدقّ المُجدول بعد إرسال الرد (terminate)، مرّة كل
         // ~دقيقة عبر قفل ذرّي، فيعمل الطابور تلقائيًا بلا cron/خدمة خارجية اعتمادًا
         // على زيارات الموقع ونشاط اللوحة. عالميّ ليغطّي المتجر واللوحة معًا.
-        $middleware->append(\App\Http\Middleware\KeepQueueAlive::class);
+        $middleware->append(KeepQueueAlive::class);
 
         // ترويسات أمان على كل استجابة (منع التأطير/التضمين عبر النطاقات، nosniff، HSTS).
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(SecurityHeaders::class);
+
+        // عملة العرض النشطة (تسعير متعدّد العملات): تُحلّ من ?currency/كوكي/Accept-Language
+        // وتُشارَك مع القوالب. مقصور على مجموعة web (لا يمسّ الويبهوك/JSON).
+        $middleware->web(append: SetCurrency::class);
     })
     /*
      | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة:
@@ -97,14 +106,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // مدير التحويلات: قبل عرض 404، يُفحَص جدول التحويلات عن مسار الطلب (GET فقط).
         // إن وُجد تحويل نشط يُصدَر 301/302 للوجهة (يمنع فقدان روابط تغيّر رابطها).
         // الفحص يقع عند 404 فقط فلا حِمل على المسارات الموجودة.
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if (! $request->isMethod('GET')) {
                 return null;
             }
 
-            $from = \App\Models\Redirect::normalizePath($request->path());
+            $from = Redirect::normalizePath($request->path());
 
-            $redirect = \App\Models\Redirect::query()
+            $redirect = Redirect::query()
                 ->active()
                 ->where('from_path', $from)
                 ->first();
@@ -114,7 +123,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             // لا تُوجِّه المسار إلى نفسه (يتجنّب حلقة إعادة توجيه).
-            if (\App\Models\Redirect::normalizePath($redirect->to_path) === $from) {
+            if (Redirect::normalizePath($redirect->to_path) === $from) {
                 return null;
             }
 
