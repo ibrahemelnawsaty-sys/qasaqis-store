@@ -17,7 +17,6 @@ use App\Http\Controllers\Customer\ProfileController as CustomerProfileController
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\MediaController;
-use App\Services\Media\MediaCache;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -35,6 +34,7 @@ use App\Http\Controllers\Storefront\ReviewController;
 use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\SeriesController;
 use App\Http\Controllers\TaskRunnerController;
+use App\Services\Media\MediaCache;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
@@ -139,11 +139,6 @@ Route::get('/search/suggest', [SearchController::class, 'suggest'])
 Route::get('/search/index.json', [SearchController::class, 'indexJson'])
     ->middleware('throttle:120,1')
     ->name('search.index');
-
-// صفحة فحص التوطين: تُظهر دولة الزائر المكتشَفة وعملته (تشخيص Cloudflare/الكشف).
-Route::get('/currency/whoami', [CurrencyController::class, 'whoami'])
-    ->middleware('throttle:30,1')
-    ->name('currency.whoami');
 
 // تبديل عملة العرض (تسعير متعدّد العملات): يثبّت الاختيار في كوكي ثمّ يعيد للصفحة
 // السابقة. GET ليعمل برابطٍ بسيط بلا JS (تفضيل عرض لا فعلٌ مدمّر).

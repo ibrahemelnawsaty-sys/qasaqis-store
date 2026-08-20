@@ -6,8 +6,6 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Currency;
-use App\Support\Pricing\CurrencyContext;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -17,23 +15,6 @@ use Illuminate\Http\Request;
  */
 class CurrencyController extends Controller
 {
-    /**
-     * صفحة فحصٍ خفيفة: تُظهر لأيّ زائرٍ دولتَه المكتشَفة (CF-IPCountry) وعملتَه النشطة
-     * ومثالًا. تشخيص التوطين (هل تصل ترويسة Cloudflare؟) بلا بيانات حسّاسة. no-store
-     * كي لا تُكاش (تختلف بكلّ زائر).
-     */
-    public function whoami(Request $request, CurrencyContext $context): JsonResponse
-    {
-        $currency = $context->get();
-
-        return response()->json([
-            'detected_country' => $request->header('CF-IPCountry'),
-            'currency' => $currency->code,
-            'symbol' => $currency->symbol,
-            'example_300_egp' => $currency->format($currency->convertFromEgp(300)),
-        ])->header('Cache-Control', 'no-store, private');
-    }
-
     public function switch(Request $request, string $code): RedirectResponse
     {
         $code = strtoupper($code);
