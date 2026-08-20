@@ -55,6 +55,13 @@ class SetCurrency
     /** @param  Collection<string, Currency>  $active */
     private function resolveCode(Request $request, Collection $active): string
     {
+        // 0) زواحف البحث ووحدات المعاينة ترى دائمًا العملة الأساس (EGP): يبقى ما يُفهرَس
+        //    مطابقًا لبيانات JSON-LD (بالجنيه) فلا تحذير «عدم تطابق سعر» ولا فهرسةُ
+        //    أسعارٍ أجنبيّة لمتجرٍ مصريّ. المستخدمون الحقيقيّون يرون عملة بلدهم عاديًّا.
+        if ($this->isCrawler($request)) {
+            return Currency::baseCode();
+        }
+
         // 1) وسيط الرابط ?currency= (روابط مشارَكة/اختبار) — بلا تثبيت كوكي.
         //    حذار: query('currency') قد تُرجِع مصفوفةً (?currency[]=x)، و(string)[] تُطلق
         //    تحذيرًا يصعّده Laravel إلى 500 — لذا نحرس النوع صراحةً قبل التحويل.
@@ -85,6 +92,17 @@ class SetCurrency
 
         // 5) الافتراضيّ: الأساس (EGP) — يحمي السوق المصريّ من كشفٍ خاطئ.
         return Currency::baseCode();
+    }
+
+    /** أهو زاحف بحثٍ أو وحدةُ معاينةِ رابط؟ (كي يُخدَم العملة الأساس للفهرسة المتّسقة). */
+    private function isCrawler(Request $request): bool
+    {
+        $ua = strtolower((string) $request->userAgent());
+
+        return $ua !== '' && preg_match(
+            '/bot|crawl|spider|slurp|mediapartners|facebookexternalhit|whatsapp|telegram|embed|preview|pinterest|yandex|baidu/i',
+            $ua,
+        ) === 1;
     }
 
     /**

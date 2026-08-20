@@ -25,6 +25,33 @@ final class ResolvedPrice
         return $this->old !== null && $this->old > $this->amount;
     }
 
+    /** رمز العملة (للعرض بجانب الرقم في القوالب): «ر.س». */
+    public function currencySymbol(): string
+    {
+        return $this->currency->symbol;
+    }
+
+    /** الرقم فقط (بلا رمز) — للقوالب التي تنسّق الرقم والرمز في عنصرين. */
+    public function amountNumber(): string
+    {
+        return $this->source === 'manual'
+            ? $this->currency->formatExactNumber($this->amount)
+            : $this->currency->formatNumber($this->amount);
+    }
+
+    /** الرقم القديم فقط (المشطوب) أو null. */
+    public function oldNumber(): ?string
+    {
+        if ($this->old === null) {
+            return null;
+        }
+
+        return $this->source === 'manual'
+            ? $this->currency->formatExactNumber($this->old)
+            : $this->currency->formatNumber($this->old);
+    }
+
+    /** رقم + رمز مجموعين: «30 ر.س» — للسلة/البحث/واتساب. */
     public function formattedAmount(): string
     {
         return $this->formatValue($this->amount);
@@ -33,6 +60,20 @@ final class ResolvedPrice
     public function formattedOld(): ?string
     {
         return $this->old === null ? null : $this->formatValue($this->old);
+    }
+
+    /** قيمة التوفير (القديم − الحاليّ) بعملة الوجهة، أو null. */
+    public function savings(): ?float
+    {
+        return $this->isOnSale() && $this->old !== null ? $this->old - $this->amount : null;
+    }
+
+    /** التوفير منسّقًا رقمًا + رمزًا: «40 ر.س» — أو null. */
+    public function savingsFormatted(): ?string
+    {
+        $savings = $this->savings();
+
+        return $savings === null ? null : $this->formatValue($savings);
     }
 
     /**
@@ -46,13 +87,16 @@ final class ResolvedPrice
             : $this->currency->format($value);
     }
 
-    /** نسبة الخصم الصحيحة (0–100) أو null. */
+    /**
+     * نسبة الخصم الصحيحة (1–100) أو null. أدناها 1 عند وجود بيعٍ فعليّ كي تتّسق شارة
+     * الخصم مع السعر المشطوب و«وفّري…» (كلّها تظهر معًا أو تختفي معًا).
+     */
     public function discountPercent(): ?int
     {
         if (! $this->isOnSale() || $this->old === null || $this->old <= 0.0) {
             return null;
         }
 
-        return (int) round((($this->old - $this->amount) / $this->old) * 100);
+        return max(1, (int) round((($this->old - $this->amount) / $this->old) * 100));
     }
 }

@@ -26,6 +26,7 @@ use App\Observers\OrderObserver;
 use App\Observers\ReviewObserver;
 use App\Services\Cms\BackgroundPatternService;
 use App\Services\Cms\PopupService;
+use App\Services\Pricing\PricingService;
 use App\Support\Cache\StorefrontCache;
 use App\Support\Pricing\CurrencyContext;
 use App\Support\Verification\EmailVerificationChannel;
@@ -49,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
         // العملة النشطة للطلب (تسعير متعدّد العملات): مفردة لكلّ طلب، يضبطها وسيط
         // SetCurrency وتقرؤها PricingService والقوالب. بلا اعتماديّات في الباني.
         $this->app->singleton(CurrencyContext::class);
+
+        // خدمة التسعير مفردةٌ لكلّ طلب كي تتشارك بطاقاتُ الصفحة خريطةَ التجاوزات
+        // المحمّلة دفعةً واحدة (تفادي N+1 على الشبكات).
+        $this->app->singleton(PricingService::class);
 
         // قناة كود التحقق (M9) تُحلّ من config/verification.php — الانتقال إلى OTP
         // الجوال لاحقًا تبديلُ مفتاح + صنف قناة جديد، بلا تعديل الخدمة.

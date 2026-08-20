@@ -34,7 +34,7 @@ return [
     'out_of_stock' => 'غير متوفر حاليًا',
     'sold_out' => 'نفذ',
     'sold_out_full' => 'نفذت الكمية',
-    'save_amount' => 'وفّري :amount ج.م',
+    'save_amount' => 'وفّري :amount',
     'discount_badge' => 'خصم',
 
     // سلة محلية على الجهاز — مساران: دفع كامل (جسر للجلسة) أو واتساب سريع

@@ -7,13 +7,14 @@
     $metaTitle = $book->seo?->meta_title ?: \App\Support\Seo\SeoDefaults::title($book);
     $metaDesc = $book->seo?->meta_description ?: \App\Support\Seo\SeoDefaults::description($book);
 
-    $hasPrice = $book->price !== null;
+    // السعر بعملة الزائر (تسعير متعدّد العملات) — يُحلّ خادميًّا. JSON-LD يبقى بالجنيه (التحصيل الفعليّ).
+    $price = app(\App\Services\Pricing\PricingService::class)->resolve($book);
+    $hasPrice = $price !== null;
     $inStock = $book->stock_status === 'in_stock';
     $canBuy = $hasPrice && $inStock;
     $soldOut = ! $inStock; // نفذت الكمية → زرّ شراء مختلف اللون
-    $onSale = $hasPrice && $book->old_price !== null && (float) $book->old_price > (float) $book->price;
-    $saveAmount = $onSale ? (int) round((float) $book->old_price - (float) $book->price) : 0;
-    $discount = $onSale ? (int) round((((float) $book->old_price - (float) $book->price) / (float) $book->old_price) * 100) : null;
+    $onSale = $hasPrice && $price->isOnSale();
+    $discount = $hasPrice ? $price->discountPercent() : null;
 
     $ageText = filled($book->age_label) ? $book->age_label : null;
     if (! $ageText) {
@@ -39,7 +40,7 @@
     $cartPayload = [
         'id' => $book->id,
         'title' => $book->title,
-        'price' => $hasPrice ? number_format((float) $book->price, 0) . ' ' . __('common.currency') : null,
+        'price' => $hasPrice ? $price->formattedAmount() : null,
         'url' => route('books.show', $book),
         'cover' => $book->coverUrl(), // غلاف مصغّر للدرج (موسوم؛ null إن بلا غلاف)
     ];
@@ -522,10 +523,10 @@
 
                 <div class="pdp-price">
                     @if ($hasPrice)
-                        <span class="now">{{ number_format((float) $book->price, 0) }} <span style="font-size:16px">{{ __('common.currency') }}</span></span>
+                        <span class="now">{{ $price->amountNumber() }} <span style="font-size:16px">{{ $price->currencySymbol() }}</span></span>
                         @if ($onSale)
-                            <span class="old">{{ number_format((float) $book->old_price, 0) }}</span>
-                            <span class="save">{{ __('common.save_amount', ['amount' => $saveAmount]) }}</span>
+                            <span class="old">{{ $price->oldNumber() }}</span>
+                            <span class="save">{{ __('common.save_amount', ['amount' => $price->savingsFormatted()]) }}</span>
                         @endif
                     @else
                         <span class="na">{{ __('common.price_unavailable') }}</span>
@@ -607,7 +608,7 @@
                 @if ($canBuy)
                     {{-- شريط شراء ثابت (جوال): السعر + زرّ إضافة ظاهر دائمًا بلا تمرير، بنفس أنيميشن الطيران --}}
                     <div class="pdp-buybar">
-                        <span class="pdp-buybar__price">{{ number_format((float) $book->price, 0) }} {{ __('common.currency') }}</span>
+                        <span class="pdp-buybar__price">{{ $price->formattedAmount() }}</span>
                         <button type="button" class="btn btn-primary pdp-buybar__add"
                             @click="$store.cart.add({{ \Illuminate\Support\Js::from($cartPayload) }}); $store.cart.open = false; window.qsFlyToCart($event.currentTarget, @js($book->coverUrl()))">
                             🛒 {{ __('common.add_to_cart') }}
@@ -617,7 +618,7 @@
                     {{-- شريط شراء ثابت (جوال) — حالة النفاد: يبقى ظاهرًا لكن بلون أحمر وعلامة «نفذت الكمية» بلا زرّ إضافة --}}
                     <div class="pdp-buybar pdp-buybar--soldout">
                         @if ($hasPrice)
-                            <span class="pdp-buybar__price">{{ number_format((float) $book->price, 0) }} {{ __('common.currency') }}</span>
+                            <span class="pdp-buybar__price">{{ $price->formattedAmount() }}</span>
                         @endif
                         <span class="pdp-buybar__soldout" aria-disabled="true">🚫 {{ __('common.sold_out_full') }}</span>
                     </div>

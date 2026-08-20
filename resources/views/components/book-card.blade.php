@@ -2,16 +2,16 @@
 
 @php
     $url = route('books.show', $book);
-    $hasPrice = $book->price !== null;
+    // السعر بعملة الزائر (تسعير متعدّد العملات): يُحلّ خادميًّا عبر PricingService بعملة
+    // الطلب النشطة. null ⇒ لا سعر (قاعدة الصدق). المخزون مستقلّ عن السعر.
+    $price = app(\App\Services\Pricing\PricingService::class)->resolve($book);
+    $hasPrice = $price !== null;
     $inStock = $book->stock_status === 'in_stock';
     $canBuy = $hasPrice && $inStock;
     $soldOut = ! $inStock; // نفذت الكمية → تغبيش الغلاف + ختم «نفذ»
 
-    // Struck-through offer: old_price is the (higher) original, price is what you pay.
-    $onSale = $hasPrice && $book->old_price !== null && (float) $book->old_price > (float) $book->price;
-    $discount = $onSale
-        ? (int) round((((float) $book->old_price - (float) $book->price) / (float) $book->old_price) * 100)
-        : null;
+    $onSale = $hasPrice && $price->isOnSale();
+    $discount = $hasPrice ? $price->discountPercent() : null;
 
     // Age display: prefer the admin label, else build from min/max, else nothing.
     $ageText = filled($book->age_label) ? $book->age_label : null;
@@ -25,14 +25,10 @@
         }
     }
 
-    $priceDisplay = $hasPrice
-        ? number_format((float) $book->price, 0) . ' ' . __('common.currency')
-        : null;
-
     $cartPayload = [
         'id' => $book->id,
         'title' => $book->title,
-        'price' => $priceDisplay,
+        'price' => $hasPrice ? $price->formattedAmount() : null,
         'url' => $url,
         'cover' => $book->coverUrl(), // غلاف مصغّر للدرج (موسوم؛ null إن بلا غلاف)
     ];
@@ -67,10 +63,10 @@
         <div class="book-foot">
             <div class="price">
                 @if ($hasPrice)
-                    <span class="now">{{ number_format((float) $book->price, 0) }}</span>
-                    <span class="cur">{{ __('common.currency') }}</span>
+                    <span class="now">{{ $price->amountNumber() }}</span>
+                    <span class="cur">{{ $price->currencySymbol() }}</span>
                     @if ($onSale)
-                        <span class="old">{{ number_format((float) $book->old_price, 0) }}</span>
+                        <span class="old">{{ $price->oldNumber() }}</span>
                     @endif
                 @else
                     <span class="na">{{ __('common.price_unavailable') }}</span>

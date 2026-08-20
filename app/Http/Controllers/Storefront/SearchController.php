@@ -8,9 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Storefront\Concerns\FiltersBooks;
 use App\Http\Requests\SearchRequest;
 use App\Models\Book;
+use App\Services\Pricing\PricingService;
 use App\Services\SearchSuggestService;
+use App\Support\Pricing\CurrencyContext;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class SearchController extends Controller
 {
@@ -65,49 +68,59 @@ class SearchController extends Controller
     /**
      * فهرس بحث خفيف: كل الكتب المنشورة مرة واحدة، ليُفلترها المتصفح لحظيًا
      * (بحث فوري بلا طلب لكل ضغطة — مناسب للشبكة الضعيفة، وكتالوج صغير 23 كتابًا).
-     * يُخزَّن في المتصفح 5 دقائق عبر Cache-Control.
+     * يُخزَّن في المتصفح 5 دقائق عبر Cache-Control. السعر بعملة الزائر (متعدّد العملات)
+     * فالكاش private كي لا تُشارَك عملةُ زائرٍ مع آخرَ عبر أيّ كاشٍ وسيط/CDN.
      */
-    public function indexJson(): JsonResponse
+    public function indexJson(PricingService $pricing, CurrencyContext $currencyContext): JsonResponse
     {
-        $books = Book::query()
-            ->where('is_published', true)
-            ->with(['publisher:id,name'])
-            // نموذج التثبيت: المثبَّت (sort_order>0) أولًا، ثم غير المثبَّت (0) بالأحدث —
-            // يطابق ترتيب المتجر فلا تغرق الكتب المثبَّتة أسفل فهرس الاقتراح الفوري.
-            ->orderByRaw('sort_order = 0')
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price', 'stock_status']);
+        // مخزّن خادميًّا لكلّ عملة (السعر يختلف بالعملة): بناءُ الفهرس الكامل (استعلام
+        // الكتالوج + فحص الأغلفة + حلّ الأسعار) يقع مرّةً كلّ 300ث لكلّ عملة بدل كلّ طلب،
+        // فلا يُثقِل الكتالوجُ الكبير الطلبَ ولا يعيد كلُّ زائرٍ بناءَه. المفتاح بالعملة
+        // لأنّ المحتوى يختلف بها؛ والاستجابة private كي لا يشاركها كاشٌ وسيط بين العملات.
+        $items = Cache::remember(
+            'shop.search_index.'.$currencyContext->get()->code,
+            300,
+            static function () use ($pricing): array {
+                $books = Book::query()
+                    ->where('is_published', true)
+                    ->with(['publisher:id,name'])
+                    // نموذج التثبيت: المثبَّت (sort_order>0) أولًا، ثم غير المثبَّت (0) بالأحدث —
+                    // يطابق ترتيب المتجر فلا تغرق الكتب المثبَّتة أسفل فهرس الاقتراح الفوري.
+                    ->orderByRaw('sort_order = 0')
+                    ->orderBy('sort_order')
+                    ->orderByDesc('id')
+                    ->get(['id', 'title', 'slug', 'author', 'publisher_id', 'cover_image', 'price', 'old_price', 'stock_status']);
 
-        // دار النشر الافتراضية (اسم المتجر) لا تُدرَج في بيانات البحث حتى لا تُطابق
-        // كل الكتب المرتبطة بها عند كتابة أي حرف من اسمها.
-        $defaultPublishers = ['قصص أطفال', 'قصاقيص أطفال'];
+                // دار النشر الافتراضية (اسم المتجر) لا تُدرَج في بيانات البحث حتى لا تُطابق
+                // كل الكتب المرتبطة بها عند كتابة أي حرف من اسمها.
+                $defaultPublishers = ['قصص أطفال', 'قصاقيص أطفال'];
 
-        $currency = __('common.currency');
+                return $books->map(function (Book $b) use ($defaultPublishers, $pricing): array {
+                    $pub = $b->publisher?->name;
+                    // السعر بعملة الزائر النشطة (خادميًّا). null ⇒ لا سعر (قاعدة الصدق).
+                    $price = $pricing->resolve($b);
 
-        return response()->json([
-            'books' => $books->map(function (Book $b) use ($defaultPublishers, $currency) {
-                $pub = $b->publisher?->name;
+                    return [
+                        // المعرّف مطلوب للإضافة المباشرة للسلة من نتائج البحث (cart.add يحتاج id).
+                        'id' => $b->id,
+                        't' => $b->title,
+                        'a' => $b->author,
+                        'p' => in_array($pub, $defaultPublishers, true) ? null : $pub,
+                        'u' => route('books.show', $b),
+                        // متوفّر للشراء المباشر (سعر + مخزون) — يطابق $canBuy في البطاقة/الصفحة،
+                        // فلا يظهر زرّ الإضافة لِما هو نافد فيقع العميل في طريق مسدود عند الدفع.
+                        'in' => $b->stock_status === 'in_stock',
+                        // الغلاف موسومًا بالعلامة المائية عبر coverUrl (يطابق البطاقات والسلة —
+                        // حماية الصور) بدل asset('storage') المكشوف؛ null لو لا غلاف.
+                        'img' => $b->coverUrl(),
+                        // السعر منسّق بعملة الزائر؛ null لو لا سعر (لا نختلق قيمة — بند 0.4).
+                        'pr' => $price?->formattedAmount(),
+                    ];
+                })->values()->all();
+            },
+        );
 
-                return [
-                    // المعرّف مطلوب للإضافة المباشرة للسلة من نتائج البحث (cart.add يحتاج id).
-                    'id' => $b->id,
-                    't' => $b->title,
-                    'a' => $b->author,
-                    'p' => in_array($pub, $defaultPublishers, true) ? null : $pub,
-                    'u' => route('books.show', $b),
-                    // متوفّر للشراء المباشر (سعر + مخزون) — يطابق $canBuy في البطاقة/الصفحة،
-                    // فلا يظهر زرّ الإضافة لِما هو نافد فيقع العميل في طريق مسدود عند الدفع.
-                    'in' => $b->stock_status === 'in_stock',
-                    // الغلاف موسومًا بالعلامة المائية عبر coverUrl (يطابق البطاقات والسلة —
-                    // حماية الصور) بدل asset('storage') المكشوف؛ null لو لا غلاف.
-                    'img' => $b->coverUrl(),
-                    // السعر منسّق للعرض؛ null لو لا سعر (لا نختلق قيمة — بند 0.4).
-                    'pr' => $b->price !== null
-                        ? number_format((float) $b->price, 0).' '.$currency
-                        : null,
-                ];
-            })->values(),
-        ])->header('Cache-Control', 'public, max-age=300');
+        return response()->json(['books' => $items])
+            ->header('Cache-Control', 'private, max-age=300');
     }
 }

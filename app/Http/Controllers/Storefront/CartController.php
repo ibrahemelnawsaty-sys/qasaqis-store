@@ -9,6 +9,7 @@ use App\Http\Controllers\Storefront\Concerns\InteractsWithSessionCart;
 use App\Http\Requests\CartUpdateRequest;
 use App\Models\Book;
 use App\Services\Cart\CartService;
+use App\Services\Pricing\PricingService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -119,7 +120,7 @@ class CartController extends Controller
      * رؤية CartService::fromItems و BookController::show (بند 0.4/BOOK1)، فلا يظهر عبر
      * الأجهزة كتابٌ يُسقطه الدفع أو يُعطي رابطه 404.
      */
-    public function mine(Request $request): JsonResponse
+    public function mine(Request $request, PricingService $pricing): JsonResponse
     {
         $customer = auth('customer')->user();
 
@@ -151,12 +152,11 @@ class CartController extends Controller
             ->whereNotNull('price')
             ->whereKey(array_keys($qtyById))
             ->get(['id', 'slug', 'title', 'price', 'cover_image'])
-            ->map(static fn (Book $book): array => [
+            ->map(fn (Book $book): array => [
                 'id' => (int) $book->id,
                 'title' => (string) $book->title,
-                'price' => $book->price !== null
-                    ? number_format((float) $book->price, 0).' '.__('common.currency')
-                    : null,
+                // السعر بعملة الزائر (متعدّد العملات) كي لا يطمس الدرجَ المحليّ بالجنيه.
+                'price' => $pricing->resolve($book)?->formattedAmount(),
                 'url' => route('books.show', $book),
                 'cover' => $book->coverUrl(), // غلاف الدرج عبر الأجهزة (موسوم؛ null إن بلا غلاف)
                 'qty' => $qtyById[(int) $book->id],

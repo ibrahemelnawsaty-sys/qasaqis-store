@@ -131,12 +131,35 @@ class Currency extends Model
         return round($rounded * $step, $this->decimals);
     }
 
+    /**
+     * يحوّل مبلغًا بالجنيه لهذه العملة **بخانات العرض فقط، بلا تقريب-خطوة** (round لا
+     * ceil): لفروق التوفير كي لا يضخّم تقريبُ-الخطوة المستقلّ فارقَ السعر القديم.
+     */
+    public function convertRaw(float $egp): float
+    {
+        if ($this->isBase()) {
+            return round($egp, $this->decimals);
+        }
+
+        $rate = (float) $this->egp_per_unit;
+        if ($rate <= 0) {
+            return round($egp, $this->decimals);
+        }
+
+        return round($egp / $rate, $this->displayDecimals());
+    }
+
     /** عدد خانات العرض المشتقّة من خطوة التقريب (5⇒0، 0.5⇒1، 0.25⇒2)، بحدّ decimals. */
     public function displayDecimals(): int
     {
         $step = (float) $this->rounding_step;
 
-        if ($step <= 0 || $step != floor($step)) {
+        // بلا تقريب-خطوة (step<=0): خانات العملة الكاملة (يطابق applyRounding).
+        if ($step <= 0) {
+            return $this->decimals;
+        }
+
+        if ($step != floor($step)) {
             // خطوة كسريّة (0.5/0.25): اشتقّ الخانات منها بحدّ decimals.
             $stepStr = rtrim(rtrim(number_format($step, 4, '.', ''), '0'), '.');
             $dot = strpos($stepStr, '.');
@@ -148,25 +171,33 @@ class Currency extends Model
         return 0; // خطوة صحيحة (1/5/10) ⇒ بلا كسور
     }
 
-    /** ينسّق مبلغًا محوّلًا آليًّا للعرض بخانات مشتقّة من خطوة التقريب: «30 ر.س». */
-    public function format(float $amount): string
+    /** الرقم فقط (بلا رمز) لسعرٍ محوّلٍ آليًّا، بخانات مشتقّة من خطوة التقريب: «30». */
+    public function formatNumber(float $amount): string
     {
-        return number_format($amount, $this->displayDecimals()).' '.$this->symbol;
+        return number_format($amount, $this->displayDecimals());
     }
 
     /**
-     * ينسّق سعرًا **يدويًّا** (تجاوز) محافظًا على دقّته كما أدخلها المالك (خانات العملة
-     * الكاملة مع إزالة الأصفار الزائدة): 35.000 ⇒ «35»، 34.500 ⇒ «34.5». لا يُقرَّب
-     * لخطوة التحويل الآليّ (5) كي لا يُطمَس السعر الذي حدّده المالك بنفسه.
+     * الرقم فقط لسعرٍ **يدويّ** (تجاوز) محافظًا على دقّته كما أدخلها المالك (خانات
+     * العملة مع إزالة الأصفار الزائدة): 35.000 ⇒ «35»، 34.500 ⇒ «34.5». لا يُقرَّب
+     * لخطوة التحويل الآليّ كي لا يُطمَس السعر الذي حدّده المالك بنفسه.
      */
-    public function formatExact(float $amount): string
+    public function formatExactNumber(float $amount): string
     {
         $formatted = number_format($amount, $this->decimals);
 
-        if (str_contains($formatted, '.')) {
-            $formatted = rtrim(rtrim($formatted, '0'), '.');
-        }
+        return str_contains($formatted, '.') ? rtrim(rtrim($formatted, '0'), '.') : $formatted;
+    }
 
-        return $formatted.' '.$this->symbol;
+    /** رقم + رمز لسعرٍ محوّلٍ آليًّا: «30 ر.س». */
+    public function format(float $amount): string
+    {
+        return $this->formatNumber($amount).' '.$this->symbol;
+    }
+
+    /** رقم + رمز لسعرٍ يدويّ (تجاوز) بدقّته: «34.5 ر.س». */
+    public function formatExact(float $amount): string
+    {
+        return $this->formatExactNumber($amount).' '.$this->symbol;
     }
 }
