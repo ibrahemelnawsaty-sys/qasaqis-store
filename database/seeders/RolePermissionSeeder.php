@@ -34,6 +34,8 @@ class RolePermissionSeeder extends Seeder
         'publishers.view', 'publishers.manage',
         'categories.view', 'categories.manage',
         'sections.view', 'sections.manage', 'sections.assign_product',
+        // عملات العرض (تسعير متعدّد العملات) — إدارة المعدّلات والتقريب والتفعيل.
+        'currencies.view', 'currencies.manage',
         // 3.2 Homepage & CMS.
         'homepage.view', 'homepage.edit', 'homepage.blocks.manage',
         'pages.view', 'pages.create', 'pages.update', 'pages.delete',
@@ -103,7 +105,7 @@ class RolePermissionSeeder extends Seeder
             // Broad content/products/orders, minus roles, API keys, deep tech.
             'admin' => array_merge(
                 $byPrefix([
-                    'products', 'publishers', 'categories', 'sections',
+                    'products', 'publishers', 'categories', 'sections', 'currencies',
                     'homepage', 'pages', 'menus', 'banners', 'media',
                     'coupons', 'popups', 'surveys', 'referrals',
                     'orders', 'payment_proof', 'reviews', 'comments', 'inquiries',

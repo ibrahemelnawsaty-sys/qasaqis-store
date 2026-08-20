@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasResourcePermissions;
 use App\Filament\Resources\BookResource\Pages;
+use App\Filament\Resources\BookResource\RelationManagers\CountryPricesRelationManager;
 use App\Filament\Resources\BookResource\RelationManagers\ImagesRelationManager;
 use App\Filament\Resources\BookResource\RelationManagers\ReviewsRelationManager;
 use App\Filament\Support\ContentSeoAnalysis;
@@ -792,6 +793,7 @@ class BookResource extends Resource
         return [
             ImagesRelationManager::class,
             ReviewsRelationManager::class,
+            CountryPricesRelationManager::class,
         ];
     }
 
