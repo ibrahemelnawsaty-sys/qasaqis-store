@@ -140,6 +140,11 @@ Route::get('/search/index.json', [SearchController::class, 'indexJson'])
     ->middleware('throttle:120,1')
     ->name('search.index');
 
+// صفحة فحص التوطين: تُظهر دولة الزائر المكتشَفة وعملته (تشخيص Cloudflare/الكشف).
+Route::get('/currency/whoami', [CurrencyController::class, 'whoami'])
+    ->middleware('throttle:30,1')
+    ->name('currency.whoami');
+
 // تبديل عملة العرض (تسعير متعدّد العملات): يثبّت الاختيار في كوكي ثمّ يعيد للصفحة
 // السابقة. GET ليعمل برابطٍ بسيط بلا JS (تفضيل عرض لا فعلٌ مدمّر).
 Route::get('/currency/{code}', [CurrencyController::class, 'switch'])
