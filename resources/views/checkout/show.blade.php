@@ -28,6 +28,9 @@
                 <p>{{ __('checkout.form.subtitle') }}</p>
             </div>
 
+            {{-- تنويه: أسعار المتجر بعملة الزائر تقريبيّة، والتحصيل الأونلاين بالجنيه (غير المصريّ فقط). --}}
+            @include('partials.foreign-payment-notice')
+
             <div class="co-layout"
                 x-data="couponBox({ url: '{{ route('coupon.apply') }}', csrf: document.querySelector('meta[name=csrf-token]').content, errorText: @js(__('checkout.coupon.network_error')), code: @js($couponInitial) })"
                 x-init="if (code) apply()">

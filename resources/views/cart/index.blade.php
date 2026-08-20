@@ -100,6 +100,9 @@
                     <div class="co-alert notice" role="alert"><span class="ai" aria-hidden="true">ℹ️</span>{{ __('checkout.cart.ignored_note') }}</div>
                 @endif
 
+                {{-- تنويه: أسعار المتجر بعملة الزائر تقريبيّة، والتحصيل بالجنيه (غير المصريّ فقط). --}}
+                @include('partials.foreign-payment-notice')
+
                 @php
                     $lines = [];
                     foreach ($cart->items as $item) {
