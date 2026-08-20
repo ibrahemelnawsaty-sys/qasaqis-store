@@ -19,7 +19,12 @@
     $pair = $palettes[(int) ($book->id ?? 0) % count($palettes)];
 
     // رابط الغلاف موسومًا بالعلامة المائية (عبر مسار بالمعرّف, لا يكشف /storage).
-    $src = $book->coverUrl();
+    // للبطاقة: src خفيف (نسخة 640px) + srcset متجاوب (320/640) فيسحب المتصفّح المقاس
+    // المناسب للجهاز (~12-28KB بدل ~67-230KB). صفحة الكتاب (pdp) تبقى بالنسخة الكاملة.
+    $isCard = $variant !== 'pdp';
+    $src = $isCard ? $book->cardCoverUrl() : $book->coverUrl();
+    $srcset = $isCard ? $book->coverSrcset() : null;
+    $sizes = '(max-width: 720px) 50vw, 280px';
 
     $coverClass = $variant === 'pdp' ? 'pdp-cover' : 'cover';
     $coverClass .= $soldOut ? ' is-soldout' : '';
@@ -30,7 +35,7 @@
     <a href="{{ $href }}" class="{{ $coverClass }}" style="{{ $style }}">
         {{ $slot }}
         @if ($src)
-            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
+            <img src="{{ $src }}" @if ($srcset) srcset="{{ $srcset }}" sizes="{{ $sizes }}" @endif alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif
@@ -42,7 +47,7 @@
     <div class="{{ $coverClass }}" style="{{ $style }}">
         {{ $slot }}
         @if ($src)
-            <img src="{{ $src }}" alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
+            <img src="{{ $src }}" @if ($srcset) srcset="{{ $srcset }}" sizes="{{ $sizes }}" @endif alt="{{ $book->title }}" loading="lazy" decoding="async" width="360" height="440" onerror="this.style.display='none'">
         @else
             <span class="ctitle">{{ $book->title }}</span>
         @endif

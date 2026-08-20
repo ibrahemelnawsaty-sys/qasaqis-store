@@ -33,6 +33,16 @@ class MediaController extends Controller
         return $this->serve($image->path);
     }
 
+    /**
+     * نسخة بطاقة متجاوبة (srcset) بعرض محدَّد: تولّد المشتقّ الخفيف الثابت عند أوّل طلب
+     * وتخدمه، فتعيد coverSrcset() بعده رابطه الثابت (static بلا PHP). العرض مقيَّد بالمسار
+     * (whereIn CARD_WIDTHS) وبتحقّق مزدوج هنا فلا يُطلَب حجم عشوائيّ.
+     */
+    public function bookVariant(Book $book, string $width): mixed
+    {
+        return $this->serveVariant($book->cover_image, (int) $width);
+    }
+
     public function articleCover(Article $article): mixed
     {
         return $this->serve($article->cover_image);
@@ -73,6 +83,38 @@ class MediaController extends Controller
 
         // تعذّر توليد/كتابة المشتقّ العام (تعليم فاشل أو public غير قابل للكتابة) —
         // نخدم الأصل عبر المسار نفسه (يبقى اسم الملف مخفيًّا).
+        return response()->file(Storage::disk('public')->path($path), $headers);
+    }
+
+    /**
+     * مثل serve لكن يولّد/يخدم نسخة بطاقة خفيفة بعرض $width (MediaCache::ensureVariant).
+     * تحقّق مزدوج أنّ العرض ضمن CARD_WIDTHS (المسار يقيّده أصلًا) قبل أي توليد. أي فشل
+     * يخدم الأصل عبر المسار نفسه فلا تنكسر الصورة.
+     */
+    private function serveVariant(?string $path, int $width): mixed
+    {
+        if (! in_array($width, MediaCache::CARD_WIDTHS, true)) {
+            abort(404);
+        }
+
+        if (blank($path) || Str::startsWith($path, ['http://', 'https://'])) {
+            abort(404);
+        }
+
+        if (! is_file(Storage::disk('public')->path($path))) {
+            abort(404);
+        }
+
+        $headers = ['Cache-Control' => 'public, max-age=31536000, immutable'];
+
+        $publicFile = MediaCache::ensureVariant($path, $width);
+
+        if ($publicFile !== null) {
+            $mime = str_ends_with($publicFile, '.webp') ? 'image/webp' : 'image/jpeg';
+
+            return response()->file($publicFile, ['Content-Type' => $mime] + $headers);
+        }
+
         return response()->file(Storage::disk('public')->path($path), $headers);
     }
 

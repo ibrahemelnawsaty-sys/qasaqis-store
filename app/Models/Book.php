@@ -169,6 +169,57 @@ class Book extends Model
     }
 
     /**
+     * هل للغلاف مشتقّ داخليّ (مخزَّن) يقبل نُسخًا متجاوبة؟ الخارجيّ (http) والأصل الثابت
+     * (images/) والغائب لا مشتقّ لها — تستعمل coverUrl كما هي بلا srcset.
+     */
+    private function coverHasDerivatives(): bool
+    {
+        return filled($this->cover_image)
+            && ! str_starts_with($this->cover_image, 'http://')
+            && ! str_starts_with($this->cover_image, 'https://')
+            && ! str_starts_with($this->cover_image, 'images/');
+    }
+
+    /**
+     * رابط src للبطاقة: أخفّ نسخة عرض (أكبر عرض بطاقة، مثلًا 640px ≈ 28KB بدل نسخة
+     * العرض الكاملة ~67-230KB) — للمتصفّحات بلا srcset وكقيمة أساس. يسقط إلى coverUrl
+     * للغلاف الخارجيّ/الثابت/الغائب.
+     */
+    public function cardCoverUrl(): ?string
+    {
+        if (! $this->coverHasDerivatives()) {
+            return $this->coverUrl();
+        }
+
+        $width = MediaCache::CARD_WIDTHS[count(MediaCache::CARD_WIDTHS) - 1];
+
+        return MediaCache::variantUrlIfReady($this->cover_image, $width)
+            ?? route('media.book-variant', ['book' => $this, 'width' => $width]);
+    }
+
+    /**
+     * قيمة srcset لبطاقة الغلاف: نسخة لكل عرض في CARD_WIDTHS (ثابتة إن جهزت، وإلا مسار
+     * media.book-variant الذي يولّدها عند أوّل طلب فتصير static). null للغلاف الخارجيّ/
+     * الثابت/الغائب (فتستعمل البطاقة src وحده).
+     */
+    public function coverSrcset(): ?string
+    {
+        if (! $this->coverHasDerivatives()) {
+            return null;
+        }
+
+        $parts = [];
+
+        foreach (MediaCache::CARD_WIDTHS as $width) {
+            $url = MediaCache::variantUrlIfReady($this->cover_image, $width)
+                ?? route('media.book-variant', ['book' => $this, 'width' => $width]);
+            $parts[] = $url.' '.$width.'w';
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
      * رابط مصغّر صغير للغلاف للوحة الإدارة (قائمة الكتب): بايتاته وفكّ ترميزه أخفّ بكثير
      * من نسخة العرض حين تُصفّ ٢٥+ صورة. المصغّر الثابت إن جهز (static بلا PHP)، وإلا مسار
      * media.book-thumb الذي يولّده عند أوّل طلب فيصير static. null/خارجيّ/ثابت كما coverUrl.

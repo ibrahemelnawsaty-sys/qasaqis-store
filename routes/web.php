@@ -17,6 +17,7 @@ use App\Http\Controllers\Customer\ProfileController as CustomerProfileController
 use App\Http\Controllers\Customer\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\EmailUnsubscribeController;
 use App\Http\Controllers\MediaController;
+use App\Services\Media\MediaCache;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Storefront\BlogController;
 use App\Http\Controllers\Storefront\BookController;
@@ -90,6 +91,11 @@ Route::withoutMiddleware([
     VerifyCsrfToken::class,
 ])->group(function () {
     Route::get('/media/book/{book:slug}', [MediaController::class, 'bookCover'])->name('media.book');
+    // نسخة بطاقة متجاوبة بعرض محدَّد (srcset). العرض مقيَّد بـCARD_WIDTHS فقط فلا يُطلَب
+    // توليد أحجام عشوائية (حماية من استنزاف GD)؛ static بعد أوّل توليد كبقيّة المشتقّات.
+    Route::get('/media/book/{book:slug}/{width}', [MediaController::class, 'bookVariant'])
+        ->whereIn('width', array_map('strval', MediaCache::CARD_WIDTHS))
+        ->name('media.book-variant');
     // مصغّر غلاف لقائمة أدمن الكتب (صغير، static بعد أوّل توليد، بلا جلسة كالبقيّة).
     Route::get('/media/thumb/book/{book:slug}', [MediaController::class, 'bookThumb'])->name('media.book-thumb');
     Route::get('/media/image/{image}', [MediaController::class, 'bookImage'])->name('media.image');

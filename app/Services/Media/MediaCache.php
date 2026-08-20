@@ -31,6 +31,16 @@ final class MediaCache
     public const THUMB_MAX = 110;
 
     /**
+     * عروض نُسخ البطاقة المتجاوبة (srcset) بالبكسل — البطاقة تُعرض ~165px (جوال) إلى
+     * ~280px (سطح المكتب)، فـ320 يغطّي 1x والدقّة المنخفضة و640 يغطّي retina؛ كلاهما
+     * أخفّ بكثير من نسخة العرض 1400px (قياسيًّا 320px≈12KB و640px≈28KB مقابل ~67-230KB).
+     * القيم تُستعمل كقيود المسار (whereIn) فلا يُطلَب توليد أحجام عشوائية.
+     *
+     * @var list<int>
+     */
+    public const CARD_WIDTHS = [320, 640];
+
+    /**
      * امتداد المشتقّ: webp إن توفّر imagewebp (الدستور 5.3)، وإلا jpg. **يجب** أن
      * يتبع الشرط نفسه في CoverWatermark::apply كي يوافق الاسمُ البايتاتِ المكتوبة.
      */
@@ -90,6 +100,69 @@ final class MediaCache
         }
 
         $binary = app(CoverWatermark::class)->apply(Storage::disk('public')->path($storagePath));
+
+        if ($binary === null) {
+            return null;
+        }
+
+        $dir = dirname($target);
+
+        if (! is_dir($dir) && ! @mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            return null;
+        }
+
+        return @file_put_contents($target, $binary) === false ? null : $target;
+    }
+
+    /**
+     * اسم نسخة البطاقة المتجاوبة الثابتة (نسبةً لـ public/) بعرض $width، أو null إن غاب
+     * الأصل. تحت مجلّد v/ فرعيّ، والعرض في الاسم فيتجدّد لو اختلف، وmtime لو تغيّرت الصورة.
+     */
+    public static function variantRelPath(string $storagePath, int $width): ?string
+    {
+        $mtime = @filemtime(Storage::disk('public')->path($storagePath));
+
+        if ($mtime === false) {
+            return null;
+        }
+
+        return self::PUBLIC_DIR.'/v/'.sha1($storagePath).'-'.$mtime.'-'.$width.'.'.self::ext();
+    }
+
+    /**
+     * رابط نسخة البطاقة الثابت إن وُجد فعلًا (بلا توليد — للاستدعاء الكثيف من coverSrcset
+     * أثناء العرض). null إن لم يُولَّد بعد أو غاب الأصل — فيسقط النموذج إلى مسار media.book-variant.
+     */
+    public static function variantUrlIfReady(string $storagePath, int $width): ?string
+    {
+        $rel = self::variantRelPath($storagePath, $width);
+
+        if ($rel === null || ! is_file(public_path($rel))) {
+            return null;
+        }
+
+        return asset($rel);
+    }
+
+    /**
+     * يضمن وجود نسخة البطاقة بعرض $width (يولّدها إن غابت عبر CoverWatermark::apply بالضلع
+     * نفسه) ويعيد مسارها المطلق، أو null على أي فشل. نفس الرسترة والعلامة، لكن أخفّ بايتات.
+     */
+    public static function ensureVariant(string $storagePath, int $width): ?string
+    {
+        $rel = self::variantRelPath($storagePath, $width);
+
+        if ($rel === null) {
+            return null;
+        }
+
+        $target = public_path($rel);
+
+        if (is_file($target)) {
+            return $target;
+        }
+
+        $binary = app(CoverWatermark::class)->apply(Storage::disk('public')->path($storagePath), $width);
 
         if ($binary === null) {
             return null;

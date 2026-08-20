@@ -23,7 +23,7 @@ class MediaWarm extends Command
 {
     protected $signature = 'media:warm {--force : أعِد التوليد حتى لو وُجد المشتقّ}';
 
-    protected $description = 'توليد مشتقّات الأغلفة الموسومة الثابتة في public/media-cache';
+    protected $description = 'توليد مشتقّات الأغلفة الموسومة الثابتة (عرض + مصغّر + نُسخ srcset متجاوبة خفيفة) في public/media-cache';
 
     public function handle(): int
     {
@@ -58,13 +58,21 @@ class MediaWarm extends Command
 
         $this->info('توليد أغلفة الكتب…');
         Book::query()->withTrashed()->select(['id', 'cover_image'])->lazy()
-            ->each(function (Book $b) use ($warm): void {
+            ->each(function (Book $b) use ($warm, &$done): void {
                 $warm($b->cover_image);
-                // مصغّر قائمة الأدمن أيضًا (صغير، static) للأغلفة المخزَّنة الموجودة فقط،
-                // فلا يدفع أوّل فتح للقائمة كلفة توليد عشرات/مئات المصغّرات.
+
                 if ($this->isStored($b->cover_image)
                     && is_file(Storage::disk('public')->path($b->cover_image))) {
+                    // مصغّر قائمة الأدمن (صغير، static) فلا يدفع أوّل فتح للقائمة كلفة التوليد.
                     MediaCache::ensureThumb($b->cover_image);
+
+                    // نُسخ البطاقة المتجاوبة (srcset): أخفّ بكثير للعرض على الشبكة
+                    // (320px≈12KB و640px≈28KB مقابل ~67-230KB لنسخة العرض). تُخدَم static.
+                    foreach (MediaCache::CARD_WIDTHS as $width) {
+                        if (MediaCache::ensureVariant($b->cover_image, $width) !== null) {
+                            $done++;
+                        }
+                    }
                 }
             });
 
@@ -78,6 +86,12 @@ class MediaWarm extends Command
 
         $this->newLine();
         $this->info("تمّ توليد {$done} مشتقًّا.");
+
+        // بصمة media-cache الكلّية (أداة تحويل الصور: كم صار حجم الأصول الثابتة الخفيفة).
+        [$count, $bytes] = $this->cacheFootprint();
+        if ($count > 0) {
+            $this->line(sprintf('media-cache الآن: %d ملفًّا، %.1f ميغابايت (webp خفيف، يُخدَم static بلا PHP).', $count, $bytes / 1048576));
+        }
 
         // تشخيص دقيق بدل تلميح مضلِّل: نميّز «مصدر مفقود» (متوقّع، غير معطِّل) عن
         // «تعذّرت المعالجة» (المصدر موجود — يستحق التحقّق فعلًا).
@@ -97,6 +111,40 @@ class MediaWarm extends Command
 
         // فشلٌ فعليّ فقط يُرجِع رمز خطأ؛ المصادر المفقودة متوقّعة ولا تُفشِل النشر.
         return $failed !== [] ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * عدد ملفّات public/media-cache ومجموع بايتاتها (تشخيص «التول»): كم صار وزن كل
+     * الأصول الخفيفة الثابتة. يتجاهل أي خطأ قراءة (تشخيص فقط، غير معطِّل).
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function cacheFootprint(): array
+    {
+        $root = public_path(MediaCache::PUBLIC_DIR);
+
+        if (! is_dir($root)) {
+            return [0, 0];
+        }
+
+        $count = 0;
+        $bytes = 0;
+
+        try {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($it as $file) {
+                if ($file->isFile()) {
+                    $count++;
+                    $bytes += $file->getSize();
+                }
+            }
+        } catch (\Throwable) {
+            // تشخيص فقط — لا نُفشِل التسخين لأجل عدّ البصمة.
+        }
+
+        return [$count, $bytes];
     }
 
     /**
