@@ -52,6 +52,9 @@
     <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('images/icon-512.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/icon-192.png') }}">
 
+    {{-- تطبيق ويب تقدّميّ (PWA): بيان قابل للتثبيت على الشاشة الرئيسية (أيقونات موجودة أصلًا). --}}
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+
     {{-- ===== SEO تقني افتراضي — تُغلَب قيمه عند دفع الصفحة عبر الأقسام/الـ stacks ===== --}}
     {{-- robots افتراضي: فهرسة وتتبّع؛ تغلبه الصفحة بـ @section('seo_robots', 'noindex, nofollow'). --}}
     <meta name="robots" content="@yield('seo_robots', 'index, follow')">
@@ -280,6 +283,9 @@
          المنفذ مبكّرًا (Speed Index أدنى + حمل GPU/معالج أخفّ على الهواتف الضعيفة وقت
          الفتح)، ثم تدبّ الحياة. بلا JS تبقى ساكنة — تحلّلٌ لطيف والموقع كامل الوظيفة. --}}
     <script>addEventListener('load',function(){document.body.classList.add('motion-ready')})</script>
+
+    {{-- تسريع متقدّم: قواعد التخمين (جلب مسبق عند التحويم) + عامل خدمة PWA. --}}
+    @include('partials.pwa')
 
     @stack('scripts')
 </body>

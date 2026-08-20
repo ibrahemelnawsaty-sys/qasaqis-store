@@ -23,11 +23,15 @@ class HomeController extends Controller
     {
         // الحمولة كلها محتوى CMS عامّ (لا خاصّ بمستخدم) يتغيّر نادرًا؛ تُخزَّن مجمّعةً
         // بمفتاح واحد (StorefrontCache::HOMEPAGE) بدل ~12–18 استعلامًا على كل زيارة،
-        // وتُبطَل عبر أحداث الموديل في AppServiceProvider. TTL يحدّ التقادم (600s).
-        // نقوش الأقسام والبوب-أب تبقى ديناميكية (view composers، خارج الكاش).
-        $data = Cache::remember(
+        // وتُبطَل عبر أحداث الموديل في AppServiceProvider. نقوش الأقسام والبوب-أب تبقى
+        // ديناميكية (view composers، خارج الكاش).
+        //
+        // Cache::flexible (حماية stampede): طازج ضمن TTL؛ وبين TTL و3×TTL يُخدَم القديم
+        // فورًا وتُعاد البناء بالخلفية (بعد إرسال الاستجابة)؛ فلا يعيد زائرٌ بناء الـ12–18
+        // استعلامًا متزامنًا عند انتهاء المهلة (كان يُنتج طفرات ~0.9–1.3s كل 600s).
+        $data = Cache::flexible(
             StorefrontCache::HOMEPAGE,
-            StorefrontCache::TTL,
+            [StorefrontCache::TTL, StorefrontCache::TTL * 3],
             fn (): array => $this->buildHomeData(),
         );
 
