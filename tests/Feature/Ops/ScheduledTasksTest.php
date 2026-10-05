@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ops;
 
+use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Collection;
 use Tests\TestCase;
 
@@ -14,15 +17,24 @@ use Tests\TestCase;
  * الاختبارات سلك الجدولة نفسه — لا تنفيذ الأوامر — فتعمل دون الحاجة لتثبيت حزمة
  * النسخ (command() يبني سلسلة الأمر ولا يستدعي الصنف).
  *
- * HONESTY (1.3/1.5): لم تُشغَّل في هذه البيئة الخالية من PHP؛ تعمل تحت
- * `php artisan test` على الاستضافة/CI.
+ * withSchedule يسجّل مهامه عبر Artisan::starting، أي حين يُبنى تطبيق Artisan
+ * فقط (كما في `php artisan schedule:run`) — لا عند إقلاع تطبيق الاختبار. لذا
+ * نُقلع Artisan قبل قراءة المهام، وإلّا لم يُرَ منها إلا ما في routes/console.php.
  */
 final class ScheduledTasksTest extends TestCase
 {
+    /** @return array<int, Event> */
+    private function scheduleEvents(): array
+    {
+        $this->app->make(ConsoleKernel::class)->all();
+
+        return app(Schedule::class)->events();
+    }
+
     /** @return Collection<int, string> */
     private function scheduledCommands(): Collection
     {
-        return collect(app(Schedule::class)->events())
+        return collect($this->scheduleEvents())
             ->map(fn ($event) => (string) ($event->command ?? ''))
             ->filter()
             ->values();
@@ -62,5 +74,28 @@ final class ScheduledTasksTest extends TestCase
         // الطابور يُعالَج عبر المُجدول على الاستضافة المشتركة (بلا Supervisor).
         $this->assertHasCommandContaining('queue:work');
         $this->assertHasCommandContaining('--stop-when-empty');
+    }
+
+    public function test_queue_worker_runs_every_minute(): void
+    {
+        // cron الاستضافة (كل دقيقة) هو المشغّل الأساسيّ للمُجدول، فأي تباعد هنا
+        // يؤخّر إيميلات الطلبات بالقدر نفسه.
+        $worker = collect($this->scheduleEvents())
+            ->first(fn ($event) => str_contains((string) ($event->command ?? ''), 'queue:work'));
+
+        $this->assertNotNull($worker, 'توقّعت مهمة queue:work مجدولة.');
+        $this->assertSame('* * * * *', $worker->expression);
+    }
+
+    public function test_web_requests_do_not_tick_the_scheduler(): void
+    {
+        // كان KeepQueueAlive يشغّل schedule:run داخل عامل PHP لزائر حقيقيّ (بطء
+        // الموقع)؛ صار التشغيل بالـcron، فلا يُعاد تسجيله عالميًّا ولا في أي مجموعة.
+        $kernel = app(Kernel::class);
+        $registered = collect($kernel->getMiddlewareGroups())
+            ->flatten()
+            ->merge($kernel->getGlobalMiddleware());
+
+        $this->assertNotContains('App\Http\Middleware\KeepQueueAlive', $registered);
     }
 }

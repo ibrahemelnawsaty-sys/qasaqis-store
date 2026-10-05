@@ -4,14 +4,36 @@
 
 ## 1) إدخال cron الوحيد
 
-في لوحة Hostinger/cPanel → **Cron Jobs**، أضف مهمة تعمل كل دقيقة:
+حقل الأمر في hPanel → **Cron Jobs** **لا يقبل الرموز الخاصّة** (`>>`, `2>&1`):
+الأمر الخام يُحفَظ لكنه يفشل بصمت (جُرِّب فعليًّا). لذا يُغلَّف الأمر بسكربت
+والكرون يستدعي السكربت فقط.
+
+**أ) أنشئ السكربت عبر SSH** (جذر Laravel هو `domains/qasaqis.store/qasaqis-store`،
+لا `public_html`):
+
+```bash
+cat > /home/USER/qasaqis-cron.sh <<'EOF'
+#!/bin/bash
+/usr/bin/php /home/USER/domains/qasaqis.store/qasaqis-store/artisan schedule:run >> /dev/null 2>&1
+EOF
+/bin/bash /home/USER/qasaqis-cron.sh   # تجربة يدوية: يجب ألّا يطبع خطأ
+```
+
+**ب) في hPanel → Cron Jobs:** النوع **Custom** (لا PHP)، والحقول الخمسة `*`
+(كل دقيقة)، والأمر:
 
 ```
-* * * * * cd /home/USER/domains/qasaqis.store && php artisan schedule:run >> /dev/null 2>&1
+/bin/bash /home/USER/qasaqis-cron.sh
 ```
 
-> استبدل `USER` والمسار بمسار مشروعك الفعلي. هذا الإدخال **وحده** يشغّل كل المهام
-> المجدولة في `bootstrap/app.php` (`withSchedule`).
+> استبدل `USER` باسم مستخدم الاستضافة. هذا الإدخال يشغّل كل المهام المجدولة في
+> `bootstrap/app.php` (`withSchedule`). يبقى `/tasks/run/{token}` مشغّلًا يدويًّا
+> احتياطيًّا فقط.
+>
+> **للتحقّق أنه يعمل:** وجّه الناتج مؤقّتًا إلى
+> `/home/USER/domains/qasaqis.store/qasaqis-store/storage/logs/cron.log` بدل
+> `/dev/null` داخل السكربت، وبعد دقائق يجب أن يظهر في `tail` سطر جديد كل دقيقة
+> عند الثانية `:01`. أعِده إلى `/dev/null` بعدها كي لا ينتفخ الملف.
 
 ## 2) ما الذي يشغّله هذا الإدخال
 

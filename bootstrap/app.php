@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\KeepQueueAlive;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCurrency;
 use App\Models\Redirect;
@@ -41,11 +40,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'payments/kashier/webhook',
         ]);
 
-        // بديل cron ذاتيّ: كل طلب يدقّ المُجدول بعد إرسال الرد (terminate)، مرّة كل
-        // ~دقيقة عبر قفل ذرّي، فيعمل الطابور تلقائيًا بلا cron/خدمة خارجية اعتمادًا
-        // على زيارات الموقع ونشاط اللوحة. عالميّ ليغطّي المتجر واللوحة معًا.
-        $middleware->append(KeepQueueAlive::class);
-
         // ترويسات أمان على كل استجابة (منع التأطير/التضمين عبر النطاقات، nosniff، HSTS).
         $middleware->append(SecurityHeaders::class);
 
@@ -71,8 +65,13 @@ return Application::configure(basePath: dirname(__DIR__))
             | Request::HEADER_X_FORWARDED_PROTO);
     })
     /*
-     | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة:
-     |   * * * * * cd /path && php artisan schedule:run >> /dev/null 2>&1
+     | جدولة المهام. يُشغّلها إدخال cron وحيد على الاستضافة كل دقيقة (ويبقى
+     | /tasks/run/{token} مشغّلًا يدويًّا احتياطيًّا). أُزيل بديل الدقّ من طلبات
+     | الويب KeepQueueAlive لأنه كان يحجز عامل PHP لزائر حقيقيّ. التفاصيل في
+     | docs/deployment/scheduler.md. على Hostinger لا يقبل حقل الأمر في hPanel
+     | الرموز الخاصّة (>> و 2>&1)، فيُغلَّف الأمر بسكربت والكرون يستدعيه:
+     |   hPanel (Custom, * * * * *):  /bin/bash /home/USER/qasaqis-cron.sh
+     |   qasaqis-cron.sh:  /usr/bin/php /path/artisan schedule:run >> /dev/null 2>&1
      | هذا الإدخال يخدم النسخ الاحتياطي، الطابور، ومهام أخرى (مثل مهلة
      | المخزون التي يضيفها معلَم M2). التوقيت بتوقيت القاهرة (APP_TIMEZONE).
      */

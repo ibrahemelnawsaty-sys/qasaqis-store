@@ -6,18 +6,19 @@ namespace App\Filament\Resources\EmailCampaignResource\Pages;
 
 use App\Filament\Resources\EmailCampaignResource;
 use App\Filament\Support\FlushQueueAction;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
 /**
  * قائمة سجل الحملات — للقراءة فقط، لا زرّ إنشاء (الحملات تُنشأ من صفحة الإرسال).
- * يتوفّر زر «دفع الإرسال الآن» لمعالجة الطابور فورًا دون انتظار زيارة للموقع.
+ * يتوفّر زر «دفع الإرسال الآن» لمعالجة الطابور فورًا دون انتظار دورة الـcron التالية.
  */
 class ListEmailCampaigns extends ListRecords
 {
     protected static string $resource = EmailCampaignResource::class;
 
     /**
-     * @return array<int, \Filament\Actions\Action>
+     * @return array<int, Action>
      */
     protected function getHeaderActions(): array
     {
